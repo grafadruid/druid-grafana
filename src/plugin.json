@@ -1,0 +1,38 @@
+{
+  "type": "datasource",
+  "name": "Druid",
+  "id": "grafadruid-druid-grafana",
+  "metrics": true,
+  "backend": true,
+  "executable": "druid-grafana",
+  "info": {
+    "description": "Connects Grafana to Druid",
+    "author": {
+      "name": "Grafadruid"
+    },
+    "keywords": [
+      "druid"
+    ],
+    "logos": {
+      "small": "img/druid.svg",
+      "large": "img/druid.svg"
+    },
+    "links": [
+      {
+        "name": "Website",
+        "url": "https://github.com/grafadruid/druid-grafana"
+      },
+      {
+        "name": "License",
+        "url": "https://github.com/grafadruid/druid-grafana/blob/master/LICENSE"
+      }
+    ],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaVersion": "7.x.x",
+    "plugins": []
+  }
+}
