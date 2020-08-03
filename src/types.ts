@@ -1,24 +1,27 @@
-import { DataQuery, DataSourceJsonData } from '@grafana/data';
+import { DataQuery, DataSourceJsonData, DataSourceSettings } from '@grafana/data';
+import { QuerySettings, QueryContextParameter } from './configuration/QuerySettings/types';
+import { ConnectionSettings } from './configuration/ConnectionSettings/types';
 
-export interface MyQuery extends DataQuery {
+export interface DruidQuery extends DataQuery {
+  queryContextParameters?: QueryContextParameter[];
   queryText?: string;
   constant: number;
 }
 
-export const defaultQuery: Partial<MyQuery> = {
+export const DruidDefaultQuery: Partial<DruidQuery> = {
   constant: 6.5,
 };
 
 /**
  * These are options configured for each DataSource instance
  */
-export interface MyDataSourceOptions extends DataSourceJsonData {
-  path?: string;
+export interface DruidSettings extends DataSourceJsonData {
+  connection?: ConnectionSettings;
+  query?: QuerySettings;
 }
+export interface DruidSecureSettings {}
 
-/**
- * Value that is used in the backend, but never sent over HTTP to the frontend
- */
-export interface MySecureJsonData {
-  apiKey?: string;
+export interface DataSourceSettingsBaseProps {
+  options: DataSourceSettings<DruidSettings, DruidSecureSettings>;
+  onOptionsChange: (options: DataSourceSettings) => void;
 }

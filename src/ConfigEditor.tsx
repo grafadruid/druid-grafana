@@ -1,83 +1,131 @@
-import React, { ChangeEvent, PureComponent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { MyDataSourceOptions, MySecureJsonData } from './types';
+import React, { PureComponent } from 'react';
+import '@emotion/core';
+import { TabsBar, Tab, TabContent, IconName } from '@grafana/ui';
+import { DataSourcePluginOptionsEditorProps, SelectableValue, KeyValue } from '@grafana/data';
+import { DruidSettings, DruidSecureSettings } from './types';
+import { DruidConnectionSettings } from './configuration/ConnectionSettings';
+import { ConnectionSettingsOptions } from './configuration/ConnectionSettings/types';
+import { DruidQueryDefaultSettings } from './configuration/QuerySettings';
+import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 
-const { SecretFormField, FormField } = LegacyForms;
+enum Tabs {
+  Connection,
+  Query,
+}
 
-interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions> {}
+interface Props extends DataSourcePluginOptionsEditorProps<DruidSettings, DruidSecureSettings> {}
 
-interface State {}
+interface State {
+  activeTab: Tabs;
+}
 
 export class ConfigEditor extends PureComponent<Props, State> {
-  onPathChange = (event: ChangeEvent<HTMLInputElement>) => {
+  state: State = {
+    activeTab: Tabs.Connection,
+  };
+
+  normalizeData = (data: Record<string, any>, namespaced: boolean, namespace: string): object => {
+    const keyPrefix = namespace + '.';
+    const keys = Object.keys(data).filter(key => {
+      if (namespaced) {
+        return !key.includes('.');
+      } else {
+        return key.startsWith(keyPrefix);
+      }
+    });
+    if (keys.length === 0) {
+      return {};
+    }
+    return keys
+      .map((key, index) => {
+        let newKey: string = keyPrefix + key;
+        if (!namespaced) {
+          newKey = key.replace(keyPrefix, '');
+        }
+        return { [newKey]: data[key] };
+      })
+      .reduce((acc, item) => {
+        return { ...acc, ...item };
+      });
+  };
+
+  onSelectTab = (item: SelectableValue<Tabs>) => {
+    this.setState({ activeTab: item.value! });
+  };
+
+  onConnectionOptionsChange = (connectionSettingsOptions: ConnectionSettingsOptions) => {
+    const { options, onOptionsChange } = this.props;
+    const { settings, secretSettings, secretSettingsFields } = connectionSettingsOptions;
+    const connectionSettings = this.normalizeData(settings, true, 'connection');
+    const jsonData = { ...options.jsonData, ...connectionSettings };
+    const connectionSecretSettings = this.normalizeData(secretSettings, true, 'connection');
+    const secureJsonData = { ...options.secureJsonData, ...connectionSecretSettings };
+    const connectionSecretSettingsFields = this.normalizeData(secretSettingsFields, true, 'connection') as KeyValue<
+      boolean
+    >;
+    const secureJsonFields = { ...options.secureJsonFields, ...connectionSecretSettingsFields };
+    onOptionsChange({ ...options, jsonData, secureJsonData, secureJsonFields });
+  };
+
+  onQueryOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { onOptionsChange, options } = this.props;
-    const jsonData = {
-      ...options.jsonData,
-      path: event.target.value,
-    };
+    const { settings } = querySettingsOptions;
+    const querySettings = this.normalizeData(settings, true, 'query');
+    const jsonData = { ...options.jsonData, ...querySettings };
     onOptionsChange({ ...options, jsonData });
   };
 
-  // Secure field (only sent to the backend)
-  onAPIKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onOptionsChange, options } = this.props;
-    onOptionsChange({
-      ...options,
-      secureJsonData: {
-        apiKey: event.target.value,
-      },
-    });
+  connectionOptions = (): ConnectionSettingsOptions => {
+    const { jsonData, secureJsonData, secureJsonFields } = this.props.options;
+    return {
+      settings: this.normalizeData(jsonData, false, 'connection'),
+      secretSettings: this.normalizeData(secureJsonData || {}, false, 'connection'),
+      secretSettingsFields: this.normalizeData(secureJsonFields || {}, false, 'connection') as KeyValue<boolean>,
+    };
   };
 
-  onResetAPIKey = () => {
-    const { onOptionsChange, options } = this.props;
-    onOptionsChange({
-      ...options,
-      secureJsonFields: {
-        ...options.secureJsonFields,
-        apiKey: false,
-      },
-      secureJsonData: {
-        ...options.secureJsonData,
-        apiKey: '',
-      },
-    });
+  queryOptions = (): QuerySettingsOptions => {
+    const { jsonData } = this.props.options;
+    return {
+      settings: this.normalizeData(jsonData, false, 'query'),
+    };
   };
 
   render() {
-    const { options } = this.props;
-    const { jsonData, secureJsonFields } = options;
-    const secureJsonData = (options.secureJsonData || {}) as MySecureJsonData;
+    const connectionOptions = this.connectionOptions();
+    const queryOptions = this.queryOptions();
+
+    const ConnectionTab = {
+      label: 'Connection',
+      value: Tabs.Connection,
+      content: <DruidConnectionSettings options={connectionOptions} onOptionsChange={this.onConnectionOptionsChange} />,
+      icon: 'signal',
+    };
+    const QueryTab = {
+      label: 'Query defaults',
+      value: Tabs.Query,
+      content: <DruidQueryDefaultSettings options={queryOptions} onOptionsChange={this.onQueryOptionsChange} />,
+      icon: 'database',
+    };
+
+    const tabs = [ConnectionTab, QueryTab];
+    const { activeTab } = this.state;
 
     return (
-      <div className="gf-form-group">
-        <div className="gf-form">
-          <FormField
-            label="Path"
-            labelWidth={6}
-            inputWidth={20}
-            onChange={this.onPathChange}
-            value={jsonData.path || ''}
-            placeholder="json field returned to frontend"
-          />
-        </div>
-
-        <div className="gf-form-inline">
-          <div className="gf-form">
-            <SecretFormField
-              isConfigured={(secureJsonFields && secureJsonFields.apiKey) as boolean}
-              value={secureJsonData.apiKey || ''}
-              label="API Key"
-              placeholder="secure json field (backend only)"
-              labelWidth={6}
-              inputWidth={20}
-              onReset={this.onResetAPIKey}
-              onChange={this.onAPIKeyChange}
+      <>
+        <TabsBar>
+          {tabs.map(t => (
+            <Tab
+              key={t.value}
+              label={t.label}
+              active={t.value === activeTab}
+              onChangeTab={() => this.onSelectTab(t)}
+              icon={t.icon as IconName}
             />
-          </div>
-        </div>
-      </div>
+          ))}
+        </TabsBar>
+        <TabContent>{tabs.find(t => t.value === activeTab)?.content}</TabContent>
+      </>
     );
   }
 }
