@@ -23,11 +23,11 @@ services:
     restart: always
   zookeeper:
     container_name: zookeeper
-    image: zookeeper:3.5
+    image: zookeeper:3.6
     environment:
       - ZOO_MY_ID=1
   coordinator:
-    image: apache/druid:0.18.1
+    image: apache/druid:0.19.0
     container_name: coordinator
     user: root
     volumes:
@@ -45,7 +45,7 @@ services:
       - ./druid/environment
     restart: always
   broker:
-    image: apache/druid:0.18.1
+    image: apache/druid:0.19.0
     container_name: broker
     user: root
     volumes:
@@ -63,7 +63,7 @@ services:
       - ./druid/environment
     restart: always
   historical:
-    image: apache/druid:0.18.1
+    image: apache/druid:0.19.0
     container_name: historical
     user: root
     volumes:
@@ -82,7 +82,7 @@ services:
       - ./druid/environment
     restart: always
   middlemanager:
-    image: apache/druid:0.18.1
+    image: apache/druid:0.19.0
     container_name: middlemanager
     user: root
     volumes:
@@ -101,7 +101,7 @@ services:
       - ./druid/environment
     restart: always
   router:
-    image: apache/druid:0.18.1
+    image: apache/druid:0.19.0
     container_name: router
     user: root
     volumes:
@@ -120,7 +120,7 @@ services:
     restart: always
 
   grafana:
-    image: grafana/grafana:7.0.5
+    image: grafana/grafana:7.1.2
     container_name: grafana
     user: root
     volumes:
