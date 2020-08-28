@@ -1,50 +1,94 @@
-import defaults from 'lodash/defaults';
+import React, { PureComponent } from 'react';
+import { TabsBar, Tab, TabContent, IconName } from '@grafana/ui';
+import { SelectableValue, QueryEditorProps } from '@grafana/data';
 
-import React, { ChangeEvent, PureComponent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
 import { DruidDataSource } from './DruidDataSource';
-import { DruidDefaultQuery, DruidSettings, DruidQuery } from './types';
+import { DruidSettings, DruidQuery } from './types';
 
-const { FormField } = LegacyForms;
+import { DruidQueryContextSettings } from './configuration/QuerySettings';
+import { QuerySettingsOptions } from './configuration/QuerySettings/types';
+
+import { DruidQueryBuilder } from './builder/';
+import { QueryBuilderOptions } from './builder/types';
+
+enum Tabs {
+  Builder,
+  Settings,
+}
 
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
-export class QueryEditor extends PureComponent<Props> {
-  onQueryTextChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onChange, query } = this.props;
-    onChange({ ...query, queryText: event.target.value });
+interface State {
+  activeTab: Tabs;
+}
+
+export class QueryEditor extends PureComponent<Props, State> {
+  state: State = {
+    activeTab: Tabs.Builder,
   };
 
-  onConstantChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { onChange, query, onRunQuery } = this.props;
-    onChange({ ...query, constant: parseFloat(event.target.value) });
-    // executes the query
-    onRunQuery();
+  onSelectTab = (item: SelectableValue<Tabs>) => {
+    this.setState({ activeTab: item.value! });
+  };
+
+  onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
+    console.log('Builder option has changed');
+    const { query, onChange } = this.props;
+    onChange({ ...query, ...queryBuilderOptions });
+    console.log(query, this.props);
+  };
+
+  onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
+    console.log('Settings option has changed');
+    const { query, onChange } = this.props;
+    onChange({ ...query, ...querySettingsOptions });
+    console.log(query, this.props);
+  };
+
+  builderOptions = (): QueryBuilderOptions => {
+    const { builder, settings } = this.props.query;
+    return { builder: builder || {}, settings: settings || {} };
+  };
+  settingsOptions = (): QuerySettingsOptions => {
+    const { settings } = this.props.query;
+    return { settings: settings || {} };
   };
 
   render() {
-    const query = defaults(this.props.query, DruidDefaultQuery);
-    const { queryText, constant } = query;
+    const builderOptions = this.builderOptions();
+    const settingsOptions = this.settingsOptions();
+
+    const BuilderTab = {
+      label: 'Builder',
+      value: Tabs.Builder,
+      content: <DruidQueryBuilder options={builderOptions} onOptionsChange={this.onBuilderOptionsChange} />,
+      icon: 'edit',
+    };
+    const SettingsTab = {
+      label: 'Settings',
+      value: Tabs.Settings,
+      content: <DruidQueryContextSettings options={settingsOptions} onOptionsChange={this.onSettingsOptionsChange} />,
+      icon: 'cog',
+    };
+
+    const tabs = [BuilderTab, SettingsTab];
+    const { activeTab } = this.state;
 
     return (
-      <div className="gf-form">
-        <FormField
-          width={4}
-          value={constant}
-          onChange={this.onConstantChange}
-          label="Constant"
-          type="number"
-          step="0.1"
-        />
-        <FormField
-          labelWidth={8}
-          value={queryText || ''}
-          onChange={this.onQueryTextChange}
-          label="Query Text"
-          tooltip="Not used yet"
-        />
-      </div>
+      <>
+        <TabsBar>
+          {tabs.map(t => (
+            <Tab
+              key={t.value}
+              label={t.label}
+              active={t.value === activeTab}
+              onChangeTab={() => this.onSelectTab(t)}
+              icon={t.icon as IconName}
+            />
+          ))}
+        </TabsBar>
+        <TabContent>{tabs.find(t => t.value === activeTab)?.content}</TabContent>
+      </>
     );
   }
 }

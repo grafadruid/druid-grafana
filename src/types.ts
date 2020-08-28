@@ -1,16 +1,15 @@
-import { DataQuery, DataSourceJsonData, DataSourceSettings } from '@grafana/data';
-import { QuerySettings, QueryContextParameter } from './configuration/QuerySettings/types';
+import { DataQuery, DataSourceJsonData } from '@grafana/data';
+import { QuerySettings } from './configuration/QuerySettings/types';
 import { ConnectionSettings } from './configuration/ConnectionSettings/types';
 
 export interface DruidQuery extends DataQuery {
-  queryContextParameters?: QueryContextParameter[];
-  queryText?: string;
-  constant: number;
+  builder: any;
+  settings: QuerySettings;
 }
 
-export const DruidDefaultQuery: Partial<DruidQuery> = {
-  constant: 6.5,
-};
+//export const DruidDefaultQuery: Partial<DruidQuery> = {
+//constant: 6.5,
+//};
 
 /**
  * These are options configured for each DataSource instance
@@ -20,8 +19,3 @@ export interface DruidSettings extends DataSourceJsonData {
   query?: QuerySettings;
 }
 export interface DruidSecureSettings {}
-
-export interface DataSourceSettingsBaseProps {
-  options: DataSourceSettings<DruidSettings, DruidSecureSettings>;
-  onOptionsChange: (options: DataSourceSettings) => void;
-}
