@@ -1,5 +1,6 @@
 import React, { PureComponent, FormEvent, ChangeEvent } from 'react';
-import { TextArea, LegacyForms } from '@grafana/ui';
+import { Select, TextArea, LegacyForms } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
 import { css } from 'emotion';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { DataSource } from '../datasource';
@@ -42,6 +43,39 @@ export class Join extends PureComponent<QueryBuilderProps> {
     return { builder: builder[component] || {}, settings: settings || {} };
   };
 
+  selectOptions: Array<SelectableValue<string>> = [
+    { label: 'Inner', value: 'INNER' },
+    { label: 'Left', value: 'LEFT' },
+  ];
+
+  selectOptionByValue = (value: string): SelectableValue<string> | undefined => {
+    if (undefined === value) {
+      return undefined;
+    }
+    const options = this.selectOptions.filter(option => option.value === value);
+    if (options.length > 0) {
+      return options[0];
+    }
+    return undefined;
+  };
+
+  onSelectionChange = (option: SelectableValue<string>) => {
+    this.selectOption(option);
+  };
+
+  onCustomSelection = (selection: string) => {
+    const option: SelectableValue<string> = { value: selection.toLowerCase(), label: selection };
+    this.selectOptions.push(option);
+    this.selectOption(option);
+  };
+
+  selectOption = (option: SelectableValue<string>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder, settings } = options;
+    builder.joinType = option.value;
+    onOptionsChange({ ...options, builder, settings });
+  };
+
   render() {
     const { builder } = this.props.options;
     return (
@@ -76,6 +110,14 @@ export class Join extends PureComponent<QueryBuilderProps> {
               placeholder="the join condition expression"
               value={builder.condition}
               onChange={this.onInputChange}
+            />
+            <label className="gf-form-label">Join type</label>
+            <Select
+              options={this.selectOptions}
+              value={this.selectOptionByValue(builder.joinType)}
+              allowCustomValue
+              onChange={this.onSelectionChange}
+              onCreateOption={this.onCustomSelection}
             />
           </div>
         </div>
