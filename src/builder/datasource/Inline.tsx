@@ -27,7 +27,7 @@ export class Inline extends PureComponent<QueryBuilderProps> {
     builder.columnNames = names;
     builder.columnTypes = types;
     builder.rows = rows;
-    onOptionsChange({ ...options, builder: builder });
+    onOptionsChange({ ...options, builder });
   };
 
   inline = '';
