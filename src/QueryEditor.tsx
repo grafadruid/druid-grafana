@@ -1,13 +1,10 @@
 import React, { PureComponent } from 'react';
 import { TabsBar, Tab, TabContent, IconName } from '@grafana/ui';
 import { SelectableValue, QueryEditorProps } from '@grafana/data';
-
 import { DruidDataSource } from './DruidDataSource';
 import { DruidSettings, DruidQuery } from './types';
-
 import { DruidQueryContextSettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
-
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
 
@@ -49,6 +46,7 @@ export class QueryEditor extends PureComponent<Props, State> {
     const { builder, settings } = this.props.query;
     return { builder: builder || {}, settings: settings || {} };
   };
+
   settingsOptions = (): QuerySettingsOptions => {
     const { settings } = this.props.query;
     return { settings: settings || {} };

@@ -25,7 +25,11 @@ export class Bucket extends PureComponent<QueryBuilderProps> {
   onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder[event.target.name] = event.target.value;
+    let value: any = event.target.value;
+    if ('number' === event.target.type) {
+      value = Number(value);
+    }
+    builder[event.target.name] = value;
     onOptionsChange({ ...options, builder: builder });
   };
 

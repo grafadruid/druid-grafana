@@ -86,7 +86,7 @@ export class Query extends PureComponent<QueryBuilderProps, State> {
     return (
       <>
         <div className="gf-form">
-          <label className="gf-form-label">Query type</label>
+          <label className="gf-form-label">Query</label>
           <div
             className={css`
               width: 250px;

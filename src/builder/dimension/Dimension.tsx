@@ -83,7 +83,7 @@ export class Dimension extends PureComponent<QueryBuilderProps, State> {
     return (
       <>
         <div className="gf-form">
-          <label className="gf-form-label">Dimension type</label>
+          <label className="gf-form-label">Dimension</label>
           <div
             className={css`
               width: 250px;

@@ -105,7 +105,7 @@ export class ExtractionFn extends PureComponent<QueryBuilderProps, State> {
     return (
       <>
         <div className="gf-form">
-          <label className="gf-form-label">Extraction function type</label>
+          <label className="gf-form-label">Extraction function</label>
           <div
             className={css`
               width: 250px;

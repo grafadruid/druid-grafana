@@ -28,7 +28,7 @@ export class Identity extends PureComponent<QueryBuilderProps> {
               width: 250px;
             `}
           >
-            Identity. Whatever it does.
+            Identity. Who knows what it does ? :)
           </div>
         </div>
       </>
