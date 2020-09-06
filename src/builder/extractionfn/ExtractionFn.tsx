@@ -11,6 +11,7 @@ import {
   Lower,
   Partial,
   Regex,
+  SearchQuery,
   StringFormat,
   StrLen,
   Substring,
@@ -41,6 +42,7 @@ export class ExtractionFn extends PureComponent<QueryBuilderProps, State> {
       'Lower',
       'Partial',
       'Regex',
+      'SearchQuery',
       'StringFormat',
       'StrLen',
       'Substring',
@@ -108,7 +110,7 @@ export class ExtractionFn extends PureComponent<QueryBuilderProps, State> {
           <label className="gf-form-label">Extraction function</label>
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
             <Select
@@ -144,6 +146,9 @@ export class ExtractionFn extends PureComponent<QueryBuilderProps, State> {
           )}
           {selectedOption.value === 'regex' && (
             <Regex options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          )}
+          {selectedOption.value === 'searchquery' && (
+            <SearchQuery options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
           {selectedOption.value === 'stringformat' && (
             <StringFormat options={builderOptions} onOptionsChange={this.onOptionsChange} />

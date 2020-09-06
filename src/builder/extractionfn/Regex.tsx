@@ -47,7 +47,7 @@ export class Regex extends PureComponent<QueryBuilderProps> {
         <div className="gf-form">
           <div
             className={css`
-              width: 500px;
+              width: 300px;
             `}
           >
             <FormField

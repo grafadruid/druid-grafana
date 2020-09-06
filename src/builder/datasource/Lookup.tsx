@@ -42,7 +42,7 @@ export class Lookup extends PureComponent<QueryBuilderProps> {
         <div className="gf-form">
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
             <FormField

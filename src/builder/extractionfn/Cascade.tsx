@@ -128,7 +128,7 @@ export class Cascade extends PureComponent<QueryBuilderProps, State> {
         <div className="gf-form">
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
             <div className="gf-form-group">

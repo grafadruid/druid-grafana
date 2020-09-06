@@ -87,7 +87,7 @@ export class DataSource extends PureComponent<QueryBuilderProps, State> {
           <label className="gf-form-label">Datasource</label>
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
             <Select

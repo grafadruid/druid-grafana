@@ -18,7 +18,7 @@ export const DruidAuthSettings: FC<ConnectionSettingsProps> = props => {
       <FieldSet
         label="Authentication"
         className={css`
-          width: 250px;
+          width: 300px;
         `}
       >
         <Field horizontal label="With basic authentication" description="Enable HTTP Basic authentication">

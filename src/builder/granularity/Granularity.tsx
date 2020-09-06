@@ -78,7 +78,7 @@ export class Granularity extends PureComponent<QueryBuilderProps, State> {
           <label className="gf-form-label">Granularity</label>
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
             <Select

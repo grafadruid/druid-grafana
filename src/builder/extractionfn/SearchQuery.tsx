@@ -1,13 +1,14 @@
 import React, { PureComponent } from 'react';
 import { css } from 'emotion';
-import { QueryBuilderProps } from '../types';
+import { QueryBuilderProps, QueryBuilderOptions } from '../types';
+import { SearchQuerySpec } from '../searchqueryspec';
 
-export class Identity extends PureComponent<QueryBuilderProps> {
+export class SearchQuery extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type']);
+    this.resetBuilder(['type', 'query']);
     const { builder } = props.options;
-    builder.type = 'identity';
+    builder.type = 'searchQuery';
   }
 
   resetBuilder = (properties: string[]) => {
@@ -19,16 +20,31 @@ export class Identity extends PureComponent<QueryBuilderProps> {
     }
   };
 
+  onOptionsChange = (component: string, componentBuilderOptions: QueryBuilderOptions) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder, settings } = options;
+    builder[component] = componentBuilderOptions.builder;
+    onOptionsChange({ ...options, builder, settings });
+  };
+
+  builderOptions = (component: string): QueryBuilderOptions => {
+    const { builder, settings } = this.props.options;
+    return { builder: builder[component] || {}, settings: settings || {} };
+  };
+
   render() {
     return (
       <>
         <div className="gf-form">
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
-            Identity. Who knows what it does ? :)
+            <SearchQuerySpec
+              options={this.builderOptions('query')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'query')}
+            />
           </div>
         </div>
       </>

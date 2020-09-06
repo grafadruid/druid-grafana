@@ -25,7 +25,7 @@ export class StrLen extends PureComponent<QueryBuilderProps> {
         <div className="gf-form">
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
             Returns the length of dimension values (as if they were encoded in UTF-16)

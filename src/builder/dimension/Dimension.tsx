@@ -86,7 +86,7 @@ export class Dimension extends PureComponent<QueryBuilderProps, State> {
           <label className="gf-form-label">Dimension</label>
           <div
             className={css`
-              width: 250px;
+              width: 300px;
             `}
           >
             <Select
