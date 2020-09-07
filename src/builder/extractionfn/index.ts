@@ -7,6 +7,7 @@ export { Lookup } from './Lookup';
 export { Lower } from './Lower';
 export { Partial } from './Partial';
 export { Regex } from './Regex';
+export { RegisteredLookup } from './RegisteredLookup';
 export { SearchQuery } from './SearchQuery';
 export { StringFormat } from './StringFormat';
 export { StrLen } from './StrLen';

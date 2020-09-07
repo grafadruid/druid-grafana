@@ -16,7 +16,6 @@ interface State {
 
 interface ParameterRowProps {
   parameter: Parameter;
-  onReset: (id: string) => void;
   onRemove: (id: string) => void;
   onChange: (value: Parameter) => void;
   onBlur: () => void;
@@ -41,7 +40,7 @@ const getParameterRowStyles = stylesFactory(() => {
   };
 });
 
-const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRemove, onReset }) => {
+const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRemove }) => {
   const styles = getParameterRowStyles();
   const { FormField } = LegacyForms;
 
@@ -62,7 +61,6 @@ const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRe
         value={parameter.value}
         labelWidth={5}
         placeholder="parameter value. e.g: 10"
-        onReset={() => onReset(parameter.id)}
         onChange={e => onChange({ ...parameter, value: e.currentTarget.value })}
         onBlur={onBlur}
       />
@@ -132,22 +130,6 @@ export class DruidQueryContextSettings extends PureComponent<QuerySettingsProps,
     });
   };
 
-  onParameterReset = (parameterId: string) => {
-    this.setState(({ parameters }) => {
-      return {
-        parameters: parameters.map((p, i) => {
-          if (p.id !== parameterId) {
-            return p;
-          }
-          return {
-            ...p,
-            value: '',
-          };
-        }),
-      };
-    });
-  };
-
   onParameterRemove = (parameterId: string) => {
     this.setState(
       ({ parameters }) => ({
@@ -172,7 +154,6 @@ export class DruidQueryContextSettings extends PureComponent<QuerySettingsProps,
               }}
               onBlur={this.updateSettings}
               onRemove={this.onParameterRemove}
-              onReset={this.onParameterReset}
             />
           ))}
         </div>

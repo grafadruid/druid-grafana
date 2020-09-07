@@ -11,6 +11,7 @@ import {
   Lower,
   Partial,
   Regex,
+  RegisteredLookup,
   SearchQuery,
   StringFormat,
   StrLen,
@@ -41,6 +42,7 @@ export class ExtractionFn extends PureComponent<QueryBuilderProps, State> {
       'Lookup',
       'Lower',
       'Partial',
+      'RegisteredLookup',
       'Regex',
       'SearchQuery',
       'StringFormat',
@@ -146,6 +148,9 @@ export class ExtractionFn extends PureComponent<QueryBuilderProps, State> {
           )}
           {selectedOption.value === 'regex' && (
             <Regex options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          )}
+          {selectedOption.value === 'registeredlookup' && (
+            <RegisteredLookup options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
           {selectedOption.value === 'searchquery' && (
             <SearchQuery options={builderOptions} onOptionsChange={this.onOptionsChange} />
