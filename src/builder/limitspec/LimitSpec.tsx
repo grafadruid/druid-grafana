@@ -3,14 +3,14 @@ import { css } from 'emotion';
 import { Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 
-import { Default, Extraction, ListFiltered, Lookup, RegisteredLookup, PrefixFiltered, RegexFiltered } from './';
+import { Default } from './';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 
 interface State {
   selectedOption: SelectableValue<string>;
 }
 
-export class Dimension extends PureComponent<QueryBuilderProps, State> {
+export class LimitSpec extends PureComponent<QueryBuilderProps, State> {
   state: State = {
     selectedOption: {},
   };
@@ -18,15 +18,7 @@ export class Dimension extends PureComponent<QueryBuilderProps, State> {
   constructor(props: QueryBuilderProps) {
     super(props);
 
-    this.selectOptions = this.buildSelectOptions([
-      'Default',
-      'Extraction',
-      'ListFiltered',
-      'Lookup',
-      'RegisteredLookup',
-      'PrefixFiltered',
-      'RegexFiltered',
-    ]);
+    this.selectOptions = this.buildSelectOptions(['Default']);
 
     const { builder } = props.options;
 
@@ -84,7 +76,7 @@ export class Dimension extends PureComponent<QueryBuilderProps, State> {
     return (
       <>
         <div className="gf-form">
-          <label className="gf-form-label">Dimension</label>
+          <label className="gf-form-label">Limit spec</label>
           <div
             className={css`
               width: 300px;
@@ -102,24 +94,6 @@ export class Dimension extends PureComponent<QueryBuilderProps, State> {
         <div>
           {selectedOption.value === 'default' && (
             <Default options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'extraction' && (
-            <Extraction options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'listfiltered' && (
-            <ListFiltered options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'lookup' && (
-            <Lookup options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'registeredlookup' && (
-            <RegisteredLookup options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'prefixfiltered' && (
-            <PrefixFiltered options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'regexfiltered' && (
-            <RegexFiltered options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
         </div>
       </>

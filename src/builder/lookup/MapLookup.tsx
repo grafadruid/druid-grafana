@@ -1,7 +1,7 @@
-import React, { FC, PureComponent } from 'react';
+import React, { FC, PureComponent, ChangeEvent } from 'react';
 import { css } from 'emotion';
 import uniqueId from 'lodash/uniqueId';
-import { LegacyForms, Button, Icon, stylesFactory } from '@grafana/ui';
+import { LegacyForms, Checkbox, Button, Icon, stylesFactory } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
 
 interface Entry {
@@ -80,7 +80,7 @@ export class MapLookup extends PureComponent<QueryBuilderProps, State> {
 
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'map']);
+    this.resetBuilder(['type', 'map', 'isOneToOne']);
     const { builder } = props.options;
     builder.type = 'map';
     this.initializeState();
@@ -146,9 +146,16 @@ export class MapLookup extends PureComponent<QueryBuilderProps, State> {
     }, this.updateMap);
   };
 
+  onCheckboxChange = (component: string, event: ChangeEvent<HTMLInputElement>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    builder[component] = event.currentTarget.checked;
+    onOptionsChange({ ...options, builder });
+  };
+
   render() {
     const { entries } = this.state;
-
+    const { builder } = this.props.options;
     return (
       <>
         <div className="gf-form">
@@ -175,6 +182,12 @@ export class MapLookup extends PureComponent<QueryBuilderProps, State> {
               <Button variant="secondary" icon="plus" onClick={this.onEntryAdd}>
                 Add entry
               </Button>
+              <Checkbox
+                value={builder.isOneToOne}
+                onChange={this.onCheckboxChange.bind(this, 'isOneToOne')}
+                label="Is one to one?"
+                description="Specifies if the map is a one to one"
+              />
             </div>
           </div>
         </div>
