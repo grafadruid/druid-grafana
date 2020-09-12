@@ -9,9 +9,10 @@ import { LimitSpec } from '../limitspec';
 import { HavingSpec } from '../havingspec';
 import { Granularity } from '../granularity';
 import { Filter } from '../filter';
+import { Aggregation } from '../aggregation';
 
 interface State {
-  components: string[];
+  components: Record<string, string[]>;
 }
 
 interface ComponentRowProps {
@@ -57,12 +58,21 @@ ComponentRow.displayName = 'ComponentRow';
 
 export class GroupBy extends PureComponent<QueryBuilderProps, State> {
   state: State = {
-    components: [],
+    components: { dimensions: [], aggregations: [] },
   };
 
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['queryType', 'dataSource', 'dimensions', 'limitSpec', 'having', 'granularity', 'filter']);
+    this.resetBuilder([
+      'queryType',
+      'dataSource',
+      'dimensions',
+      'limitSpec',
+      'having',
+      'granularity',
+      'filter',
+      'aggregations',
+    ]);
     const { builder } = props.options;
     builder.queryType = 'groupBy';
     if (undefined === builder.dataSource) {
@@ -71,12 +81,18 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.dimensions) {
       builder.dimensions = [];
     }
+    if (undefined === builder.aggregations) {
+      builder.aggregations = [];
+    }
     this.initializeState();
   }
 
   initializeState = () => {
     this.props.options.builder.dimensions.forEach(() => {
-      this.state.components.push(uniqueId());
+      this.state.components['dimensions'].push(uniqueId());
+    });
+    this.props.options.builder.aggregations.forEach(() => {
+      this.state.components['aggregations'].push(uniqueId());
     });
   };
 
@@ -101,41 +117,48 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     return { builder: builder[component] || {}, settings: settings || {} };
   };
 
-  componentOptions = (index: number): QueryBuilderOptions => {
+  componentOptions = (component: string, index: number): QueryBuilderOptions => {
     const { builder, settings } = this.props.options;
     let componentBuilder = {};
-    if (index <= builder.dimensions.length - 1) {
-      componentBuilder = builder.dimensions[index];
+    if (index <= builder[component].length - 1) {
+      componentBuilder = builder[component][index];
     }
     return { builder: componentBuilder, settings: settings || {} };
   };
 
-  onComponentOptionsChange = (index: number, componentOptions: QueryBuilderOptions) => {
+  onComponentOptionsChange = (component: string, index: number, componentOptions: QueryBuilderOptions) => {
     const { options, onOptionsChange } = this.props;
     const { builder, settings } = options;
-    builder.dimensions[index] = componentOptions.builder;
+    builder[component][index] = componentOptions.builder;
+    console.log('JBG', builder);
     onOptionsChange({ ...options, builder, settings: { ...settings, ...componentOptions.settings } });
   };
 
-  onComponentAdd = () => {
+  onComponentAdd = (component: string) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.dimensions.push({});
+    builder[component].push({});
     onOptionsChange({ ...options, builder });
     this.setState(({ components }) => {
-      return { components: [...components, uniqueId()] };
+      components[component].push(uniqueId());
+      return { components: components };
     });
   };
 
-  onComponentRemove = (index: number) => {
+  onComponentRemove = (component: string, index: number) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.dimensions = builder.dimensions.filter((element: any, idx: number) => index !== idx);
+    builder[component] = builder[component].filter((element: any, idx: number) => index !== idx);
     onOptionsChange({ ...options, builder });
     this.setState(({ components }) => ({
-      components: components.filter((element: string, idx: number) => {
-        return idx !== index;
-      }),
+      components: {
+        ...components,
+        ...{
+          [component]: components[component].filter((element: string, idx: number) => {
+            return idx !== index;
+          }),
+        },
+      },
     }));
   };
 
@@ -160,18 +183,18 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
               <div>
                 {builder.dimensions.map((item: any, index: number) => (
                   <ComponentRow
-                    key={components[index]}
+                    key={components['dimensions'][index]}
                     index={index}
                     component={Dimension}
                     props={{
-                      options: this.componentOptions(index),
-                      onOptionsChange: this.onComponentOptionsChange.bind(this, index),
+                      options: this.componentOptions('dimensions', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'dimensions', index),
                     }}
-                    onRemove={this.onComponentRemove}
+                    onRemove={this.onComponentRemove.bind(this, 'dimensions')}
                   />
                 ))}
               </div>
-              <Button variant="secondary" icon="plus" onClick={this.onComponentAdd}>
+              <Button variant="secondary" icon="plus" onClick={this.onComponentAdd.bind(this, 'dimensions')}>
                 Add a dimension
               </Button>
             </div>
@@ -191,6 +214,26 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
               options={this.builderOptions('filter')}
               onOptionsChange={this.onOptionsChange.bind(this, 'filter')}
             />
+            <div className="gf-form-group">
+              <label className="gf-form-label">Aggregations</label>
+              <div>
+                {builder.aggregations.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['aggregations'][index]}
+                    index={index}
+                    component={Aggregation}
+                    props={{
+                      options: this.componentOptions('aggregations', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'aggregations', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'aggregations')}
+                  />
+                ))}
+              </div>
+              <Button variant="secondary" icon="plus" onClick={this.onComponentAdd.bind(this, 'aggregations')}>
+                Add an aggregation
+              </Button>
+            </div>
           </div>
         </div>
       </>
