@@ -37,7 +37,6 @@ export class TimeFormat extends PureComponent<QueryBuilderProps> {
   onCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    console.log(event.currentTarget);
     builder.asMillis = event.currentTarget.checked;
     onOptionsChange({ ...options, builder });
   };

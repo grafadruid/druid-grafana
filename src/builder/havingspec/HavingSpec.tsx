@@ -2,35 +2,14 @@ import React, { PureComponent } from 'react';
 import { css } from 'emotion';
 import { Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
-
-import {
-  And,
-  Bound,
-  ColumnComparison,
-  Expression,
-  Extraction,
-  False,
-  FilterTuning,
-  Interval,
-  In,
-  Javascript,
-  Like,
-  Not,
-  Or,
-  Regex,
-  Search,
-  Selector,
-  Spatial,
-  True,
-} from './';
-
+import { And, DimSelector, EqualTo, Filter, GreaterThan, LessThan, Not, Or } from './';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 
 interface State {
   selectedOption: SelectableValue<string>;
 }
 
-export class Filter extends PureComponent<QueryBuilderProps, State> {
+export class HavingSpec extends PureComponent<QueryBuilderProps, State> {
   state: State = {
     selectedOption: {},
   };
@@ -40,23 +19,13 @@ export class Filter extends PureComponent<QueryBuilderProps, State> {
 
     this.selectOptions = this.buildSelectOptions([
       'And',
-      'Bound',
-      'ColumnComparison',
-      'Expression',
-      'Extraction',
-      'False',
-      'FilterTuning',
-      'Interval',
-      'In',
-      'Javascript',
-      'Like',
+      'DimSelector',
+      'EqualTo',
+      'Filter',
+      'GreaterThan',
+      'LessThan',
       'Not',
       'Or',
-      'Regex',
-      'Search',
-      'Selector',
-      'Spatial',
-      'True',
     ]);
 
     const { builder } = props.options;
@@ -116,7 +85,7 @@ export class Filter extends PureComponent<QueryBuilderProps, State> {
     return (
       <>
         <div className="gf-form">
-          <label className="gf-form-label">Filter</label>
+          <label className="gf-form-label">Having spec</label>
           <div
             className={css`
               width: 300px;
@@ -133,47 +102,23 @@ export class Filter extends PureComponent<QueryBuilderProps, State> {
         </div>
         <div>
           {selectedOption.value === 'and' && <And options={builderOptions} onOptionsChange={this.onOptionsChange} />}
-          {selectedOption.value === 'bound' && (
-            <Bound options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          {selectedOption.value === 'dimselector' && (
+            <DimSelector options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
-          {selectedOption.value === 'columncomparison' && (
-            <ColumnComparison options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          {selectedOption.value === 'equalto' && (
+            <EqualTo options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
-          {selectedOption.value === 'expression' && (
-            <Expression options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          {selectedOption.value === 'filter' && (
+            <Filter options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
-          {selectedOption.value === 'extraction' && (
-            <Extraction options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          {selectedOption.value === 'greaterthan' && (
+            <GreaterThan options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
-          {selectedOption.value === 'false' && (
-            <False options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          {selectedOption.value === 'lessthan' && (
+            <LessThan options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
-          {selectedOption.value === 'filtertuning' && (
-            <FilterTuning options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'interval' && (
-            <Interval options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'in' && <In options={builderOptions} onOptionsChange={this.onOptionsChange} />}
-          {selectedOption.value === 'javascript' && (
-            <Javascript options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'like' && <Like options={builderOptions} onOptionsChange={this.onOptionsChange} />}
           {selectedOption.value === 'not' && <Not options={builderOptions} onOptionsChange={this.onOptionsChange} />}
           {selectedOption.value === 'or' && <Or options={builderOptions} onOptionsChange={this.onOptionsChange} />}
-          {selectedOption.value === 'regex' && (
-            <Regex options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'search' && (
-            <Search options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'selector' && (
-            <Selector options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'spatial' && (
-            <Spatial options={builderOptions} onOptionsChange={this.onOptionsChange} />
-          )}
-          {selectedOption.value === 'true' && <True options={builderOptions} onOptionsChange={this.onOptionsChange} />}
         </div>
       </>
     );

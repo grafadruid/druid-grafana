@@ -1,17 +1,16 @@
 import React, { PureComponent, ChangeEvent } from 'react';
 import { LegacyForms } from '@grafana/ui';
 import { css } from 'emotion';
-import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import { ExtractionFn } from '../extractionfn';
+import { QueryBuilderProps } from '../types';
 
 const { FormField } = LegacyForms;
 
-export class Selector extends PureComponent<QueryBuilderProps> {
+export class LessThan extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'dimension', 'value', 'extractionFn']);
+    this.resetBuilder(['type', 'aggregation', 'value']);
     const { builder } = props.options;
-    builder.type = 'selector';
+    builder.type = 'lessThan';
   }
 
   resetBuilder = (properties: string[]) => {
@@ -26,20 +25,12 @@ export class Selector extends PureComponent<QueryBuilderProps> {
   onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder[event.target.name] = event.target.value;
+    let value: any = event.target.value;
+    if ('number' === event.target.type) {
+      value = Number(value);
+    }
+    builder[event.target.name] = value;
     onOptionsChange({ ...options, builder: builder });
-  };
-
-  onOptionsChange = (component: string, componentBuilderOptions: QueryBuilderOptions) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder, settings } = options;
-    builder[component] = componentBuilderOptions.builder;
-    onOptionsChange({ ...options, builder, settings });
-  };
-
-  builderOptions = (component: string): QueryBuilderOptions => {
-    const { builder, settings } = this.props.options;
-    return { builder: builder[component] || {}, settings: settings || {} };
   };
 
   render() {
@@ -53,24 +44,20 @@ export class Selector extends PureComponent<QueryBuilderProps> {
             `}
           >
             <FormField
-              label="Dimension"
-              name="dimension"
+              label="Aggregation"
+              name="aggregation"
               type="text"
-              placeholder="the dimension name"
-              value={builder.dimension}
+              placeholder="the metric column"
+              value={builder.aggregation}
               onChange={this.onInputChange}
             />
             <FormField
               label="Value"
               name="value"
-              type="text"
-              placeholder="the dimension value"
+              type="number"
+              placeholder="the numeric value"
               value={builder.value}
               onChange={this.onInputChange}
-            />
-            <ExtractionFn
-              options={this.builderOptions('extractionFn')}
-              onOptionsChange={this.onOptionsChange.bind(this, 'extractionFn')}
             />
           </div>
         </div>

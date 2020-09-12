@@ -29,17 +29,15 @@ export class QueryEditor extends PureComponent<Props, State> {
   };
 
   onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
-    console.log('Builder option has changed');
+    console.log('Builder option has changed', queryBuilderOptions);
     const { query, onChange } = this.props;
     onChange({ ...query, ...queryBuilderOptions });
-    console.log(query, this.props);
   };
 
   onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     console.log('Settings option has changed');
     const { query, onChange } = this.props;
     onChange({ ...query, ...querySettingsOptions });
-    console.log(query, this.props);
   };
 
   builderOptions = (): QueryBuilderOptions => {

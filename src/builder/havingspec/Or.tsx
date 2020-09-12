@@ -3,7 +3,7 @@ import { css } from 'emotion';
 import uniqueId from 'lodash/uniqueId';
 import { Button, Icon, stylesFactory } from '@grafana/ui';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import { Filter } from './';
+import { HavingSpec } from './';
 
 interface State {
   components: string[];
@@ -57,17 +57,17 @@ export class Or extends PureComponent<QueryBuilderProps, State> {
 
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'fields']);
+    this.resetBuilder(['type', 'havingSpecs']);
     const { builder } = props.options;
-    builder.type = 'or';
-    if (undefined === builder.fields) {
-      builder.fields = [];
+    builder.type = 'and';
+    if (undefined === builder.havingSpecs) {
+      builder.havingSpecs = [];
     }
     this.initializeState();
   }
 
   initializeState = () => {
-    this.props.options.builder.fields.forEach(() => {
+    this.props.options.builder.havingSpecs.forEach(() => {
       this.state.components.push(uniqueId());
     });
   };
@@ -84,8 +84,8 @@ export class Or extends PureComponent<QueryBuilderProps, State> {
   componentOptions = (index: number): QueryBuilderOptions => {
     const { builder, settings } = this.props.options;
     let componentBuilder = {};
-    if (index <= builder.fields.length - 1) {
-      componentBuilder = builder.fields[index];
+    if (index <= builder.havingSpecs.length - 1) {
+      componentBuilder = builder.havingSpecs[index];
     }
     return { builder: componentBuilder, settings: settings || {} };
   };
@@ -93,14 +93,14 @@ export class Or extends PureComponent<QueryBuilderProps, State> {
   onComponentOptionsChange = (index: number, componentOptions: QueryBuilderOptions) => {
     const { options, onOptionsChange } = this.props;
     const { builder, settings } = options;
-    builder.fields[index] = componentOptions.builder;
+    builder.havingSpecs[index] = componentOptions.builder;
     onOptionsChange({ ...options, builder, settings: { ...settings, ...componentOptions.settings } });
   };
 
   onComponentAdd = () => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.fields.push({});
+    builder.havingSpecs.push({});
     onOptionsChange({ ...options, builder });
     this.setState(({ components }) => {
       return { components: [...components, uniqueId()] };
@@ -110,7 +110,7 @@ export class Or extends PureComponent<QueryBuilderProps, State> {
   onComponentRemove = (index: number) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.fields = builder.fields.filter((element: any, idx: number) => index !== idx);
+    builder.havingSpecs = builder.havingSpecs.filter((element: any, idx: number) => index !== idx);
     onOptionsChange({ ...options, builder });
     this.setState(({ components }) => ({
       components: components.filter((element: string, idx: number) => {
@@ -130,13 +130,13 @@ export class Or extends PureComponent<QueryBuilderProps, State> {
               width: 300px;
             `}
           >
-            <label className="gf-form-label">Fields</label>
+            <label className="gf-form-label">Havings</label>
             <div>
-              {builder.fields.map((item: any, index: number) => (
+              {builder.havingSpecs.map((item: any, index: number) => (
                 <ComponentRow
                   key={components[index]}
                   index={index}
-                  component={Filter}
+                  component={HavingSpec}
                   props={{
                     options: this.componentOptions(index),
                     onOptionsChange: this.onComponentOptionsChange.bind(this, index),
@@ -146,7 +146,7 @@ export class Or extends PureComponent<QueryBuilderProps, State> {
               ))}
             </div>
             <Button variant="secondary" icon="plus" onClick={this.onComponentAdd}>
-              Add field
+              Add an having spec
             </Button>
           </div>
         </div>

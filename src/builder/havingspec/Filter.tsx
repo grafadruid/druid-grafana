@@ -1,14 +1,14 @@
 import React, { PureComponent } from 'react';
 import { css } from 'emotion';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import { Filter } from './';
+import { Filter as FilterSelector } from '../filter';
 
-export class Not extends PureComponent<QueryBuilderProps> {
+export class Filter extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'field']);
+    this.resetBuilder(['type', 'filter']);
     const { builder } = props.options;
-    builder.type = 'not';
+    builder.type = 'filter';
   }
 
   resetBuilder = (properties: string[]) => {
@@ -41,7 +41,10 @@ export class Not extends PureComponent<QueryBuilderProps> {
               width: 300px;
             `}
           >
-            <Filter options={this.builderOptions('field')} onOptionsChange={this.onOptionsChange.bind(this, 'field')} />
+            <FilterSelector
+              options={this.builderOptions('filter')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'filter')}
+            />
           </div>
         </div>
       </>

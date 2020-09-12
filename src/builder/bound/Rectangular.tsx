@@ -1,21 +1,24 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { MultiSelect, LegacyForms } from '@grafana/ui';
+import React, { PureComponent } from 'react';
+import { MultiSelect } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { css } from 'emotion';
 import { QueryBuilderProps } from '../types';
 
-const { FormField } = LegacyForms;
-
-export class Radius extends PureComponent<QueryBuilderProps> {
+export class Rectangular extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'coords', 'radius']);
+    this.resetBuilder(['type', 'minCoords', 'maxCoords']);
     const { builder } = props.options;
-    builder.type = 'radius';
-    if (undefined === builder.coords) {
-      builder.coords = [];
+    builder.type = 'rectangular';
+    if (undefined === builder.minCoords) {
+      builder.minCoords = [];
     } else {
-      this.multiSelectOptions.coords = this.buildMultiSelectOptions(builder.coords);
+      this.multiSelectOptions.minCoords = this.buildMultiSelectOptions(builder.minCoords);
+    }
+    if (undefined === builder.maxCoords) {
+      builder.maxCoords = [];
+    } else {
+      this.multiSelectOptions.maxCoords = this.buildMultiSelectOptions(builder.maxCoords);
     }
   }
 
@@ -28,18 +31,7 @@ export class Radius extends PureComponent<QueryBuilderProps> {
     }
   };
 
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    let value: any = event.target.value;
-    if ('number' === event.target.type) {
-      value = Number(value);
-    }
-    builder[event.target.name] = value;
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  multiSelectOptions: Record<string, Array<SelectableValue<number>>> = { coords: [] };
+  multiSelectOptions: Record<string, Array<SelectableValue<number>>> = { minCoords: [], maxCoords: [] };
 
   buildMultiSelectOptions = (values: number[]): Array<SelectableValue<number>> => {
     return values.map((key, index) => {
@@ -79,21 +71,21 @@ export class Radius extends PureComponent<QueryBuilderProps> {
               width: 300px;
             `}
           >
-            <label className="gf-form-label">Coordinates</label>
+            <label className="gf-form-label">Minimum coordinates</label>
             <MultiSelect
-              onChange={this.onSelectionChange.bind(this, 'coords')}
-              onCreateOption={this.onCustomSelection.bind(this, 'coords')}
-              options={this.multiSelectOptions.coords}
-              value={builder.coords}
+              onChange={this.onSelectionChange.bind(this, 'minCoords')}
+              onCreateOption={this.onCustomSelection.bind(this, 'minCoords')}
+              options={this.multiSelectOptions.minCoords}
+              value={builder.minCoords}
               allowCustomValue
             />
-            <FormField
-              label="Radius"
-              name="radius"
-              type="number"
-              placeholder="The float radius value"
-              value={builder.radius}
-              onChange={this.onInputChange}
+            <label className="gf-form-label">Maximum coordinates</label>
+            <MultiSelect
+              onChange={this.onSelectionChange.bind(this, 'maxCoords')}
+              onCreateOption={this.onCustomSelection.bind(this, 'maxCoords')}
+              options={this.multiSelectOptions.maxCoords}
+              value={builder.maxCoords}
+              allowCustomValue
             />
           </div>
         </div>

@@ -1,12 +1,12 @@
 import React, { PureComponent } from 'react';
 import { css } from 'emotion';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import { Filter } from './';
+import { HavingSpec } from './';
 
 export class Not extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'field']);
+    this.resetBuilder(['type', 'havingSpec']);
     const { builder } = props.options;
     builder.type = 'not';
   }
@@ -41,7 +41,10 @@ export class Not extends PureComponent<QueryBuilderProps> {
               width: 300px;
             `}
           >
-            <Filter options={this.builderOptions('field')} onOptionsChange={this.onOptionsChange.bind(this, 'field')} />
+            <HavingSpec
+              options={this.builderOptions('havingSpec')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'havingSpec')}
+            />
           </div>
         </div>
       </>

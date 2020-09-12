@@ -6,6 +6,9 @@ import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { DataSource } from '../datasource';
 import { Dimension } from '../dimension';
 import { LimitSpec } from '../limitspec';
+import { HavingSpec } from '../havingspec';
+import { Granularity } from '../granularity';
+import { Filter } from '../filter';
 
 interface State {
   components: string[];
@@ -59,7 +62,7 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
 
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['queryType', 'dataSource', 'dimensions', 'limitSpec']);
+    this.resetBuilder(['queryType', 'dataSource', 'dimensions', 'limitSpec', 'having', 'granularity', 'filter']);
     const { builder } = props.options;
     builder.queryType = 'groupBy';
     if (undefined === builder.dataSource) {
@@ -175,6 +178,18 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
             <LimitSpec
               options={this.builderOptions('limitSpec')}
               onOptionsChange={this.onOptionsChange.bind(this, 'limitSpec')}
+            />
+            <HavingSpec
+              options={this.builderOptions('having')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'having')}
+            />
+            <Granularity
+              options={this.builderOptions('granularity')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'granularity')}
+            />
+            <Filter
+              options={this.builderOptions('filter')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'filter')}
             />
           </div>
         </div>
