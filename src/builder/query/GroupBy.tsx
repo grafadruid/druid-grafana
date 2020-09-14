@@ -10,6 +10,7 @@ import { HavingSpec } from '../havingspec';
 import { Granularity } from '../granularity';
 import { Filter } from '../filter';
 import { Aggregation } from '../aggregation';
+import { PostAggregation } from '../postaggregation';
 
 interface State {
   components: Record<string, string[]>;
@@ -58,7 +59,7 @@ ComponentRow.displayName = 'ComponentRow';
 
 export class GroupBy extends PureComponent<QueryBuilderProps, State> {
   state: State = {
-    components: { dimensions: [], aggregations: [] },
+    components: { dimensions: [], aggregations: [], postAggregations: [] },
   };
 
   constructor(props: QueryBuilderProps) {
@@ -84,6 +85,9 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.aggregations) {
       builder.aggregations = [];
     }
+    if (undefined === builder.postAggregations) {
+      builder.postAggregations = [];
+    }
     this.initializeState();
   }
 
@@ -93,6 +97,9 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     });
     this.props.options.builder.aggregations.forEach(() => {
       this.state.components['aggregations'].push(uniqueId());
+    });
+    this.props.options.builder.postAggregations.forEach(() => {
+      this.state.components['postAggregations'].push(uniqueId());
     });
   };
 
@@ -130,7 +137,6 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     const { options, onOptionsChange } = this.props;
     const { builder, settings } = options;
     builder[component][index] = componentOptions.builder;
-    console.log('JBG', builder);
     onOptionsChange({ ...options, builder, settings: { ...settings, ...componentOptions.settings } });
   };
 
@@ -232,6 +238,26 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
               </div>
               <Button variant="secondary" icon="plus" onClick={this.onComponentAdd.bind(this, 'aggregations')}>
                 Add an aggregation
+              </Button>
+            </div>
+            <div className="gf-form-group">
+              <label className="gf-form-label">Post aggregations</label>
+              <div>
+                {builder.postAggregations.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['postAggregations'][index]}
+                    index={index}
+                    component={PostAggregation}
+                    props={{
+                      options: this.componentOptions('postAggregations', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'postAggregations', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'postAggregations')}
+                  />
+                ))}
+              </div>
+              <Button variant="secondary" icon="plus" onClick={this.onComponentAdd.bind(this, 'postAggregations')}>
+                Add a post aggregation
               </Button>
             </div>
           </div>
