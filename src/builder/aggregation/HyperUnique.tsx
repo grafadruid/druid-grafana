@@ -1,5 +1,5 @@
 import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
+import { LegacyForms, Checkbox } from '@grafana/ui';
 import { css } from 'emotion';
 import { QueryBuilderProps } from '../types';
 
@@ -8,7 +8,7 @@ const { FormField } = LegacyForms;
 export class HyperUnique extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'name', 'fieldName']);
+    this.resetBuilder(['type', 'name', 'fieldName', 'round']);
     const { builder } = props.options;
     builder.type = 'hyperUnique';
   }
@@ -33,8 +33,16 @@ export class HyperUnique extends PureComponent<QueryBuilderProps> {
     onOptionsChange({ ...options, builder: builder });
   };
 
+  onCheckboxChange = (component: string, event: ChangeEvent<HTMLInputElement>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    builder[component] = event.currentTarget.checked;
+    onOptionsChange({ ...options, builder });
+  };
+
   render() {
     const { builder } = this.props.options;
+
     return (
       <>
         <div className="gf-form">
@@ -58,6 +66,12 @@ export class HyperUnique extends PureComponent<QueryBuilderProps> {
               placeholder="Name of the metric column to sum over"
               value={builder.fieldName}
               onChange={this.onInputChange}
+            />
+            <Checkbox
+              value={builder.round}
+              onChange={this.onCheckboxChange.bind(this, 'round')}
+              label="Round"
+              description="Set to true to round off estimated values to whole numbers"
             />
           </div>
         </div>

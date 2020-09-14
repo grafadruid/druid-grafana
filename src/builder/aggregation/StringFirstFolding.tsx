@@ -8,7 +8,7 @@ const { FormField } = LegacyForms;
 export class StringFirstFolding extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'name', 'fieldName']);
+    this.resetBuilder(['type', 'name', 'fieldName', 'maxStringBytes']);
     const { builder } = props.options;
     builder.type = 'stringFirstFolding';
   }
@@ -57,6 +57,14 @@ export class StringFirstFolding extends PureComponent<QueryBuilderProps> {
               type="text"
               placeholder="Name of the metric column to sum over"
               value={builder.fieldName}
+              onChange={this.onInputChange}
+            />
+            <FormField
+              label="Max string bytes"
+              name="maxStringBytes"
+              type="number"
+              placeholder="Max string bytes"
+              value={builder.maxStringBytes}
               onChange={this.onInputChange}
             />
           </div>

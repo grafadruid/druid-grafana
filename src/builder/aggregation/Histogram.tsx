@@ -1,5 +1,6 @@
 import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
+import { LegacyForms, MultiSelect } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
 import { css } from 'emotion';
 import { QueryBuilderProps } from '../types';
 
@@ -8,9 +9,14 @@ const { FormField } = LegacyForms;
 export class Histogram extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'name', 'fieldName']);
+    this.resetBuilder(['type', 'name', 'fieldName', 'breaks']);
     const { builder } = props.options;
     builder.type = 'histogram';
+    if (undefined === builder.breaks) {
+      builder.breaks = [];
+    } else {
+      this.multiSelectOptions.breaks = this.buildMultiSelectOptions(builder.breaks);
+    }
   }
 
   resetBuilder = (properties: string[]) => {
@@ -31,6 +37,36 @@ export class Histogram extends PureComponent<QueryBuilderProps> {
     }
     builder[event.target.name] = value;
     onOptionsChange({ ...options, builder: builder });
+  };
+
+  multiSelectOptions: Record<string, Array<SelectableValue<number>>> = { breaks: [] };
+
+  buildMultiSelectOptions = (values: number[]): Array<SelectableValue<number>> => {
+    return values.map((key, index) => {
+      return { value: key, label: String(key) };
+    });
+  };
+
+  onSelectionChange = (component: string, options: Array<SelectableValue<number>>) => {
+    this.selectOptions(component, options);
+  };
+
+  onCustomSelection = (component: string, selection: string) => {
+    const value = Number(selection);
+    if (isNaN(value)) {
+      return;
+    }
+    const option: SelectableValue<number> = { value: value, label: selection };
+    this.multiSelectOptions[component].push(option);
+    this.selectOptions(component, this.multiSelectOptions[component]);
+  };
+
+  selectOptions = (component: string, opts: Array<SelectableValue<number>>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    builder[component] = opts.map(o => o.value);
+    this.multiSelectOptions[component] = this.buildMultiSelectOptions(builder[component]);
+    onOptionsChange({ ...options, builder });
   };
 
   render() {
@@ -58,6 +94,14 @@ export class Histogram extends PureComponent<QueryBuilderProps> {
               placeholder="Name of the metric column to sum over"
               value={builder.fieldName}
               onChange={this.onInputChange}
+            />
+            <label className="gf-form-label">Breaks</label>
+            <MultiSelect
+              onChange={this.onSelectionChange.bind(this, 'breaks')}
+              onCreateOption={this.onCustomSelection.bind(this, 'breaks')}
+              options={this.multiSelectOptions.breaks}
+              value={builder.breaks}
+              allowCustomValue
             />
           </div>
         </div>

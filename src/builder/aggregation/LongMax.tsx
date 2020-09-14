@@ -8,7 +8,7 @@ const { FormField } = LegacyForms;
 export class LongMax extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'name', 'fieldName']);
+    this.resetBuilder(['type', 'name', 'fieldName', 'expression']);
     const { builder } = props.options;
     builder.type = 'longMax';
   }
@@ -57,6 +57,14 @@ export class LongMax extends PureComponent<QueryBuilderProps> {
               type="text"
               placeholder="Name of the metric column to sum over"
               value={builder.fieldName}
+              onChange={this.onInputChange}
+            />
+            <FormField
+              label="Expression"
+              name="expression"
+              type="text"
+              placeholder="The expression"
+              value={builder.expression}
               onChange={this.onInputChange}
             />
           </div>
