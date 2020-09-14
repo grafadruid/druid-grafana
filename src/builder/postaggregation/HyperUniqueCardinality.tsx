@@ -5,12 +5,12 @@ import { QueryBuilderProps } from '../types';
 
 const { FormField } = LegacyForms;
 
-export class Constant extends PureComponent<QueryBuilderProps> {
+export class HyperUniqueCardinality extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['type', 'name', 'value']);
+    this.resetBuilder(['type', 'name', 'fieldName']);
     const { builder } = props.options;
-    builder.type = 'constant';
+    builder.type = 'hyperUniqueCardinality';
   }
 
   resetBuilder = (properties: string[]) => {
@@ -52,11 +52,11 @@ export class Constant extends PureComponent<QueryBuilderProps> {
               onChange={this.onInputChange}
             />
             <FormField
-              label="Value"
-              name="value"
-              type="number"
-              placeholder="The value to return"
-              value={builder.value}
+              label="Field name"
+              name="fieldName"
+              type="text"
+              placeholder="Name of the aggregator"
+              value={builder.fieldName}
               onChange={this.onInputChange}
             />
           </div>
