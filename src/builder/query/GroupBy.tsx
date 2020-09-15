@@ -296,7 +296,7 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
                 variant="secondary"
                 icon="plus"
                 onClick={() => {
-                  this.onComponentAdd('dimensions');
+                  this.onComponentAdd('postAggregations');
                 }}
               >
                 Add a post aggregation
