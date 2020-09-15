@@ -2,8 +2,7 @@ import React, { PureComponent, ChangeEvent } from 'react';
 import { LegacyForms } from '@grafana/ui';
 import { css } from 'emotion';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import { DateTime } from '../date';
 
 const { FormField } = LegacyForms;
 
@@ -51,23 +50,9 @@ export class Period extends PureComponent<QueryBuilderProps> {
     return { builder: builder[component] || {}, settings: settings || {} };
   };
 
-  onDateTimeChange = (date: Date) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder, settings } = options;
-    builder.origin = date.toISOString();
-    onOptionsChange({ ...options, builder, settings });
-  };
-
-  parseDateTime = (date: string): Date | undefined => {
-    let d = new Date(date);
-    if (d instanceof Date && !isNaN(d.getFullYear())) {
-      return d;
-    }
-    return undefined;
-  };
-
   render() {
     const { builder } = this.props.options;
+
     return (
       <>
         <div className="gf-form">
@@ -92,12 +77,10 @@ export class Period extends PureComponent<QueryBuilderProps> {
               value={builder.timeZone}
               onChange={this.onInputChange}
             />
-            <label className="gf-form-label">Origin</label>
-            <DatePicker
-              selected={this.parseDateTime(builder.origin)}
-              onChange={this.onDateTimeChange}
-              showTimeSelect
-              dateFormat="MMMM d, yyyy h:mm aa"
+            <DateTime
+              label="Origin"
+              options={this.builderOptions('origin')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'origin')}
             />
           </div>
         </div>

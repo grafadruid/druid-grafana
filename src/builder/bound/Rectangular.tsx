@@ -63,6 +63,7 @@ export class Rectangular extends PureComponent<QueryBuilderProps> {
 
   render() {
     const { builder } = this.props.options;
+
     return (
       <>
         <div className="gf-form">

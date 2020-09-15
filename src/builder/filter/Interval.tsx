@@ -4,13 +4,12 @@ import uniqueId from 'lodash/uniqueId';
 import { Button, Icon, LegacyForms, stylesFactory } from '@grafana/ui';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { ExtractionFn } from '../extractionfn';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import { Interval as IntervalRow } from '../date';
 
 const { FormField } = LegacyForms;
 
 interface State {
-  components: string[];
+  components: Record<string, string[]>;
 }
 
 interface ComponentRowProps {
@@ -54,69 +53,9 @@ const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove
 
 ComponentRow.displayName = 'ComponentRow';
 
-class IntervalRow extends PureComponent<QueryBuilderProps> {
-  onDateTimeChange = (position: string, date: Date) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    const index = Number(position !== 'start');
-    let range = builder.split('/');
-    if (1 === range.length) {
-      range.push('');
-    }
-    range[index] = date.toISOString();
-    onOptionsChange({ ...options, builder: range.join('/') });
-  };
-
-  parseDateTimeRange = (position: string, dateRange: string): Date | undefined => {
-    const index = Number(position !== 'start');
-    let range = dateRange.split('/');
-    if (1 === range.length) {
-      range.push('');
-    }
-    const date = range[index];
-    let d = new Date(date);
-    if (d instanceof Date && !isNaN(d.getFullYear())) {
-      return d;
-    }
-    return undefined;
-  };
-
-  render() {
-    const { builder } = this.props.options;
-
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <label className="gf-form-label">Interval</label>
-            <label className="gf-form-label">Range start</label>
-            <DatePicker
-              selected={this.parseDateTimeRange('start', builder)}
-              onChange={this.onDateTimeChange.bind(this, 'start')}
-              showTimeSelect
-              dateFormat="MMMM d, yyyy h:mm aa"
-            />
-            <label className="gf-form-label">Range stop</label>
-            <DatePicker
-              selected={this.parseDateTimeRange('stop', builder)}
-              onChange={this.onDateTimeChange.bind(this, 'stop')}
-              showTimeSelect
-              dateFormat="MMMM d, yyyy h:mm aa"
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
-
 export class Interval extends PureComponent<QueryBuilderProps, State> {
   state: State = {
-    components: [],
+    components: { intervals: [] },
   };
 
   constructor(props: QueryBuilderProps) {
@@ -132,7 +71,7 @@ export class Interval extends PureComponent<QueryBuilderProps, State> {
 
   initializeState = () => {
     this.props.options.builder.intervals.forEach(() => {
-      this.state.components.push(uniqueId());
+      this.state.components['intervals'].push(uniqueId());
     });
   };
 
@@ -164,41 +103,54 @@ export class Interval extends PureComponent<QueryBuilderProps, State> {
     return { builder: builder[component] || {}, settings: settings || {} };
   };
 
-  componentOptions = (index: number): QueryBuilderOptions => {
+  componentOptions = (component: string, index: number): QueryBuilderOptions => {
     const { builder, settings } = this.props.options;
-    let componentBuilder = '';
-    if (index <= builder.intervals.length - 1) {
-      componentBuilder = builder.intervals[index];
+    let componentBuilder = {};
+    if (index <= builder[component].length - 1) {
+      componentBuilder = builder[component][index];
     }
     return { builder: componentBuilder, settings: settings || {} };
   };
 
-  onComponentOptionsChange = (index: number, componentOptions: QueryBuilderOptions) => {
+  onComponentOptionsChange = (component: string, index: number, componentOptions: QueryBuilderOptions) => {
     const { options, onOptionsChange } = this.props;
     const { builder, settings } = options;
-    builder.intervals[index] = componentOptions.builder;
+    builder[component][index] = componentOptions.builder;
     onOptionsChange({ ...options, builder, settings: { ...settings, ...componentOptions.settings } });
   };
 
-  onComponentAdd = () => {
+  onComponentAdd = (component: string, builderDataType = 'object') => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.intervals.push('');
+    let builderValue = {};
+    switch (builderDataType) {
+      case 'string': {
+        builderValue = '';
+        break;
+      }
+    }
+    builder[component].push(builderValue);
     onOptionsChange({ ...options, builder });
     this.setState(({ components }) => {
-      return { components: [...components, uniqueId()] };
+      components[component].push(uniqueId());
+      return { components: components };
     });
   };
 
-  onComponentRemove = (index: number) => {
+  onComponentRemove = (component: string, index: number) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.intervals = builder.intervals.filter((element: any, idx: number) => index !== idx);
+    builder[component] = builder[component].filter((element: any, idx: number) => index !== idx);
     onOptionsChange({ ...options, builder });
     this.setState(({ components }) => ({
-      components: components.filter((element: string, idx: number) => {
-        return idx !== index;
-      }),
+      components: {
+        ...components,
+        ...{
+          [component]: components[component].filter((element: string, idx: number) => {
+            return idx !== index;
+          }),
+        },
+      },
     }));
   };
 
@@ -222,24 +174,33 @@ export class Interval extends PureComponent<QueryBuilderProps, State> {
               value={builder.dimension}
               onChange={this.onInputChange}
             />
-            <label className="gf-form-label">Intervals</label>
-            <div>
-              {builder.intervals.map((item: any, index: number) => (
-                <ComponentRow
-                  key={components[index]}
-                  index={index}
-                  component={IntervalRow}
-                  props={{
-                    options: this.componentOptions(index),
-                    onOptionsChange: this.onComponentOptionsChange.bind(this, index),
-                  }}
-                  onRemove={this.onComponentRemove}
-                />
-              ))}
+            <div className="gf-form-group">
+              <label className="gf-form-label">Intervals</label>
+              <div>
+                {builder.intervals.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['intervals'][index]}
+                    index={index}
+                    component={IntervalRow}
+                    props={{
+                      label: 'Interval',
+                      options: this.componentOptions('intervals', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'intervals', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'intervals')}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('intervals', 'string');
+                }}
+              >
+                Add interval
+              </Button>
             </div>
-            <Button variant="secondary" icon="plus" onClick={this.onComponentAdd}>
-              Add interval
-            </Button>
             <ExtractionFn
               options={this.builderOptions('extractionFn')}
               onOptionsChange={this.onOptionsChange.bind(this, 'extractionFn')}

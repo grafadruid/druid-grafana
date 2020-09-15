@@ -11,6 +11,8 @@ import { Granularity } from '../granularity';
 import { Filter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
+import { Interval } from '../date';
+import { SubtotalsSpec } from '../subtotalsspec';
 
 interface State {
   components: Record<string, string[]>;
@@ -59,7 +61,7 @@ ComponentRow.displayName = 'ComponentRow';
 
 export class GroupBy extends PureComponent<QueryBuilderProps, State> {
   state: State = {
-    components: { dimensions: [], aggregations: [], postAggregations: [] },
+    components: { dimensions: [], aggregations: [], postAggregations: [], intervals: [], subtotalsSpec: [] },
   };
 
   constructor(props: QueryBuilderProps) {
@@ -88,6 +90,12 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.postAggregations) {
       builder.postAggregations = [];
     }
+    if (undefined === builder.intervals) {
+      builder.intervals = [];
+    }
+    if (undefined === builder.subtotalsSpec) {
+      builder.subtotalsSpec = [];
+    }
     this.initializeState();
   }
 
@@ -100,6 +108,12 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     });
     this.props.options.builder.postAggregations.forEach(() => {
       this.state.components['postAggregations'].push(uniqueId());
+    });
+    this.props.options.builder.intervals.forEach(() => {
+      this.state.components['intervals'].push(uniqueId());
+    });
+    this.props.options.builder.subtotalsSpec.forEach(() => {
+      this.state.components['subtotalsSpec'].push(uniqueId());
     });
   };
 
@@ -140,10 +154,21 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     onOptionsChange({ ...options, builder, settings: { ...settings, ...componentOptions.settings } });
   };
 
-  onComponentAdd = (component: string) => {
+  onComponentAdd = (component: string, builderDataType = 'object') => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder[component].push({});
+    let builderValue = {};
+    switch (builderDataType) {
+      case 'string': {
+        builderValue = '';
+        break;
+      }
+      case 'array': {
+        builderValue = [];
+        break;
+      }
+    }
+    builder[component].push(builderValue);
     onOptionsChange({ ...options, builder });
     this.setState(({ components }) => {
       components[component].push(uniqueId());
@@ -171,7 +196,6 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
   render() {
     const { builder } = this.props.options;
     const { components } = this.state;
-
     return (
       <>
         <div className="gf-form">
@@ -200,7 +224,13 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
                   />
                 ))}
               </div>
-              <Button variant="secondary" icon="plus" onClick={this.onComponentAdd.bind(this, 'dimensions')}>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('dimensions');
+                }}
+              >
                 Add a dimension
               </Button>
             </div>
@@ -236,7 +266,13 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
                   />
                 ))}
               </div>
-              <Button variant="secondary" icon="plus" onClick={this.onComponentAdd.bind(this, 'aggregations')}>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('aggregations');
+                }}
+              >
                 Add an aggregation
               </Button>
             </div>
@@ -256,8 +292,67 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
                   />
                 ))}
               </div>
-              <Button variant="secondary" icon="plus" onClick={this.onComponentAdd.bind(this, 'postAggregations')}>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('dimensions');
+                }}
+              >
                 Add a post aggregation
+              </Button>
+            </div>
+            <div className="gf-form-group">
+              <label className="gf-form-label">Intervals</label>
+              <div>
+                {builder.intervals.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['intervals'][index]}
+                    index={index}
+                    component={Interval}
+                    props={{
+                      label: 'Interval',
+                      options: this.componentOptions('intervals', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'intervals', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'intervals')}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('intervals', 'string');
+                }}
+              >
+                Add interval
+              </Button>
+            </div>
+            <div className="gf-form-group">
+              <label className="gf-form-label">Sub-totals</label>
+              <div>
+                {builder.subtotalsSpec.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['subtotalsSpec'][index]}
+                    index={index}
+                    component={SubtotalsSpec}
+                    props={{
+                      options: this.componentOptions('subtotalsSpec', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'subtotalsSpec', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'subtotalsSpec')}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('subtotalsSpec', 'array');
+                }}
+              >
+                Add a sub-total
               </Button>
             </div>
           </div>
