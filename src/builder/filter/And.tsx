@@ -20,7 +20,6 @@ const getComponentRowStyles = stylesFactory(() => {
   return {
     layout: css`
       display: flex;
-      align-items: center;
       margin-bottom: 4px;
       > * {
         margin-left: 4px;
