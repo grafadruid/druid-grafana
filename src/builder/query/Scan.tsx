@@ -1,18 +1,14 @@
-import React, { FC, PureComponent } from 'react';
+import React, { FC, PureComponent, ChangeEvent } from 'react';
 import { css } from 'emotion';
 import uniqueId from 'lodash/uniqueId';
-import { Button, Icon, stylesFactory } from '@grafana/ui';
+import { Button, Icon, Select, MultiSelect, LegacyForms, stylesFactory } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { DataSource } from '../datasource';
-import { Dimension } from '../dimension';
-import { LimitSpec } from '../limitspec';
-import { HavingSpec } from '../havingspec';
-import { Granularity } from '../granularity';
 import { Filter } from '../filter';
-import { Aggregation } from '../aggregation';
-import { PostAggregation } from '../postaggregation';
 import { Interval } from '../date';
-import { SubtotalsSpec } from '../subtotalsspec';
+
+const { FormField } = LegacyForms;
 
 interface State {
   components: Record<string, string[]>;
@@ -60,59 +56,41 @@ ComponentRow.displayName = 'ComponentRow';
 
 export class Scan extends PureComponent<QueryBuilderProps, State> {
   state: State = {
-    components: { dimensions: [], aggregations: [], postAggregations: [], intervals: [], subtotalsSpec: [] },
+    components: { intervals: [] },
   };
+
+  selectOptions: Record<string, Array<SelectableValue<string>>> = {
+    order: [
+      { label: 'None', value: 'none' },
+      { label: 'Ascending', value: 'ascending' },
+      { label: 'Descending', value: 'descending' },
+    ],
+  };
+
+  multiSelectOptions: Record<string, Array<SelectableValue<string>>> = { columns: [] };
 
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder([
-      'queryType',
-      'dataSource',
-      'dimensions',
-      'limitSpec',
-      'having',
-      'granularity',
-      'filter',
-      'aggregations',
-    ]);
+    this.resetBuilder(['queryType', 'dataSource', 'intervals', 'filter', 'columns', 'batchSize', 'limit', 'order']);
     const { builder } = props.options;
-    builder.queryType = 'groupBy';
+    builder.queryType = 'scan';
     if (undefined === builder.dataSource) {
       builder.dataSource = {};
     }
-    if (undefined === builder.dimensions) {
-      builder.dimensions = [];
-    }
-    if (undefined === builder.aggregations) {
-      builder.aggregations = [];
-    }
-    if (undefined === builder.postAggregations) {
-      builder.postAggregations = [];
+    if (undefined === builder.columns) {
+      builder.columns = [];
+    } else {
+      this.multiSelectOptions.columns = this.buildMultiSelectOptions(builder.columns);
     }
     if (undefined === builder.intervals) {
       builder.intervals = [];
-    }
-    if (undefined === builder.subtotalsSpec) {
-      builder.subtotalsSpec = [];
     }
     this.initializeState();
   }
 
   initializeState = () => {
-    this.props.options.builder.dimensions.forEach(() => {
-      this.state.components['dimensions'].push(uniqueId());
-    });
-    this.props.options.builder.aggregations.forEach(() => {
-      this.state.components['aggregations'].push(uniqueId());
-    });
-    this.props.options.builder.postAggregations.forEach(() => {
-      this.state.components['postAggregations'].push(uniqueId());
-    });
     this.props.options.builder.intervals.forEach(() => {
       this.state.components['intervals'].push(uniqueId());
-    });
-    this.props.options.builder.subtotalsSpec.forEach(() => {
-      this.state.components['subtotalsSpec'].push(uniqueId());
     });
   };
 
@@ -125,11 +103,66 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
     }
   };
 
+  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    let value: any = event.target.value;
+    if ('number' === event.target.type) {
+      value = Number(value);
+    }
+    builder[event.target.name] = value;
+    onOptionsChange({ ...options, builder: builder });
+  };
+
   onOptionsChange = (component: string, componentBuilderOptions: QueryBuilderOptions) => {
     const { options, onOptionsChange } = this.props;
     const { builder, settings } = options;
     builder[component] = componentBuilderOptions.builder;
     onOptionsChange({ ...options, builder, settings });
+  };
+
+  selectOptionByValue = (component: string, value: string): SelectableValue<string> | undefined => {
+    if (undefined === value) {
+      return undefined;
+    }
+    const options = this.selectOptions[component].filter(option => option.value === value);
+    if (options.length > 0) {
+      return options[0];
+    }
+    return undefined;
+  };
+
+  buildMultiSelectOptions = (values: string[]): Array<SelectableValue<string>> => {
+    return values.map((key, index) => {
+      return { value: key, label: String(key) };
+    });
+  };
+
+  onSelectionChange = (component: string, option: SelectableValue<string>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    builder[component] = option.value;
+    onOptionsChange({ ...options, builder });
+  };
+
+  onCustomSelection = (component: string, selection: string) => {
+    const option: SelectableValue<string> = { value: selection.toLowerCase(), label: selection };
+    this.selectOptions[component].push(option);
+    this.onSelectionChange(component, option);
+  };
+
+  onMultiSelectSelectionChange = (component: string, opts: Array<SelectableValue<string>>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    builder[component] = opts.map(o => o.value);
+    this.multiSelectOptions[component] = this.buildMultiSelectOptions(builder[component]);
+    onOptionsChange({ ...options, builder });
+  };
+
+  onMultiSelectCustomSelection = (component: string, selection: string) => {
+    const option: SelectableValue<string> = { value: selection.toLowerCase(), label: selection };
+    this.multiSelectOptions[component].push(option);
+    this.onMultiSelectSelectionChange(component, this.multiSelectOptions[component]);
   };
 
   builderOptions = (component: string): QueryBuilderOptions => {
@@ -208,100 +241,6 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
               onOptionsChange={this.onOptionsChange.bind(this, 'dataSource')}
             />
             <div className="gf-form-group">
-              <label className="gf-form-label">Dimensions</label>
-              <div>
-                {builder.dimensions.map((item: any, index: number) => (
-                  <ComponentRow
-                    key={components['dimensions'][index]}
-                    index={index}
-                    component={Dimension}
-                    props={{
-                      options: this.componentOptions('dimensions', index),
-                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'dimensions', index),
-                    }}
-                    onRemove={this.onComponentRemove.bind(this, 'dimensions')}
-                  />
-                ))}
-              </div>
-              <Button
-                variant="secondary"
-                icon="plus"
-                onClick={() => {
-                  this.onComponentAdd('dimensions');
-                }}
-              >
-                Add a dimension
-              </Button>
-            </div>
-            <LimitSpec
-              options={this.builderOptions('limitSpec')}
-              onOptionsChange={this.onOptionsChange.bind(this, 'limitSpec')}
-            />
-            <HavingSpec
-              options={this.builderOptions('having')}
-              onOptionsChange={this.onOptionsChange.bind(this, 'having')}
-            />
-            <Granularity
-              options={this.builderOptions('granularity')}
-              onOptionsChange={this.onOptionsChange.bind(this, 'granularity')}
-            />
-            <Filter
-              options={this.builderOptions('filter')}
-              onOptionsChange={this.onOptionsChange.bind(this, 'filter')}
-            />
-            <div className="gf-form-group">
-              <label className="gf-form-label">Aggregations</label>
-              <div>
-                {builder.aggregations.map((item: any, index: number) => (
-                  <ComponentRow
-                    key={components['aggregations'][index]}
-                    index={index}
-                    component={Aggregation}
-                    props={{
-                      options: this.componentOptions('aggregations', index),
-                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'aggregations', index),
-                    }}
-                    onRemove={this.onComponentRemove.bind(this, 'aggregations')}
-                  />
-                ))}
-              </div>
-              <Button
-                variant="secondary"
-                icon="plus"
-                onClick={() => {
-                  this.onComponentAdd('aggregations');
-                }}
-              >
-                Add an aggregation
-              </Button>
-            </div>
-            <div className="gf-form-group">
-              <label className="gf-form-label">Post aggregations</label>
-              <div>
-                {builder.postAggregations.map((item: any, index: number) => (
-                  <ComponentRow
-                    key={components['postAggregations'][index]}
-                    index={index}
-                    component={PostAggregation}
-                    props={{
-                      options: this.componentOptions('postAggregations', index),
-                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'postAggregations', index),
-                    }}
-                    onRemove={this.onComponentRemove.bind(this, 'postAggregations')}
-                  />
-                ))}
-              </div>
-              <Button
-                variant="secondary"
-                icon="plus"
-                onClick={() => {
-                  this.onComponentAdd('dimensions');
-                }}
-              >
-                Add a post aggregation
-              </Button>
-            </div>
-            <div className="gf-form-group">
               <label className="gf-form-label">Intervals</label>
               <div>
                 {builder.intervals.map((item: any, index: number) => (
@@ -328,32 +267,42 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
                 Add interval
               </Button>
             </div>
-            <div className="gf-form-group">
-              <label className="gf-form-label">Sub-totals</label>
-              <div>
-                {builder.subtotalsSpec.map((item: any, index: number) => (
-                  <ComponentRow
-                    key={components['subtotalsSpec'][index]}
-                    index={index}
-                    component={SubtotalsSpec}
-                    props={{
-                      options: this.componentOptions('subtotalsSpec', index),
-                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'subtotalsSpec', index),
-                    }}
-                    onRemove={this.onComponentRemove.bind(this, 'subtotalsSpec')}
-                  />
-                ))}
-              </div>
-              <Button
-                variant="secondary"
-                icon="plus"
-                onClick={() => {
-                  this.onComponentAdd('subtotalsSpec', 'array');
-                }}
-              >
-                Add a sub-total
-              </Button>
-            </div>
+            <Filter
+              options={this.builderOptions('filter')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'filter')}
+            />
+            <label className="gf-form-label">Columns</label>
+            <MultiSelect
+              onChange={this.onMultiSelectSelectionChange.bind(this, 'columns')}
+              onCreateOption={this.onMultiSelectCustomSelection.bind(this, 'columns')}
+              options={this.multiSelectOptions.columns}
+              value={builder.columns}
+              allowCustomValue
+            />
+            <FormField
+              label="batchSize"
+              name="batchSize"
+              type="number"
+              placeholder="The maximum number of rows buffered"
+              value={builder.batchSize}
+              onChange={this.onInputChange}
+            />
+            <FormField
+              label="limit"
+              name="limit"
+              type="number"
+              placeholder="How many rows to return"
+              value={builder.limit}
+              onChange={this.onInputChange}
+            />
+            <label className="gf-form-label">Order</label>
+            <Select
+              options={this.selectOptions.order}
+              value={this.selectOptionByValue('order', builder.order)}
+              allowCustomValue
+              onChange={this.onSelectionChange.bind(this, 'order')}
+              onCreateOption={this.onCustomSelection.bind(this, 'order')}
+            />
           </div>
         </div>
       </>

@@ -6,8 +6,10 @@ export class True extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
     this.resetBuilder(['type']);
-    const { builder } = props.options;
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
     builder.type = 'true';
+    onOptionsChange({ ...options, builder: builder });
   }
 
   resetBuilder = (properties: string[]) => {

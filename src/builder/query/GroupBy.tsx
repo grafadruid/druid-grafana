@@ -74,6 +74,9 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
       'granularity',
       'filter',
       'aggregations',
+      'postAggregations',
+      'intervals',
+      'subtotalsSpec',
     ]);
     const { builder } = props.options;
     builder.queryType = 'groupBy';
