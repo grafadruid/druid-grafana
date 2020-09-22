@@ -146,7 +146,7 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
   };
 
   onCustomSelection = (component: string, selection: string) => {
-    const option: SelectableValue<string> = { value: selection.toLowerCase(), label: selection };
+    const option: SelectableValue<string> = { value: selection, label: selection };
     this.selectOptions[component].push(option);
     this.onSelectionChange(component, option);
   };
@@ -160,7 +160,7 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
   };
 
   onMultiSelectCustomSelection = (component: string, selection: string) => {
-    const option: SelectableValue<string> = { value: selection.toLowerCase(), label: selection };
+    const option: SelectableValue<string> = { value: selection, label: selection };
     this.multiSelectOptions[component].push(option);
     this.onMultiSelectSelectionChange(component, this.multiSelectOptions[component]);
   };
