@@ -1,6 +1,7 @@
 export { Query } from './Query';
 export { DatasourceMetadata } from './DatasourceMetadata';
 export { GroupBy } from './GroupBy';
+export { Json } from './Json';
 export { Scan } from './Scan';
 export { Search } from './Search';
 export { SegmentMetadata } from './SegmentMetadata';

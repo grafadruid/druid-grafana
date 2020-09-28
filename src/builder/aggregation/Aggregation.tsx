@@ -28,6 +28,7 @@ import {
   LongLast,
   LongMax,
   LongMin,
+  LongSum,
   StringAny,
   StringFirstFolding,
   StringFirst,
@@ -74,6 +75,7 @@ export class Aggregation extends PureComponent<QueryBuilderProps, State> {
       'LongLast',
       'LongMax',
       'LongMin',
+      'LongSum',
       'StringAny',
       'StringFirstFolding',
       'StringFirst',
@@ -225,6 +227,9 @@ export class Aggregation extends PureComponent<QueryBuilderProps, State> {
           )}
           {selectedOption.value === 'longmin' && (
             <LongMin options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          )}
+          {selectedOption.value === 'longsum' && (
+            <LongSum options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
           {selectedOption.value === 'stringany' && (
             <StringAny options={builderOptions} onOptionsChange={this.onOptionsChange} />

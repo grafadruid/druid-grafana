@@ -3,7 +3,18 @@ import { css } from 'emotion';
 import { Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 
-import { DatasourceMetadata, GroupBy, Scan, Search, SegmentMetadata, Sql, TimeBoundary, Timeseries, TopN } from './';
+import {
+  DatasourceMetadata,
+  GroupBy,
+  Json,
+  Scan,
+  Search,
+  SegmentMetadata,
+  Sql,
+  TimeBoundary,
+  Timeseries,
+  TopN,
+} from './';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 
 interface State {
@@ -21,6 +32,7 @@ export class Query extends PureComponent<QueryBuilderProps, State> {
     this.selectOptions = this.buildSelectOptions([
       'DatasourceMetadata',
       'GroupBy',
+      'Json',
       'Scan',
       'Search',
       'SegmentMetadata',
@@ -108,6 +120,7 @@ export class Query extends PureComponent<QueryBuilderProps, State> {
           {selectedOption.value === 'groupby' && (
             <GroupBy options={builderOptions} onOptionsChange={this.onOptionsChange} />
           )}
+          {selectedOption.value === 'json' && <Json options={builderOptions} onOptionsChange={this.onOptionsChange} />}
           {selectedOption.value === 'scan' && <Scan options={builderOptions} onOptionsChange={this.onOptionsChange} />}
           {selectedOption.value === 'search' && (
             <Search options={builderOptions} onOptionsChange={this.onOptionsChange} />
