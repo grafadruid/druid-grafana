@@ -4,8 +4,8 @@
 
 - Development environment: done
 - Plugin boilerplates (Frontend / Backend): done
-- Druid Native queries implementation: WIP
-- Druid SQL query implementation: todo
+- Query builder UI: done
+- Query backend: WIP
 - Alerting: todo
 - Explore advanced support: todo
 
