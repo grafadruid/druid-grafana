@@ -1,10 +1,11 @@
-module github.com/grafana/simple-datasource-backend
+module github.com/grafadruid/druid-grafana
 
 go 1.14
 
 require (
 	github.com/bitly/go-simplejson v0.5.0
-	github.com/grafadruid/go-druid v0.0.0-20200820163945-70b7ced002cc
-	github.com/grafana/grafana-plugin-sdk-go v0.65.0
-	github.com/magefile/mage v1.9.0
+	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
+	github.com/grafadruid/go-druid v0.0.0-20201011123556-c0e7077261cc
+	github.com/grafana/grafana-plugin-sdk-go v0.78.0
+	github.com/magefile/mage v1.10.0
 )

@@ -22,8 +22,6 @@ type druidQuery struct {
 }
 
 func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
-	log.DefaultLogger.Info("DRUID DS", "SETTINGS", settings)
-
 	data, err := simplejson.NewJson(settings.JSONData)
 	if err != nil {
 		return &druidInstanceSettings{}, err
@@ -48,15 +46,15 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	if err != nil {
 		return &druidInstanceSettings{}, err
 	}
-
 	return &druidInstanceSettings{
-		client: c,
+		client:                 c,
+		queryContextParameters: data.Get("query.contextParameters").MustArray(),
 	}, nil
 }
 
 type druidInstanceSettings struct {
-	client       *druid.Client
-	queryContext map[string]interface{}
+	client                 *druid.Client
+	queryContextParameters []interface{}
 }
 
 func (s *druidInstanceSettings) Dispose() {
@@ -128,12 +126,17 @@ func (ds *druidDatasource) query(ctx context.Context, qry backend.DataQuery, s *
 	// maybe implement a short life cache (druidInstanceSettings.cache ?) and early return then ?
 	response := backend.DataResponse{}
 
-	q, err := ds.prepareQuery(qry.JSON, s)
+	q, err := ds.prepareQuery(qry, s)
 	if err != nil {
 		response.Error = err
 		return response
 	}
 	log.DefaultLogger.Info("DRUID QUERY", "READY TO GO", q)
+	//var result json.RawMessage
+	//resp, err := s.client.Query().Execute(q, result)
+	//log.DefaultLogger.Info("DRUID QUERY", "RESPONSE", resp)
+	//log.DefaultLogger.Info("DRUID QUERY", "RESULT", result)
+	//log.DefaultLogger.Info("DRUID QUERY", "ERROR", err)
 
 	// execute the query and probably, based on ? queryType ? adapt the results to grafana kind of dataframe (wide, long)
 	frame := data.NewFrame("response")
@@ -148,13 +151,37 @@ func (ds *druidDatasource) query(ctx context.Context, qry backend.DataQuery, s *
 	return response
 }
 
-func (ds *druidDatasource) prepareQuery(druidJSONQuery json.RawMessage, s *druidInstanceSettings) (druidquery.Query, error) {
+func (ds *druidDatasource) prepareQuery(qry backend.DataQuery, s *druidInstanceSettings) (druidquery.Query, error) {
 	var q druidQuery
-	err := json.Unmarshal(druidJSONQuery, &q)
+	err := json.Unmarshal(qry.JSON, &q)
 	if err != nil {
-		log.DefaultLogger.Info("DRUID QUERY", "FAILED", err)
 		return nil, err
 	}
-	//merge q.Settings.contextParameters with druidInstanceSettings.contextParameters, tranform parameters into query context and add it as druidquery.Query.context
-	return nil, nil
+	q.Builder["context"] = ds.mergeQueryContexts(
+		ds.prepareQueryContext(s.queryContextParameters),
+		ds.prepareQueryContext(q.Settings["contextParameters"].([]interface{})))
+	jsonQuery, err := json.Marshal(q.Builder)
+	if err != nil {
+		return nil, err
+	}
+	return s.client.Query().Load(jsonQuery)
+}
+
+func (ds *druidDatasource) prepareQueryContext(parameters []interface{}) map[string]interface{} {
+	ctx := make(map[string]interface{})
+	for _, parameter := range parameters {
+		p := parameter.(map[string]interface{})
+		ctx[p["name"].(string)] = p["value"]
+	}
+	return ctx
+}
+
+func (ds *druidDatasource) mergeQueryContexts(contexts ...map[string]interface{}) map[string]interface{} {
+	ctx := make(map[string]interface{})
+	for _, c := range contexts {
+		for k, v := range c {
+			ctx[k] = v
+		}
+	}
+	return ctx
 }
