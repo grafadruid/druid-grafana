@@ -1,1 +1,1 @@
-export { MapLookup } from './MapLookup';
+export { Map } from './Map';

@@ -2,7 +2,7 @@ import React, { PureComponent, ChangeEvent } from 'react';
 import { Checkbox, LegacyForms } from '@grafana/ui';
 import { css } from 'emotion';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import { MapLookup } from '../lookup';
+import { Map } from '../lookup';
 
 const { FormField } = LegacyForms;
 
@@ -63,7 +63,7 @@ export class Lookup extends PureComponent<QueryBuilderProps> {
               width: 300px;
             `}
           >
-            <MapLookup
+            <Map
               options={this.builderOptions('lookup')}
               onOptionsChange={this.onOptionsChange.bind(this, 'lookup')}
             />

@@ -72,7 +72,7 @@ const EntryRow: FC<EntryRowProps> = ({ entry, onBlur, onChange, onRemove }) => {
 
 EntryRow.displayName = 'EntryRow';
 
-export class MapLookup extends PureComponent<QueryBuilderProps, State> {
+export class Map extends PureComponent<QueryBuilderProps, State> {
   state: State = {
     entries: [],
   };
