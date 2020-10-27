@@ -6,6 +6,7 @@ import { SelectableValue } from '@grafana/data';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { DataSource } from '../datasource';
 import { Filter } from '../filter';
+import { VirtualColumn } from '../virtualcolumn';
 import { Interval } from '../date';
 
 const { FormField } = LegacyForms;
@@ -56,7 +57,7 @@ ComponentRow.displayName = 'ComponentRow';
 
 export class Scan extends PureComponent<QueryBuilderProps, State> {
   state: State = {
-    components: { intervals: [] },
+    components: { intervals: [], virtualColumns: [] },
   };
 
   selectOptions: Record<string, Array<SelectableValue<string>>> = {
@@ -71,7 +72,17 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
 
   constructor(props: QueryBuilderProps) {
     super(props);
-    this.resetBuilder(['queryType', 'dataSource', 'intervals', 'filter', 'columns', 'batchSize', 'limit', 'order']);
+    this.resetBuilder([
+      'queryType',
+      'dataSource',
+      'intervals',
+      'filter',
+      'columns',
+      'batchSize',
+      'limit',
+      'order',
+      'virtualColumns',
+    ]);
     const { builder } = props.options;
     builder.queryType = 'scan';
     if (undefined === builder.dataSource) {
@@ -85,12 +96,18 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.intervals) {
       builder.intervals = [];
     }
+    if (undefined === builder.virtualColumns) {
+      builder.virtualColumns = [];
+    }
     this.initializeState();
   }
 
   initializeState = () => {
     this.props.options.builder.intervals.forEach(() => {
       this.state.components['intervals'].push(uniqueId());
+    });
+    this.props.options.builder.virtualColumns.forEach(() => {
+      this.state.components['virtualColumns'].push(uniqueId());
     });
   };
 
@@ -303,6 +320,32 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
               onChange={this.onSelectionChange.bind(this, 'order')}
               onCreateOption={this.onCustomSelection.bind(this, 'order')}
             />
+            <div className="gf-form-group">
+              <label className="gf-form-label">Virtual columns</label>
+              <div>
+                {builder.virtualColumns.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['virtualColumns'][index]}
+                    index={index}
+                    component={VirtualColumn}
+                    props={{
+                      options: this.componentOptions('virtualColumns', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'virtualColumns', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'virtualColumns')}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('virtualColumns');
+                }}
+              >
+                Add a virtual column
+              </Button>
+            </div>
           </div>
         </div>
       </>

@@ -11,6 +11,7 @@ import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { Dimension } from '../dimension';
 import { TopNMetric } from '../topnmetric';
+import { VirtualColumn } from '../virtualcolumn';
 
 const { FormField } = LegacyForms;
 
@@ -60,7 +61,7 @@ ComponentRow.displayName = 'ComponentRow';
 
 export class TopN extends PureComponent<QueryBuilderProps, State> {
   state: State = {
-    components: { dimensions: [], aggregations: [], postAggregations: [], intervals: [], subtotalsSpec: [] },
+    components: { dimensions: [], aggregations: [], postAggregations: [], intervals: [], virtualColumns: [] },
   };
 
   constructor(props: QueryBuilderProps) {
@@ -76,6 +77,7 @@ export class TopN extends PureComponent<QueryBuilderProps, State> {
       'dimension',
       'threshold',
       'metric',
+      'virtualColumns',
     ]);
     const { builder } = props.options;
     builder.queryType = 'topN';
@@ -91,6 +93,9 @@ export class TopN extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.postAggregations) {
       builder.postAggregations = [];
     }
+    if (undefined === builder.virtualColumns) {
+      builder.virtualColumns = [];
+    }
     this.initializeState();
   }
 
@@ -103,6 +108,9 @@ export class TopN extends PureComponent<QueryBuilderProps, State> {
     });
     this.props.options.builder.postAggregations.forEach(() => {
       this.state.components['postAggregations'].push(uniqueId());
+    });
+    this.props.options.builder.virtualColumns.forEach(() => {
+      this.state.components['virtualColumns'].push(uniqueId());
     });
   };
 
@@ -311,6 +319,32 @@ export class TopN extends PureComponent<QueryBuilderProps, State> {
               options={this.builderOptions('metric')}
               onOptionsChange={this.onOptionsChange.bind(this, 'metric')}
             />
+            <div className="gf-form-group">
+              <label className="gf-form-label">Virtual columns</label>
+              <div>
+                {builder.virtualColumns.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['virtualColumns'][index]}
+                    index={index}
+                    component={VirtualColumn}
+                    props={{
+                      options: this.componentOptions('virtualColumns', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'virtualColumns', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'virtualColumns')}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('virtualColumns');
+                }}
+              >
+                Add a virtual column
+              </Button>
+            </div>
           </div>
         </div>
       </>

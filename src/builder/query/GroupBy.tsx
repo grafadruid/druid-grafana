@@ -1,7 +1,8 @@
 import React, { FC, PureComponent } from 'react';
 import { css } from 'emotion';
 import uniqueId from 'lodash/uniqueId';
-import { Button, Icon, stylesFactory } from '@grafana/ui';
+import { Button, Icon, stylesFactory, MultiSelect } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { DataSource } from '../datasource';
 import { Dimension } from '../dimension';
@@ -12,7 +13,7 @@ import { Filter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { Interval } from '../date';
-import { SubtotalsSpec } from '../subtotalsspec';
+import { VirtualColumn } from '../virtualcolumn';
 
 interface State {
   components: Record<string, string[]>;
@@ -77,6 +78,7 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
       'postAggregations',
       'intervals',
       'subtotalsSpec',
+      'virtualColumns',
     ]);
     const { builder } = props.options;
     builder.queryType = 'groupBy';
@@ -95,8 +97,13 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.intervals) {
       builder.intervals = [];
     }
+    if (undefined === builder.virtualColumns) {
+      builder.virtualColumns = [];
+    }
     if (undefined === builder.subtotalsSpec) {
       builder.subtotalsSpec = [];
+    } else {
+      this.multiSelectOptions.subtotalsSpec = this.buildMultiSelectOptions(builder.subtotalsSpec);
     }
     this.initializeState();
   }
@@ -116,6 +123,9 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     });
     this.props.options.builder.subtotalsSpec.forEach(() => {
       this.state.components['subtotalsSpec'].push(uniqueId());
+    });
+    this.props.options.builder.virtualColumns.forEach(() => {
+      this.state.components['virtualColumns'].push(uniqueId());
     });
   };
 
@@ -193,6 +203,36 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
         },
       },
     }));
+  };
+
+  multiSelectOptions: Record<string, Array<SelectableValue<number>>> = { subtotalsSpec: [] };
+
+  buildMultiSelectOptions = (values: number[]): Array<SelectableValue<number>> => {
+    return values.map((key, index) => {
+      return { value: key, label: String(key) };
+    });
+  };
+
+  onSelectionChange = (component: string, options: Array<SelectableValue<number>>) => {
+    this.selectOptions(component, options);
+  };
+
+  onCustomSelection = (component: string, selection: string) => {
+    const value = Number(selection);
+    if (isNaN(value)) {
+      return;
+    }
+    const option: SelectableValue<number> = { value: value, label: selection };
+    this.multiSelectOptions[component].push(option);
+    this.selectOptions(component, this.multiSelectOptions[component]);
+  };
+
+  selectOptions = (component: string, opts: Array<SelectableValue<number>>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    builder[component] = opts.map(o => o.value);
+    this.multiSelectOptions[component] = this.buildMultiSelectOptions(builder[component]);
+    onOptionsChange({ ...options, builder });
   };
 
   render() {
@@ -338,10 +378,13 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
                   <ComponentRow
                     key={components['subtotalsSpec'][index]}
                     index={index}
-                    component={SubtotalsSpec}
+                    component={MultiSelect}
                     props={{
-                      options: this.componentOptions('subtotalsSpec', index),
-                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'subtotalsSpec', index),
+                      onChange: this.onSelectionChange.bind(this, 'subtotalsSpec'),
+                      onCreateOption: this.onCustomSelection.bind(this, 'subtotalsSpec'),
+                      options: this.multiSelectOptions.subtotalsSpec,
+                      value: builder.subtotalsSpec,
+                      allowCustomValue: true,
                     }}
                     onRemove={this.onComponentRemove.bind(this, 'subtotalsSpec')}
                   />
@@ -355,6 +398,32 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
                 }}
               >
                 Add a sub-total
+              </Button>
+            </div>
+            <div className="gf-form-group">
+              <label className="gf-form-label">Virtual columns</label>
+              <div>
+                {builder.virtualColumns.map((item: any, index: number) => (
+                  <ComponentRow
+                    key={components['virtualColumns'][index]}
+                    index={index}
+                    component={VirtualColumn}
+                    props={{
+                      options: this.componentOptions('virtualColumns', index),
+                      onOptionsChange: this.onComponentOptionsChange.bind(this, 'virtualColumns', index),
+                    }}
+                    onRemove={this.onComponentRemove.bind(this, 'virtualColumns')}
+                  />
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                icon="plus"
+                onClick={() => {
+                  this.onComponentAdd('virtualColumns');
+                }}
+              >
+                Add a virtual column
               </Button>
             </div>
           </div>

@@ -63,10 +63,7 @@ export class Lookup extends PureComponent<QueryBuilderProps> {
               width: 300px;
             `}
           >
-            <Map
-              options={this.builderOptions('lookup')}
-              onOptionsChange={this.onOptionsChange.bind(this, 'lookup')}
-            />
+            <Map options={this.builderOptions('lookup')} onOptionsChange={this.onOptionsChange.bind(this, 'lookup')} />
             <Checkbox
               value={builder.retainMissingValue}
               onChange={this.onCheckboxChange.bind(this, 'retainMissingValue')}

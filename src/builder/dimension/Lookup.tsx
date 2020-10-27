@@ -2,7 +2,7 @@ import React, { PureComponent, ChangeEvent } from 'react';
 import { Checkbox, LegacyForms } from '@grafana/ui';
 import { css } from 'emotion';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import { Lookup } from '../lookup';
+import { Lookup as LookupExtractor } from '../lookup';
 
 const { FormField } = LegacyForms;
 
@@ -96,7 +96,7 @@ export class Lookup extends PureComponent<QueryBuilderProps> {
               value={builder.name}
               onChange={this.onInputChange}
             />
-            <Lookup
+            <LookupExtractor
               options={this.builderOptions('lookup')}
               onOptionsChange={this.onOptionsChange.bind(this, 'lookup')}
             />

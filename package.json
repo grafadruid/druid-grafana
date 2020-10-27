@@ -1,20 +1,20 @@
 {
-  "name": "simple-datasource-backend",
+  "name": "druid-grafana",
   "version": "1.0.0",
-  "description": "Grafana Data Source Backend Plugin Template",
+  "description": "Connects Grafana to Druid",
   "scripts": {
     "build": "grafana-toolkit plugin:build",
     "test": "grafana-toolkit plugin:test",
     "dev": "grafana-toolkit plugin:dev",
     "watch": "grafana-toolkit plugin:dev --watch"
   },
-  "author": "Grafana Labs",
+  "author": "Grafadruid",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "7.1.2",
-    "@grafana/runtime": "7.1.2",
-    "@grafana/toolkit": "7.1.2",
-    "@grafana/ui": "7.1.2",
+    "@grafana/data": "7.2.2",
+    "@grafana/runtime": "7.2.2",
+    "@grafana/toolkit": "7.2.2",
+    "@grafana/ui": "7.2.2",
     "@types/lodash": "latest"
   },
   "engines": {
@@ -22,6 +22,6 @@
   },
   "dependencies": {
     "@types/react-datepicker": "^3.1.1",
-    "react-datepicker": "^3.1.3"
+    "react-datepicker": "^3.3.0"
   }
 }

@@ -2,16 +2,14 @@ import React, { PureComponent } from 'react';
 import { css } from 'emotion';
 import { Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
-
-import { Map } from './';
-
+import { Expression } from './';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 
 interface State {
   selectedOption: SelectableValue<string>;
 }
 
-export class Lookup extends PureComponent<QueryBuilderProps, State> {
+export class VirtualColumn extends PureComponent<QueryBuilderProps, State> {
   state: State = {
     selectedOption: {},
   };
@@ -19,7 +17,7 @@ export class Lookup extends PureComponent<QueryBuilderProps, State> {
   constructor(props: QueryBuilderProps) {
     super(props);
 
-    this.selectOptions = this.buildSelectOptions(['Map']);
+    this.selectOptions = this.buildSelectOptions(['Expression']);
 
     const { builder } = props.options;
 
@@ -78,7 +76,7 @@ export class Lookup extends PureComponent<QueryBuilderProps, State> {
     return (
       <>
         <div className="gf-form">
-          <label className="gf-form-label">Lookup</label>
+          <label className="gf-form-label">Virtual column</label>
           <div
             className={css`
               width: 300px;
@@ -94,7 +92,9 @@ export class Lookup extends PureComponent<QueryBuilderProps, State> {
           </div>
         </div>
         <div>
-          {selectedOption.value === 'map' && <Map options={builderOptions} onOptionsChange={this.onOptionsChange} />}
+          {selectedOption.value === 'expression' && (
+            <Expression options={builderOptions} onOptionsChange={this.onOptionsChange} />
+          )}
         </div>
       </>
     );
