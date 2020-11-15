@@ -4,6 +4,7 @@ export interface QueryContextParameter {
 }
 
 export interface QuerySettings {
+  format?: string;
   contextParameters?: QueryContextParameter[];
 }
 export interface QuerySettingsOptions {

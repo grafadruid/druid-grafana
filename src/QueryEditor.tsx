@@ -3,7 +3,7 @@ import { TabsBar, Tab, TabContent, IconName } from '@grafana/ui';
 import { SelectableValue, QueryEditorProps } from '@grafana/data';
 import { DruidDataSource } from './DruidDataSource';
 import { DruidSettings, DruidQuery } from './types';
-import { DruidQueryContextSettings } from './configuration/QuerySettings';
+import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
@@ -63,7 +63,7 @@ export class QueryEditor extends PureComponent<Props, State> {
     const SettingsTab = {
       label: 'Settings',
       value: Tabs.Settings,
-      content: <DruidQueryContextSettings options={settingsOptions} onOptionsChange={this.onSettingsOptionsChange} />,
+      content: <DruidQuerySettings options={settingsOptions} onOptionsChange={this.onSettingsOptionsChange} />,
       icon: 'cog',
     };
 
