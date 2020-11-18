@@ -47,7 +47,7 @@ export class Sql extends PureComponent<QueryBuilderProps> {
             <label className="gf-form-label">SQL query</label>
             <TextArea
               name="query"
-              placeholder="The SQL query. e.g: SELECT * FROM table"
+              placeholder="The SQL query. e.g: SELECT * FROM datasource"
               value={builder.query}
               onChange={this.onInputChange}
             />

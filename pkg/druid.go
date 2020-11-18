@@ -258,7 +258,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 	case "scan":
 		var scanr []map[string]interface{}
 		err := json.Unmarshal(result, &scanr)
-		if err == nil {
+		if err == nil && len(scanr) > 0 {
 			for _, e := range scanr[0]["events"].([]interface{}) {
 				r.Rows = append(r.Rows, e.([]interface{}))
 			}
@@ -277,7 +277,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 	case "sql":
 		var sqlr []interface{}
 		err := json.Unmarshal(result, &sqlr)
-		if err == nil {
+		if err == nil && len(sqlr) > 1 {
 			for _, row := range sqlr[1:] {
 				r.Rows = append(r.Rows, row.([]interface{}))
 			}
@@ -372,11 +372,9 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, format string) (
 		}
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
-	if format == "wide" {
+	if format == "wide" && len(frame.Fields) > 0 {
 		frame, _ = data.LongToWide(frame, nil)
-		response.Frames = append(response.Frames, frame)
-	} else {
-		response.Frames = append(response.Frames, frame)
 	}
+	response.Frames = append(response.Frames, frame)
 	return response, nil
 }
