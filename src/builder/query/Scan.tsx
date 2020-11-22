@@ -103,9 +103,11 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
   }
 
   initializeState = () => {
+    this.state.components['intervals'] = [];
     this.props.options.builder.intervals.forEach(() => {
       this.state.components['intervals'].push(uniqueId());
     });
+    this.state.components['virtualColumns'] = [];
     this.props.options.builder.virtualColumns.forEach(() => {
       this.state.components['virtualColumns'].push(uniqueId());
     });

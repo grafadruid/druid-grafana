@@ -79,6 +79,7 @@ export class TimeBoundary extends PureComponent<QueryBuilderProps, State> {
   }
 
   initializeState = () => {
+    this.state.components['intervals'] = [];
     this.props.options.builder.intervals.forEach(() => {
       this.state.components['intervals'].push(uniqueId());
     });

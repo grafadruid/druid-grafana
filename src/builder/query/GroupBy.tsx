@@ -109,21 +109,27 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
   }
 
   initializeState = () => {
+    this.state.components['dimensions'] = [];
     this.props.options.builder.dimensions.forEach(() => {
       this.state.components['dimensions'].push(uniqueId());
     });
+    this.state.components['aggregations'] = [];
     this.props.options.builder.aggregations.forEach(() => {
       this.state.components['aggregations'].push(uniqueId());
     });
+    this.state.components['postAggregations'] = [];
     this.props.options.builder.postAggregations.forEach(() => {
       this.state.components['postAggregations'].push(uniqueId());
     });
+    this.state.components['intervals'] = [];
     this.props.options.builder.intervals.forEach(() => {
       this.state.components['intervals'].push(uniqueId());
     });
+    this.state.components['subtotalsSpec'] = [];
     this.props.options.builder.subtotalsSpec.forEach(() => {
       this.state.components['subtotalsSpec'].push(uniqueId());
     });
+    this.state.components['virtualColumns'] = [];
     this.props.options.builder.virtualColumns.forEach(() => {
       this.state.components['virtualColumns'].push(uniqueId());
     });

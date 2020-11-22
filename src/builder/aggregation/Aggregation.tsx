@@ -93,6 +93,12 @@ export class Aggregation extends PureComponent<QueryBuilderProps, State> {
     }
   }
 
+  resetBuilder = () => {
+    const { options, onOptionsChange } = this.props;
+    options.builder = {};
+    onOptionsChange(options);
+  };
+
   onSelectionChange = (option: SelectableValue<string>) => {
     this.selectOption(option);
   };
@@ -104,6 +110,10 @@ export class Aggregation extends PureComponent<QueryBuilderProps, State> {
   };
 
   selectOption = (option: SelectableValue<string>) => {
+    if (option === null) {
+      option = {} as SelectableValue;
+      this.resetBuilder();
+    }
     this.setState({ selectedOption: option });
   };
 
@@ -152,6 +162,7 @@ export class Aggregation extends PureComponent<QueryBuilderProps, State> {
               allowCustomValue
               onChange={this.onSelectionChange}
               onCreateOption={this.onCustomSelection}
+              isClearable={true}
             />
           </div>
         </div>

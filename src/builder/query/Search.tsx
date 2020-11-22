@@ -102,9 +102,11 @@ export class Search extends PureComponent<QueryBuilderProps, State> {
   }
 
   initializeState = () => {
+    this.state.components['intervals'] = [];
     this.props.options.builder.intervals.forEach(() => {
       this.state.components['intervals'].push(uniqueId());
     });
+    this.state.components['searchDimensions'] = [];
     this.props.options.builder.searchDimensions.forEach(() => {
       this.state.components['searchDimensions'].push(uniqueId());
     });
