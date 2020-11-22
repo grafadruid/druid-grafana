@@ -11,7 +11,11 @@ export class Simple extends PureComponent<QueryBuilderProps> {
   }
 
   resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
+    let { builder } = this.props.options;
+    if (typeof builder !== 'object') {
+      builder = {};
+      return;
+    }
     for (let key of Object.keys(builder)) {
       if (!properties.includes(key)) {
         delete builder[key];

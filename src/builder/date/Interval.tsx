@@ -29,8 +29,13 @@ export class Interval extends PureComponent<Props, State> {
   }
 
   initializeState = () => {
-    const [start, startPlaceholder] = this.parseDateTimeRange('start', this.props.options.builder);
-    const [stop, stopPlaceholder] = this.parseDateTimeRange('stop', this.props.options.builder);
+    const { builder } = this.props.options;
+    let dateTimeRange = '';
+    if (typeof builder === 'string') {
+      dateTimeRange = builder;
+    }
+    const [start, startPlaceholder] = this.parseDateTimeRange('start', dateTimeRange);
+    const [stop, stopPlaceholder] = this.parseDateTimeRange('stop', dateTimeRange);
     this.state = {
       start: start,
       startPlaceholder: startPlaceholder,
