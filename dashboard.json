@@ -1,0 +1,394 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "7.3.1",
+      "targets": [
+        {
+          "builder": {
+            "query": "SELECT \"__time\", \"channel\", \"cityName\", \"comment\", \"count\", \"countryIsoCode\", \"countryName\", \"diffUrl\", \"flags\", \"isAnonymous\", \"isMinor\", \"isNew\", \"isRobot\", \"isUnpatrolled\", \"metroCode\", \"namespace\", \"page\", \"regionIsoCode\", \"regionName\", \"sum_added\", \"sum_commentLength\", \"sum_deleted\", \"sum_delta\", \"sum_deltaBucket\", \"user\"\nFROM \"wikipedia\"\nWHERE \"countryName\" = 'France'\nAND __time >= MILLIS_TO_TIMESTAMP(${__from}) AND __time <= MILLIS_TO_TIMESTAMP(${__to})",
+            "queryType": "sql"
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "plop",
+                "value": "plip"
+              }
+            ],
+            "format": "long"
+          }
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "SQL",
+      "type": "table"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "hiddenSeries": false,
+      "id": 2,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.3.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "builder": {
+            "batchSize": 20480,
+            "columns": [
+              "__time",
+              "channel",
+              "cityName",
+              "comment",
+              "count",
+              "countryIsoCode",
+              "diffUrl",
+              "flags",
+              "isAnonymous",
+              "isMinor",
+              "isNew",
+              "isRobot",
+              "isUnpatrolled",
+              "metroCode",
+              "namespace",
+              "page",
+              "regionIsoCode",
+              "regionName",
+              "sum_added",
+              "sum_commentLength",
+              "sum_deleted",
+              "sum_delta",
+              "sum_deltaBucket",
+              "user"
+            ],
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "filter": {
+              "dimension": "countryName",
+              "extractionFn": null,
+              "type": "selector",
+              "value": "France"
+            },
+            "intervals": [
+              "${__from:date:iso}/${__to:date:iso}"
+            ],
+            "limit": 0,
+            "order": "none",
+            "queryType": "scan",
+            "virtualColumns": []
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "plop",
+                "value": "plep"
+              }
+            ],
+            "format": "wide"
+          }
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "SCAN",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "hiddenSeries": false,
+      "id": 5,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.3.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "builder": {
+            "aggregations": [
+              {
+                "name": "count",
+                "type": "count"
+              },
+              {
+                "fieldName": "sum_added",
+                "name": "delta",
+                "type": "longLast"
+              }
+            ],
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "descending": false,
+            "filter": {
+              "dimension": "countryName",
+              "extractionFn": null,
+              "type": "selector",
+              "value": "France"
+            },
+            "granularity": "minute",
+            "intervals": [
+              "${__from:date:iso}/${__to:date:iso}"
+            ],
+            "limit": 0,
+            "postAggregations": [],
+            "queryType": "timeseries",
+            "virtualColumns": []
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "plop",
+                "value": "plep"
+              }
+            ],
+            "format": "wide"
+          }
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "TIMESERIES",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 26,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "2016-06-26T23:46:21.573Z",
+    "to": "2016-06-27T16:03:59.999Z"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "New dashboard Copy",
+  "uid": "_GuEjEtGk",
+  "version": 8
+}
