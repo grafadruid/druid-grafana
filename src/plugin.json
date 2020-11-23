@@ -4,6 +4,7 @@
   "id": "grafadruid-druid-grafana",
   "metrics": true,
   "backend": true,
+  "alerting": true,
   "executable": "druid-grafana",
   "info": {
     "description": "Connects Grafana to Druid",
