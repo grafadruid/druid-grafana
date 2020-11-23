@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -163,6 +164,7 @@ func (ds *druidDatasource) prepareQuery(qry backend.DataQuery, s *druidInstanceS
 	var q druidQuery
 	err := json.Unmarshal(qry.JSON, &q)
 	if err != nil {
+		err = errors.New("1")
 		return nil, "", err
 	}
 	q.Builder["context"] = ds.mergeQueryContexts(
@@ -171,12 +173,15 @@ func (ds *druidDatasource) prepareQuery(qry backend.DataQuery, s *druidInstanceS
 	jsonQuery, err := json.Marshal(q.Builder)
 
 	if err != nil {
+		err = errors.New("2")
 		return nil, "", err
 	}
 	//here probably have to ensure __time column is selected and time interval is set based on qry given timerange (upsert), max data points to consider probably?
+	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID JSON QUERY___________________________", string(jsonQuery))
+
 	query, err := s.client.Query().Load(jsonQuery)
 
-	format := ""
+	var format string
 	if q.Settings["format"] != nil {
 		format = q.Settings["format"].(string)
 	}
@@ -214,6 +219,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 	}
 	var result json.RawMessage
 	resp, err := s.client.Query().Execute(q, &result)
+
 	if err != nil {
 		return r, err
 	}
@@ -293,12 +299,40 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 				r.Columns = append(r.Columns, col)
 			}
 		}
-	//case "timeseries":
-	//var tsr []map[string]interface{}
-	//err := json.Unmarshal(result, &tsr)
-	//if err != nil {
-
-	//}
+	case "timeseries":
+		var tsr []map[string]interface{}
+		err := json.Unmarshal(result, &tsr)
+		if err == nil && len(tsr) > 1 {
+			var columns = []string{"timestamp"}
+			for c, _ := range tsr[0]["result"].(map[string]interface{}) {
+				columns = append(columns, c)
+			}
+			for _, result := range tsr {
+				var row []interface{}
+				t := result["timestamp"]
+				if t == nil {
+					//grand total, lets keep it last
+					t = r.Rows[len(r.Rows)-1][0]
+				}
+				row = append(row, t)
+				colResults := result["result"].(map[string]interface{})
+				for _, c := range columns[1:] {
+					row = append(row, colResults[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				if c == "timestamp" {
+					r.TimeColumnIndex = i
+				}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
 	default:
 		log.DefaultLogger.Info("DRUID EXECUTE QUERY", "RESPONSE", resp)
 	}
@@ -373,7 +407,10 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, format string) (
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
 	if format == "wide" && len(frame.Fields) > 0 {
-		frame, _ = data.LongToWide(frame, nil)
+		f, err := data.LongToWide(frame, nil)
+		if err == nil {
+			frame = f
+		}
 	}
 	response.Frames = append(response.Frames, frame)
 	return response, nil
