@@ -6,7 +6,7 @@
 - Plugin boilerplates (Frontend / Backend): done
 - Query builder UI: done (contributions welcomed to make it shiny, clean)
 - Alerting: done
-- Query backend: WIP (done: sql, scan, timeseries)
+- Query backend: WIP (done: sql, scan, timeseries, topn)
 - Variables support: WIP (done: Grafana global variables replacement)
 - Explore advanced support: todo
 
