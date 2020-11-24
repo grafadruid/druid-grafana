@@ -34,7 +34,7 @@ const getComponentRowStyles = stylesFactory(() => {
   };
 });
 
-const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }) => {
+const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }: ComponentRowProps) => {
   const styles = getComponentRowStyles();
   const Component = component;
   return (

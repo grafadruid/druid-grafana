@@ -34,7 +34,7 @@ const getComponentRowStyles = stylesFactory(() => {
   };
 });
 
-const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }) => {
+const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }: ComponentRowProps) => {
   const styles = getComponentRowStyles();
   const Component = component;
   return (
@@ -62,13 +62,15 @@ export class Cascade extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.extractionFns) {
       builder.extractionFns = [];
     }
-    this.initializeState();
+    this.state = this.initialState();
   }
 
-  initializeState = () => {
+  initialState = (): State => {
+    let state: State = { components: [] };
     this.props.options.builder.extractionFns.forEach(() => {
-      this.state.components.push(uniqueId());
+      state.components.push(uniqueId());
     });
+    return state;
   };
 
   resetBuilder = (properties: string[]) => {

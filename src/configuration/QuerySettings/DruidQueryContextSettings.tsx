@@ -39,7 +39,7 @@ const getParameterRowStyles = stylesFactory(() => {
   };
 });
 
-const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRemove }) => {
+const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRemove }: ParameterRowProps) => {
   const styles = getParameterRowStyles();
   const { FormField } = LegacyForms;
 

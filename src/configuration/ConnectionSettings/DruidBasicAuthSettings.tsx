@@ -4,7 +4,7 @@ import { ConnectionSettingsProps } from './types';
 
 const { FormField, SecretFormField } = LegacyForms;
 
-export const DruidBasicAuthSettings: FC<ConnectionSettingsProps> = props => {
+export const DruidBasicAuthSettings: FC<ConnectionSettingsProps> = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
   const { settings, secretSettings, secretSettingsFields } = options;
 

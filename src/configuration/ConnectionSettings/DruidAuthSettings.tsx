@@ -4,7 +4,7 @@ import { FieldSet, Field, Switch } from '@grafana/ui';
 import { ConnectionSettingsProps } from './types';
 import { DruidBasicAuthSettings } from './';
 
-export const DruidAuthSettings: FC<ConnectionSettingsProps> = props => {
+export const DruidAuthSettings: FC<ConnectionSettingsProps> = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
   const { settings } = options;
 

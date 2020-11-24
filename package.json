@@ -11,10 +11,10 @@
   "author": "Grafadruid",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "7.3.2",
-    "@grafana/runtime": "7.3.2",
-    "@grafana/toolkit": "7.3.2",
-    "@grafana/ui": "7.3.2",
+    "@grafana/data": "7.3.3",
+    "@grafana/runtime": "7.3.3",
+    "@grafana/toolkit": "7.3.3",
+    "@grafana/ui": "7.3.3",
     "@types/lodash": "latest"
   },
   "engines": {

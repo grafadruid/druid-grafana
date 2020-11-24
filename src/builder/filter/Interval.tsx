@@ -37,7 +37,7 @@ const getComponentRowStyles = stylesFactory(() => {
   };
 });
 
-const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }) => {
+const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }: ComponentRowProps) => {
   const styles = getComponentRowStyles();
   const Component = component;
   return (
@@ -65,14 +65,17 @@ export class Interval extends PureComponent<QueryBuilderProps, State> {
     if (undefined === builder.intervals) {
       builder.intervals = [];
     }
-    this.initializeState();
+    this.state = this.initialState();
   }
 
-  initializeState = () => {
-    this.state.components['intervals'] = [];
+  initialState = (): State => {
+    let state: State = {
+      components: { intervals: [] },
+    };
     this.props.options.builder.intervals.forEach(() => {
-      this.state.components['intervals'].push(uniqueId());
+      state.components['intervals'].push(uniqueId());
     });
+    return state;
   };
 
   resetBuilder = (properties: string[]) => {

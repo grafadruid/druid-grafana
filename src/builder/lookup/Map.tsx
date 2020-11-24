@@ -39,7 +39,7 @@ const getEntryRowStyles = stylesFactory(() => {
   };
 });
 
-const EntryRow: FC<EntryRowProps> = ({ entry, onBlur, onChange, onRemove }) => {
+const EntryRow: FC<EntryRowProps> = ({ entry, onBlur, onChange, onRemove }: EntryRowProps) => {
   const styles = getEntryRowStyles();
   const { FormField } = LegacyForms;
 
@@ -82,17 +82,19 @@ export class Map extends PureComponent<QueryBuilderProps, State> {
     this.resetBuilder(['type', 'map', 'isOneToOne']);
     const { builder } = props.options;
     builder.type = 'map';
-    this.initializeState();
+    this.state = this.initialState();
   }
 
-  initializeState = () => {
+  initialState = (): State => {
+    let state: State = { entries: [] };
     if (undefined !== this.props.options.builder.map) {
-      this.state = {
+      state = {
         entries: Object.entries(this.props.options.builder.map).map(entry => {
           return { id: uniqueId(), key: String(entry.shift()), value: String(entry.shift()) };
         }),
       };
     }
+    return state;
   };
 
   resetBuilder = (properties: string[]) => {

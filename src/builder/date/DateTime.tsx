@@ -20,17 +20,17 @@ export class DateTime extends PureComponent<Props, State> {
 
   constructor(props: Props) {
     super(props);
-    this.initializeState();
+    this.state = this.initialState();
   }
 
-  initializeState = () => {
+  initialState = (): State => {
     const { builder } = this.props.options;
     let dateTime = '';
     if (typeof builder === 'string') {
       dateTime = builder;
     }
     const [date, datePlaceholder] = this.parseDateTime(dateTime);
-    this.state = {
+    return {
       date: date,
       datePlaceholder: datePlaceholder,
     };

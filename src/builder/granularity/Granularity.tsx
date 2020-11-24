@@ -20,12 +20,14 @@ export class Granularity extends PureComponent<QueryBuilderProps, State> {
     this.selectOptions = this.buildSelectOptions(['Duration', 'Period', 'Simple']);
 
     const { builder } = props.options;
-
-    if (undefined !== builder.type) {
-      const selectedOption = this.selectOptionByValue(builder.type);
-      if (null !== selectedOption) {
-        this.state.selectedOption = selectedOption;
-      }
+    let selectedOption = null;
+    if (typeof builder === 'string') {
+      selectedOption = this.selectOptionByValue('simple');
+    } else if (undefined !== builder.type) {
+      selectedOption = this.selectOptionByValue(builder.type);
+    }
+    if (null !== selectedOption) {
+      this.state.selectedOption = selectedOption;
     }
   }
 

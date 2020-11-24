@@ -4,7 +4,7 @@ import { ConnectionSettingsProps } from './types';
 
 const { FormField } = LegacyForms;
 
-export const DruidHttpSettings: FC<ConnectionSettingsProps> = props => {
+export const DruidHttpSettings: FC<ConnectionSettingsProps> = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
   const { settings } = options;
 

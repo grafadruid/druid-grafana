@@ -44,7 +44,7 @@ const getComponentRowStyles = stylesFactory(() => {
   };
 });
 
-const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }) => {
+const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove }: ComponentRowProps) => {
   const styles = getComponentRowStyles();
   const Component = component;
   return (
@@ -105,34 +105,32 @@ export class GroupBy extends PureComponent<QueryBuilderProps, State> {
     } else {
       this.multiSelectOptions.subtotalsSpec = this.buildMultiSelectOptions(builder.subtotalsSpec);
     }
-    this.initializeState();
+    this.state = this.initialState();
   }
 
-  initializeState = () => {
-    this.state.components['dimensions'] = [];
+  initialState = (): State => {
+    let state: State = {
+      components: { dimensions: [], aggregations: [], postAggregations: [], intervals: [], subtotalsSpec: [] },
+    };
     this.props.options.builder.dimensions.forEach(() => {
-      this.state.components['dimensions'].push(uniqueId());
+      state.components.dimensions.push(uniqueId());
     });
-    this.state.components['aggregations'] = [];
     this.props.options.builder.aggregations.forEach(() => {
-      this.state.components['aggregations'].push(uniqueId());
+      state.components.aggregations.push(uniqueId());
     });
-    this.state.components['postAggregations'] = [];
     this.props.options.builder.postAggregations.forEach(() => {
-      this.state.components['postAggregations'].push(uniqueId());
+      state.components.postAggregations.push(uniqueId());
     });
-    this.state.components['intervals'] = [];
     this.props.options.builder.intervals.forEach(() => {
-      this.state.components['intervals'].push(uniqueId());
+      state.components.intervals.push(uniqueId());
     });
-    this.state.components['subtotalsSpec'] = [];
     this.props.options.builder.subtotalsSpec.forEach(() => {
-      this.state.components['subtotalsSpec'].push(uniqueId());
+      state.components.subtotalsSpec.push(uniqueId());
     });
-    this.state.components['virtualColumns'] = [];
     this.props.options.builder.virtualColumns.forEach(() => {
-      this.state.components['virtualColumns'].push(uniqueId());
+      state.components.virtualColumns.push(uniqueId());
     });
+    return state;
   };
 
   resetBuilder = (properties: string[]) => {
