@@ -136,7 +136,7 @@ func (ds *druidDatasource) settings(ctx backend.PluginContext) (*druidInstanceSe
 
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________GRAFANA QUERY___________________________", qry)
-	// maybe implement a short life cache (druidInstanceSettings.cache ?) and early return then ?
+	// maybe implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then ?
 	response := backend.DataResponse{}
 	q, f, err := ds.prepareQuery(qry, s)
 	if err != nil {
@@ -209,14 +209,13 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 	r := &druidResponse{}
 	qtyp := q.Type()
 	switch qtyp {
-	case "scan":
-		q.(*druidquery.Scan).SetResultFormat("compactedList")
 	case "sql":
 		q.(*druidquery.SQL).SetResultFormat("array").SetHeader(true)
+	case "scan":
+		q.(*druidquery.Scan).SetResultFormat("compactedList")
 	}
 	var result json.RawMessage
 	resp, err := s.client.Query().Execute(q, &result)
-
 	if err != nil {
 		return r, err
 	}
@@ -258,25 +257,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		c.Type = typ
 	}
 	switch qtyp {
-	case "scan":
-		var scanr []map[string]interface{}
-		err := json.Unmarshal(result, &scanr)
-		if err == nil && len(scanr) > 0 {
-			for _, e := range scanr[0]["events"].([]interface{}) {
-				r.Rows = append(r.Rows, e.([]interface{}))
-			}
-			for i, c := range scanr[0]["columns"].([]interface{}) {
-				col := struct {
-					Name string
-					Type string
-				}{Name: c.(string)}
-				if c.(string) == "__time" {
-					r.TimeColumnIndex = i
-				}
-				detectColumnType(&col, i, r.Rows)
-				r.Columns = append(r.Columns, col)
-			}
-		}
 	case "sql":
 		var sqlr []interface{}
 		err := json.Unmarshal(result, &sqlr)
@@ -377,6 +357,56 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					row = append(row, colResults[c])
 				}
 				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				if c == "timestamp" {
+					r.TimeColumnIndex = i
+				}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "scan":
+		var scanr []map[string]interface{}
+		err := json.Unmarshal(result, &scanr)
+		if err == nil && len(scanr) > 0 {
+			for _, e := range scanr[0]["events"].([]interface{}) {
+				r.Rows = append(r.Rows, e.([]interface{}))
+			}
+			for i, c := range scanr[0]["columns"].([]interface{}) {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c.(string)}
+				if c.(string) == "__time" {
+					r.TimeColumnIndex = i
+				}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "search":
+		var s []map[string]interface{}
+		err := json.Unmarshal(result, &s)
+		if err == nil && len(s) > 0 {
+			var columns = []string{"timestamp"}
+			for c, _ := range s[0]["result"].([]interface{})[0].(map[string]interface{}) {
+				columns = append(columns, c)
+			}
+			for _, result := range s {
+				for _, record := range result["result"].([]interface{}) {
+					var row []interface{}
+					row = append(row, result["timestamp"])
+					o := record.(map[string]interface{})
+					for _, c := range columns[1:] {
+						row = append(row, o[c])
+					}
+					r.Rows = append(r.Rows, row)
+				}
 			}
 			for i, c := range columns {
 				col := struct {
