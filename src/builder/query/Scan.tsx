@@ -323,6 +323,7 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'order')}
               onCreateOption={this.onCustomSelection.bind(this, 'order')}
+              isClearable={true}
             />
             <div className="gf-form-group">
               <label className="gf-form-label">Virtual columns</label>

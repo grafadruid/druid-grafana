@@ -221,6 +221,7 @@ export class TimeBoundary extends PureComponent<QueryBuilderProps, State> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'bound')}
               onCreateOption={this.onCustomSelection.bind(this, 'bound')}
+              isClearable={true}
             />
             <Filter
               options={this.builderOptions('filter')}

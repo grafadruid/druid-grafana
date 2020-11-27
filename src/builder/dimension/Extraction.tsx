@@ -110,6 +110,7 @@ export class Extraction extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange}
               onCreateOption={this.onCustomSelection}
+              isClearable={true}
             />
             <ExtractionFn
               options={this.builderOptions('extractionFn')}
