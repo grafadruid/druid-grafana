@@ -321,6 +321,7 @@ export class Search extends PureComponent<QueryBuilderProps, State> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'sort')}
               onCreateOption={this.onCustomSelection.bind(this, 'sort')}
+              isClearable={true}
             />
           </div>
         </div>

@@ -89,6 +89,7 @@ export class Dimension extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'ordering')}
               onCreateOption={this.onCustomSelection.bind(this, 'ordering')}
+              isClearable={true}
             />
             <FormField
               label="Previous stop"

@@ -150,6 +150,7 @@ export class Bound extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'ordering')}
               onCreateOption={this.onCustomSelection.bind(this, 'ordering')}
+              isClearable={true}
             />
             <ExtractionFn
               options={this.builderOptions('extractionFn')}

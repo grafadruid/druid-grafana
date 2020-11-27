@@ -104,6 +104,7 @@ export class Expression extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'outputType')}
               onCreateOption={this.onCustomSelection.bind(this, 'outputType')}
+              isClearable={true}
             />
           </div>
         </div>

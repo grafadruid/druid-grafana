@@ -126,6 +126,7 @@ class OrderByColumnSpecs extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'direction')}
               onCreateOption={this.onCustomSelection.bind(this, 'direction')}
+              isClearable={true}
             />
             <label className="gf-form-label">Dimension order</label>
             <Select
@@ -134,6 +135,7 @@ class OrderByColumnSpecs extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'dimensionOrder')}
               onCreateOption={this.onCustomSelection.bind(this, 'dimensionOrder')}
+              isClearable={true}
             />
           </div>
         </div>

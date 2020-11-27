@@ -204,6 +204,7 @@ export class Arithmetic extends PureComponent<QueryBuilderProps, State> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'fn')}
               onCreateOption={this.onCustomSelection.bind(this, 'fn')}
+              isClearable={true}
             />
             <label className="gf-form-label">Post aggregations</label>
             <div>
@@ -230,6 +231,7 @@ export class Arithmetic extends PureComponent<QueryBuilderProps, State> {
               allowCustomValue
               onChange={this.onSelectionChange.bind(this, 'ordering')}
               onCreateOption={this.onCustomSelection.bind(this, 'ordering')}
+              isClearable={true}
             />
           </div>
         </div>

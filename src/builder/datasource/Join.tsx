@@ -118,6 +118,7 @@ export class Join extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange}
               onCreateOption={this.onCustomSelection}
+              isClearable={true}
             />
           </div>
         </div>
