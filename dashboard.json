@@ -53,7 +53,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.1",
+      "pluginVersion": "7.3.3",
       "targets": [
         {
           "builder": {
@@ -92,7 +92,7 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 14,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 8
@@ -115,7 +115,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.1",
+      "pluginVersion": "7.3.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -259,7 +259,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 18
       },
       "hiddenSeries": false,
       "id": 5,
@@ -279,7 +279,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.1",
+      "pluginVersion": "7.3.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -373,6 +373,260 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-YlBl"
+          },
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 6,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true
+      },
+      "pluginVersion": "7.3.3",
+      "targets": [
+        {
+          "builder": {
+            "aggregations": [
+              {
+                "fieldName": "sum_delta",
+                "name": "delta",
+                "type": "longSum"
+              }
+            ],
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "dimension": {
+              "dimension": "regionName",
+              "outputName": "region",
+              "outputType": "STRING",
+              "type": "default"
+            },
+            "filter": {
+              "dimension": "countryName",
+              "extractionFn": null,
+              "type": "selector",
+              "value": "France"
+            },
+            "granularity": "all",
+            "intervals": [
+              "${__from:date:iso}/${__to:date:iso}"
+            ],
+            "metric": {
+              "metric": "delta",
+              "type": "numeric"
+            },
+            "postAggregations": [],
+            "queryType": "topN",
+            "threshold": 50,
+            "virtualColumns": []
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "plop",
+                "value": "plep"
+              }
+            ],
+            "format": "wide"
+          }
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "TOPN",
+      "type": "bargauge"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "hiddenSeries": false,
+      "id": 7,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.3.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "builder": {
+            "aggregations": [
+              {
+                "fieldName": "sum_delta",
+                "name": "delta",
+                "type": "longSum"
+              }
+            ],
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "dimensions": [
+              {
+                "dimension": "countryName",
+                "outputName": "country",
+                "outputType": "STRING",
+                "type": "default"
+              },
+              {
+                "dimension": "regionName",
+                "outputName": "region",
+                "outputType": "STRING",
+                "type": "default"
+              }
+            ],
+            "filter": {
+              "dimension": "countryName",
+              "extractionFn": null,
+              "type": "selector",
+              "value": "France"
+            },
+            "granularity": "minute",
+            "intervals": [
+              "${__from:date:iso}/${__to:date:iso}"
+            ],
+            "postAggregations": [],
+            "queryType": "groupBy",
+            "subtotalsSpec": [],
+            "virtualColumns": []
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [],
+            "format": "wide"
+          }
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "GROUPBY",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": false,
@@ -383,12 +637,12 @@
     "list": []
   },
   "time": {
-    "from": "2016-06-26T23:46:21.573Z",
-    "to": "2016-06-27T16:03:59.999Z"
+    "from": "2016-06-26T23:48:51.974Z",
+    "to": "2016-06-27T21:33:49.314Z"
   },
   "timepicker": {},
   "timezone": "",
   "title": "New dashboard Copy",
   "uid": "_GuEjEtGk",
-  "version": 8
+  "version": 10
 }
