@@ -93,7 +93,7 @@ export class StringFormat extends PureComponent<QueryBuilderProps> {
               allowCustomValue
               onChange={this.onSelectionChange}
               onCreateOption={this.onCustomSelection}
-	      isClearable={true}
+              isClearable={true}
             />
           </div>
         </div>

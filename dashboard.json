@@ -85,153 +85,6 @@
       "datasource": null,
       "fieldConfig": {
         "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 8
-      },
-      "hiddenSeries": false,
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "7.3.3",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "builder": {
-            "batchSize": 20480,
-            "columns": [
-              "__time",
-              "channel",
-              "cityName",
-              "comment",
-              "count",
-              "countryIsoCode",
-              "diffUrl",
-              "flags",
-              "isAnonymous",
-              "isMinor",
-              "isNew",
-              "isRobot",
-              "isUnpatrolled",
-              "metroCode",
-              "namespace",
-              "page",
-              "regionIsoCode",
-              "regionName",
-              "sum_added",
-              "sum_commentLength",
-              "sum_deleted",
-              "sum_delta",
-              "sum_deltaBucket",
-              "user"
-            ],
-            "dataSource": {
-              "name": "wikipedia",
-              "type": "table"
-            },
-            "filter": {
-              "dimension": "countryName",
-              "extractionFn": null,
-              "type": "selector",
-              "value": "France"
-            },
-            "intervals": [
-              "${__from:date:iso}/${__to:date:iso}"
-            ],
-            "limit": 0,
-            "order": "none",
-            "queryType": "scan",
-            "virtualColumns": []
-          },
-          "refId": "A",
-          "settings": {
-            "contextParameters": [
-              {
-                "name": "plop",
-                "value": "plep"
-              }
-            ],
-            "format": "wide"
-          }
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "SCAN",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
           "custom": {
             "align": null,
             "filterable": false
@@ -259,7 +112,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 8
       },
       "hiddenSeries": false,
       "id": 5,
@@ -402,7 +255,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 22
       },
       "id": 6,
       "options": {
@@ -509,7 +362,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 32
       },
       "hiddenSeries": false,
       "id": 7,
@@ -627,6 +480,282 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "hiddenSeries": false,
+      "id": 2,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.3.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "builder": {
+            "batchSize": 20480,
+            "columns": [
+              "__time",
+              "channel",
+              "cityName",
+              "comment",
+              "count",
+              "countryIsoCode",
+              "diffUrl",
+              "flags",
+              "isAnonymous",
+              "isMinor",
+              "isNew",
+              "isRobot",
+              "isUnpatrolled",
+              "metroCode",
+              "namespace",
+              "page",
+              "regionIsoCode",
+              "regionName",
+              "sum_added",
+              "sum_commentLength",
+              "sum_deleted",
+              "sum_delta",
+              "sum_deltaBucket",
+              "user"
+            ],
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "filter": {
+              "dimension": "countryName",
+              "extractionFn": null,
+              "type": "selector",
+              "value": "France"
+            },
+            "intervals": [
+              "${__from:date:iso}/${__to:date:iso}"
+            ],
+            "limit": 0,
+            "order": "none",
+            "queryType": "scan",
+            "virtualColumns": []
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "plop",
+                "value": "plep"
+              }
+            ],
+            "format": "wide"
+          }
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "SCAN",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 52
+      },
+      "hiddenSeries": false,
+      "id": 8,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.3.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "builder": {
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "filter": {
+              "dimension": "countryName",
+              "extractionFn": null,
+              "type": "selector",
+              "value": "France"
+            },
+            "intervals": [
+              "${__from:date:iso}/${__to:date:iso}"
+            ],
+            "limit": 0,
+            "query": {
+              "type": "contains",
+              "value": "Allier"
+            },
+            "queryType": "search",
+            "searchDimensions": [
+              {
+                "dimension": "regionName",
+                "outputType": "STRING",
+                "type": "default"
+              }
+            ]
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "plop",
+                "value": "plep"
+              }
+            ],
+            "format": "wide"
+          }
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "SEARCH",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": false,
@@ -637,12 +766,12 @@
     "list": []
   },
   "time": {
-    "from": "2016-06-26T23:48:51.974Z",
-    "to": "2016-06-27T21:33:49.314Z"
+    "from": "2016-06-26T23:54:05.880Z",
+    "to": "2016-06-27T21:07:39.779Z"
   },
   "timepicker": {},
   "timezone": "",
   "title": "New dashboard Copy",
   "uid": "_GuEjEtGk",
-  "version": 10
+  "version": 2
 }
