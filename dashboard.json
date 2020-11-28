@@ -778,6 +778,68 @@
       "timeShift": null,
       "title": "TIME BOUNDARY",
       "type": "table"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 62
+      },
+      "id": 11,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "7.3.3",
+      "targets": [
+        {
+          "builder": {
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "queryType": "dataSourceMetadata"
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "",
+                "value": ""
+              }
+            ],
+            "format": "wide"
+          }
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "DATASOURCE METADATA",
+      "type": "table"
     }
   ],
   "refresh": false,
@@ -795,5 +857,5 @@
   "timezone": "",
   "title": "New dashboard Copy",
   "uid": "_GuEjEtGk",
-  "version": 2
+  "version": 4
 }

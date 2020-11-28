@@ -6,13 +6,22 @@ import { DataSource } from '../datasource';
 export class DatasourceMetadata extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
-
+    this.resetBuilder(['queryType', 'dataSource']);
     const { builder } = props.options;
     builder.queryType = 'dataSourceMetadata';
     if (undefined === builder.dataSource) {
       builder.dataSource = {};
     }
   }
+
+  resetBuilder = (properties: string[]) => {
+    const { builder } = this.props.options;
+    for (let key of Object.keys(builder)) {
+      if (!properties.includes(key)) {
+        delete builder[key];
+      }
+    }
+  };
 
   onOptionsChange = (component: string, componentBuilderOptions: QueryBuilderOptions) => {
     const { options, onOptionsChange } = this.props;
