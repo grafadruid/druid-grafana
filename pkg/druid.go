@@ -449,7 +449,35 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 				r.Columns = append(r.Columns, col)
 			}
 		}
-
+	case "dataSourceMetadata":
+		var dsm []map[string]interface{}
+		err := json.Unmarshal(result, &dsm)
+		if err == nil && len(dsm) > 0 {
+			var columns = []string{"timestamp"}
+			for c, _ := range dsm[0]["result"].(map[string]interface{}) {
+				columns = append(columns, c)
+			}
+			for _, result := range dsm {
+				var row []interface{}
+				row = append(row, result["timestamp"])
+				colResults := result["result"].(map[string]interface{})
+				for _, c := range columns[1:] {
+					row = append(row, colResults[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				if c == "timestamp" {
+					r.TimeColumnIndex = i
+				}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
 	default:
 		log.DefaultLogger.Info("DRUID EXECUTE QUERY", "RESPONSE", resp)
 	}
