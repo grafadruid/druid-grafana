@@ -1,8 +1,7 @@
 import React, { FC, PureComponent, ChangeEvent } from 'react';
 import { css } from 'emotion';
 import uniqueId from 'lodash/uniqueId';
-import { Button, Icon, Select, LegacyForms, stylesFactory } from '@grafana/ui';
-import { SelectableValue } from '@grafana/data';
+import { Button, Icon, LegacyForms, stylesFactory } from '@grafana/ui';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { DataSource } from '../datasource';
 import { Granularity } from '../granularity';
@@ -10,6 +9,7 @@ import { Filter } from '../filter';
 import { Interval } from '../date';
 import { Dimension } from '../dimension';
 import { SearchQuerySpec } from '../searchqueryspec';
+import { SearchSortSpec } from '../searchsortspec';
 
 const { FormField } = LegacyForms;
 
@@ -61,18 +61,6 @@ export class Search extends PureComponent<QueryBuilderProps, State> {
   state: State = {
     components: { intervals: [], searchDimensions: [] },
   };
-
-  selectOptions: Record<string, Array<SelectableValue<string>>> = {
-    sort: [
-      { label: 'Lexicographic', value: 'lexicographic' },
-      { label: 'Alphanumeric', value: 'alphanumeric' },
-      { label: 'String len', value: 'strlen' },
-      { label: 'Numeric', value: 'numeric' },
-      { label: 'Version', value: 'version' },
-    ],
-  };
-
-  multiSelectOptions: Record<string, Array<SelectableValue<string>>> = { columns: [] };
 
   constructor(props: QueryBuilderProps) {
     super(props);
@@ -139,30 +127,6 @@ export class Search extends PureComponent<QueryBuilderProps, State> {
     const { builder, settings } = options;
     builder[component] = componentBuilderOptions.builder;
     onOptionsChange({ ...options, builder, settings });
-  };
-
-  selectOptionByValue = (component: string, value: string): SelectableValue<string> | undefined => {
-    if (undefined === value) {
-      return undefined;
-    }
-    const options = this.selectOptions[component].filter(option => option.value === value);
-    if (options.length > 0) {
-      return options[0];
-    }
-    return undefined;
-  };
-
-  onSelectionChange = (component: string, option: SelectableValue<string>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder[component] = option.value;
-    onOptionsChange({ ...options, builder });
-  };
-
-  onCustomSelection = (component: string, selection: string) => {
-    const option: SelectableValue<string> = { value: selection.toLowerCase(), label: selection };
-    this.selectOptions[component].push(option);
-    this.onSelectionChange(component, option);
   };
 
   builderOptions = (component: string): QueryBuilderOptions => {
@@ -314,14 +278,9 @@ export class Search extends PureComponent<QueryBuilderProps, State> {
               options={this.builderOptions('query')}
               onOptionsChange={this.onOptionsChange.bind(this, 'query')}
             />
-            <label className="gf-form-label">Sort</label>
-            <Select
-              options={this.selectOptions.sort}
-              value={this.selectOptionByValue('sort', builder.sort)}
-              allowCustomValue
-              onChange={this.onSelectionChange.bind(this, 'sort')}
-              onCreateOption={this.onCustomSelection.bind(this, 'sort')}
-              isClearable={true}
+            <SearchSortSpec
+              options={this.builderOptions('sort')}
+              onOptionsChange={this.onOptionsChange.bind(this, 'sort')}
             />
           </div>
         </div>
