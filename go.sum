@@ -52,6 +52,8 @@ github.com/grafadruid/go-druid v0.0.0-alpha10 h1:8G56tqzCAQTNPVK389St2guRiS/dQjm
 github.com/grafadruid/go-druid v0.0.0-alpha10/go.mod h1:tIDI92We2kPp+Bk1jaHfY1JBgMcO5taRr+hNFBqt6fc=
 github.com/grafadruid/go-druid v0.0.0-alpha11 h1:0HEgO9ssHDRhD/8MmuD02pnvgci+5NsX40BFPdvhLYQ=
 github.com/grafadruid/go-druid v0.0.0-alpha11/go.mod h1:tIDI92We2kPp+Bk1jaHfY1JBgMcO5taRr+hNFBqt6fc=
+github.com/grafadruid/go-druid v0.0.0-alpha12 h1:TLhl15KNtUxgmasDVNjJIsRsrUvMUmNaOJaCIrzyiAc=
+github.com/grafadruid/go-druid v0.0.0-alpha12/go.mod h1:tIDI92We2kPp+Bk1jaHfY1JBgMcO5taRr+hNFBqt6fc=
 github.com/grafadruid/go-druid v0.0.0-alpha3 h1:2yJoTaxRNlz5ga7YJs6GMB037TJDor7bxozSwkzevJ0=
 github.com/grafadruid/go-druid v0.0.0-alpha3/go.mod h1:tIDI92We2kPp+Bk1jaHfY1JBgMcO5taRr+hNFBqt6fc=
 github.com/grafadruid/go-druid v0.0.0-alpha4 h1:3u9S/wN6qIgaBKCjyFcMmiKzBXDqKmVzcLyMMECvLck=

@@ -712,6 +712,72 @@
       "timeShift": null,
       "title": "SEARCH",
       "type": "table"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      },
+      "id": 10,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "7.3.3",
+      "targets": [
+        {
+          "builder": {
+            "bound": null,
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "intervals": [
+              "${__from:date:iso}/${__to:date:iso}"
+            ],
+            "queryType": "timeBoundary"
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "",
+                "value": ""
+              }
+            ],
+            "format": "wide"
+          }
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "TIME BOUNDARY",
+      "type": "table"
     }
   ],
   "refresh": false,
@@ -722,12 +788,12 @@
     "list": []
   },
   "time": {
-    "from": "2016-06-26T23:54:05.880Z",
-    "to": "2016-06-27T21:07:39.779Z"
+    "from": "2016-06-27T00:00:00.000Z",
+    "to": "2016-08-27T00:00:00.000Z"
   },
   "timepicker": {},
   "timezone": "",
   "title": "New dashboard Copy",
   "uid": "_GuEjEtGk",
-  "version": 4
+  "version": 2
 }
