@@ -162,7 +162,11 @@ export class Scan extends PureComponent<QueryBuilderProps, State> {
   onSelectionChange = (component: string, option: SelectableValue<string>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder[component] = option.value;
+    let value = null;
+    if (option !== null) {
+      value = option.value;
+    }
+    builder[component] = value;
     onOptionsChange({ ...options, builder });
   };
 

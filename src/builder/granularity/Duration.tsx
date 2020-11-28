@@ -15,9 +15,9 @@ export class Duration extends PureComponent<QueryBuilderProps> {
   }
 
   resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
+    let { builder } = this.props.options;
     if ('string' === typeof builder) {
-      this.props.options.builder = {};
+      builder = null;
     } else {
       for (let key of Object.keys(builder)) {
         if (!properties.includes(key)) {

@@ -54,7 +54,7 @@ export class Query extends PureComponent<QueryBuilderProps, State> {
 
   resetBuilder = () => {
     const { options, onOptionsChange } = this.props;
-    options.builder = {};
+    options.builder = null;
     onOptionsChange(options);
   };
 
