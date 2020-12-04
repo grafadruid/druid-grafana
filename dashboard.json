@@ -840,6 +840,86 @@
       "timeShift": null,
       "title": "DATASOURCE METADATA",
       "type": "table"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 70
+      },
+      "id": 12,
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "7.3.3",
+      "targets": [
+        {
+          "builder": {
+            "analysisTypes": [
+              "cardinality",
+              "size",
+              "aggregators",
+              "interval",
+              "minmax",
+              "queryGranularity",
+              "timestampSpec",
+              "rollup"
+            ],
+            "dataSource": {
+              "name": "wikipedia",
+              "type": "table"
+            },
+            "intervals": [],
+            "lenientAggregatorMerge": false,
+            "queryType": "segmentMetadata",
+            "toInclude": {
+              "type": "all"
+            },
+            "usingDefaultInterval": false
+          },
+          "refId": "A",
+          "settings": {
+            "contextParameters": [
+              {
+                "name": "",
+                "value": ""
+              }
+            ],
+            "format": "long",
+            "view": "columns"
+          }
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "SEGMENT METADATA",
+      "type": "table"
     }
   ],
   "refresh": false,
@@ -850,12 +930,12 @@
     "list": []
   },
   "time": {
-    "from": "2016-06-27T00:00:00.000Z",
-    "to": "2016-08-27T00:00:00.000Z"
+    "from": "2016-06-26T23:56:11.812Z",
+    "to": "2016-06-27T21:20:44.922Z"
   },
   "timepicker": {},
   "timezone": "",
   "title": "New dashboard Copy",
   "uid": "_GuEjEtGk",
-  "version": 4
+  "version": 2
 }

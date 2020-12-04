@@ -1,7 +1,7 @@
 import React, { FC, PureComponent, ChangeEvent } from 'react';
 import { css } from 'emotion';
 import uniqueId from 'lodash/uniqueId';
-import { Button, Icon, MultiSelect, Checkbox, stylesFactory } from '@grafana/ui';
+import { Button, Icon, Select, MultiSelect, Checkbox, stylesFactory } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { DataSource } from '../datasource';
@@ -57,6 +57,14 @@ export class SegmentMetadata extends PureComponent<QueryBuilderProps, State> {
     components: { intervals: [] },
   };
 
+  selectOptions: Record<string, Array<SelectableValue<string>>> = {
+    view: [
+      { label: 'Base', value: 'base' },
+      { label: 'Aggregators', value: 'aggregators' },
+      { label: 'Columns', value: 'columns' },
+      { label: 'TimestampSpec', value: 'timestampspec' },
+    ],
+  };
   multiSelectOptions: Record<string, Array<SelectableValue<string>>> = { analysisTypes: [] };
 
   constructor(props: QueryBuilderProps) {
@@ -137,10 +145,38 @@ export class SegmentMetadata extends PureComponent<QueryBuilderProps, State> {
     onOptionsChange({ ...options, builder, settings });
   };
 
+  selectOptionByValue = (component: string, value: string): SelectableValue<string> | undefined => {
+    if (undefined === value) {
+      return undefined;
+    }
+    const options = this.selectOptions[component].filter(option => option.value === value);
+    if (options.length > 0) {
+      return options[0];
+    }
+    return undefined;
+  };
+
   buildMultiSelectOptions = (values: string[]): Array<SelectableValue<string>> => {
     return values.map((key, index) => {
       return { value: key, label: String(key) };
     });
+  };
+
+  onSelectionChange = (component: string, option: SelectableValue<string>) => {
+    const { options, onOptionsChange } = this.props;
+    const { builder } = options;
+    let value = null;
+    if (option !== null) {
+      value = option.value;
+    }
+    builder[component] = value;
+    onOptionsChange({ ...options, builder });
+  };
+
+  onCustomSelection = (component: string, selection: string) => {
+    const option: SelectableValue<string> = { value: selection, label: selection };
+    this.selectOptions[component].push(option);
+    this.onSelectionChange(component, option);
   };
 
   onMultiSelectSelectionChange = (component: string, opts: Array<SelectableValue<string>>) => {
@@ -155,6 +191,23 @@ export class SegmentMetadata extends PureComponent<QueryBuilderProps, State> {
     const option: SelectableValue<string> = { value: selection, label: selection };
     this.multiSelectOptions[component].push(option);
     this.onMultiSelectSelectionChange(component, this.buildMultiSelectOptions([...builder[component], selection]));
+  };
+
+  onSettingsSelectionChange = (component: string, option: SelectableValue<string>) => {
+    const { options, onOptionsChange } = this.props;
+    const { settings } = options;
+    let value = null;
+    if (option !== null) {
+      value = option.value;
+    }
+    settings[component] = value;
+    onOptionsChange({ ...options, settings });
+  };
+
+  onSettingsCustomSelection = (component: string, selection: string) => {
+    const option: SelectableValue<string> = { value: selection, label: selection };
+    this.selectOptions[component].push(option);
+    this.onSettingsSelectionChange(component, option);
   };
 
   builderOptions = (component: string): QueryBuilderOptions => {
@@ -218,7 +271,7 @@ export class SegmentMetadata extends PureComponent<QueryBuilderProps, State> {
   };
 
   render() {
-    const { builder } = this.props.options;
+    const { builder, settings } = this.props.options;
     const { components } = this.state;
     return (
       <>
@@ -288,6 +341,15 @@ export class SegmentMetadata extends PureComponent<QueryBuilderProps, State> {
               onChange={this.onCheckboxChange.bind(this, 'usingDefaultInterval')}
               label="Using default interval"
               description="Define if it uses the default interval"
+            />
+            <label className="gf-form-label">View</label>
+            <Select
+              options={this.selectOptions.view}
+              value={this.selectOptionByValue('view', settings.view)}
+              allowCustomValue
+              onChange={this.onSettingsSelectionChange.bind(this, 'view')}
+              onCreateOption={this.onSettingsCustomSelection.bind(this, 'view')}
+              isClearable={true}
             />
           </div>
         </div>

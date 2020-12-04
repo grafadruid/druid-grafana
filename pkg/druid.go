@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,8 +28,7 @@ type druidQuery struct {
 }
 
 type druidResponse struct {
-	TimeColumnIndex int
-	Columns         []struct {
+	Columns []struct {
 		Name string
 		Type string
 	}
@@ -136,34 +137,34 @@ func (ds *druidDatasource) settings(ctx backend.PluginContext) (*druidInstanceSe
 
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________GRAFANA QUERY___________________________", qry)
-	// maybe implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then ?
+	//feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
-	q, f, err := ds.prepareQuery(qry, s)
+	q, stg, err := ds.prepareQuery(qry, s)
 	if err != nil {
 		response.Error = err
 		return response
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID QUERY___________________________", q)
-	r, err := ds.executeQuery(q, s)
+	r, err := ds.executeQuery(q, s, stg)
 	if err != nil {
 		response.Error = err
 		return response
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID RESPONSE___________________________", r)
-	response, err = ds.prepareResponse(r, f)
+	response, err = ds.prepareResponse(r, stg)
 	if err != nil {
-		//error could be set from prepareResponse but this gives a chance to react to error here
+		//note: error could be set from prepareResponse but this gives a chance to react to error here
 		response.Error = err
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________GRAFANA RESPONSE___________________________", response)
 	return response
 }
 
-func (ds *druidDatasource) prepareQuery(qry backend.DataQuery, s *druidInstanceSettings) (druidquerybuilder.Query, string, error) {
+func (ds *druidDatasource) prepareQuery(qry backend.DataQuery, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]interface{}, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry.JSON, &q)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	q.Builder["context"] = ds.mergeQueryContexts(
 		ds.prepareQueryContext(s.queryContextParameters),
@@ -171,19 +172,14 @@ func (ds *druidDatasource) prepareQuery(qry backend.DataQuery, s *druidInstanceS
 	jsonQuery, err := json.Marshal(q.Builder)
 
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-	//here probably have to ensure __time column is selected and time interval is set based on qry given timerange (upsert), max data points to consider probably?
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID JSON QUERY___________________________", string(jsonQuery))
 
 	query, err := s.client.Query().Load(jsonQuery)
+	//feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
 
-	var format string
-	if q.Settings["format"] != nil {
-		format = q.Settings["format"].(string)
-	}
-
-	return query, format, err
+	return query, q.Settings, err
 }
 
 func (ds *druidDatasource) prepareQueryContext(parameters []interface{}) map[string]interface{} {
@@ -205,7 +201,8 @@ func (ds *druidDatasource) mergeQueryContexts(contexts ...map[string]interface{}
 	return ctx
 }
 
-func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInstanceSettings) (*druidResponse, error) {
+func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]interface{}) (*druidResponse, error) {
+	// refactor: probably need to extract per-query preprocessor and postprocessor into a per-query file. load those "plugins" (ak. QueryProcessor ?) into a register and then do something like plugins[q.Type()].preprocess(q) and plugins[q.Type()].postprocess(r)
 	r := &druidResponse{}
 	qtyp := q.Type()
 	switch qtyp {
@@ -215,7 +212,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		q.(*druidquery.Scan).SetResultFormat("compactedList")
 	}
 	var result json.RawMessage
-	resp, err := s.client.Query().Execute(q, &result)
+	_, err := s.client.Query().Execute(q, &result)
 	if err != nil {
 		return r, err
 	}
@@ -223,8 +220,9 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		Name string
 		Type string
 	}, pos int, rr [][]interface{}) {
-		typ := "nil"
-		for _, r := range rr {
+		t := map[string]int{"nil": 0}
+		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
+			r := rr[i]
 			switch r[pos].(type) {
 			case string:
 				v := r[pos].(string)
@@ -234,27 +232,47 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					if err != nil {
 						_, err := time.Parse("2006-01-02T15:04:05.000Z", v)
 						if err != nil {
-							typ = "string"
-							break
+							t["string"]++
+							continue
 						}
-						typ = "time"
-						break
+						t["time"]++
+						continue
 					}
-					typ = "bool"
-					break
+					t["bool"]++
+					continue
 				}
-				typ = "int"
-				break
+				t["int"]++
+				continue
 			case float64:
 				if c.Name == "__time" || strings.Contains(strings.ToLower(c.Name), "time_") {
-					typ = "time"
-					break
+					t["time"]++
+					continue
 				}
-				typ = "float"
-				break
+				t["float"]++
+				continue
+			case bool:
+				t["bool"]++
+				continue
 			}
 		}
-		c.Type = typ
+		election := func(values map[string]int) string {
+			type kv struct {
+				Key   string
+				Value int
+			}
+			var ss []kv
+			for k, v := range values {
+				ss = append(ss, kv{k, v})
+			}
+			sort.Slice(ss, func(i, j int) bool {
+				return ss[i].Value > ss[j].Value
+			})
+			if len(ss) == 2 {
+				return ss[0].Key
+			}
+			return "string"
+		}
+		c.Type = election(t)
 	}
 	switch qtyp {
 	case "sql":
@@ -269,9 +287,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c.(string)}
-				if c.(string) == "__time" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
@@ -303,9 +318,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c}
-				if c == "timestamp" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
@@ -334,9 +346,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c}
-				if c == "timestamp" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
@@ -363,9 +372,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c}
-				if c == "timestamp" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
@@ -382,9 +388,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c.(string)}
-				if c.(string) == "__time" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
@@ -413,9 +416,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c}
-				if c == "timestamp" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
@@ -442,9 +442,6 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c}
-				if c == "timestamp" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
@@ -471,20 +468,130 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					Name string
 					Type string
 				}{Name: c}
-				if c == "timestamp" {
-					r.TimeColumnIndex = i
-				}
 				detectColumnType(&col, i, r.Rows)
 				r.Columns = append(r.Columns, col)
 			}
 		}
+	case "segmentMetadata":
+		var sm []map[string]interface{}
+		err := json.Unmarshal(result, &sm)
+		if err == nil && len(sm) > 0 {
+			var columns []string
+			switch settings["view"].(string) {
+			case "base":
+				for k, v := range sm[0] {
+					if k != "aggregators" && k != "columns" && k != "timestampSpec" {
+						if k == "intervals" {
+							for i, _ := range v.([]interface{}) {
+								pos := strconv.Itoa(i)
+								columns = append(columns, "interval_start_"+pos)
+								columns = append(columns, "interval_stop_"+pos)
+							}
+						} else {
+							columns = append(columns, k)
+						}
+					}
+				}
+				for _, result := range sm {
+					var row []interface{}
+					for _, c := range columns {
+						var col interface{}
+						if strings.HasPrefix(c, "interval_") {
+							parts := strings.Split(c, "_")
+							pos := 0
+							if parts[1] == "stop" {
+								pos = 1
+							}
+							idx, err := strconv.Atoi(parts[2])
+							if err != nil {
+								return r, errors.New("interval parsing goes wrong")
+							}
+							ii := result["intervals"].([]interface{})[idx]
+							col = strings.Split(ii.(string), "/")[pos]
+						} else {
+							col = result[c]
+						}
+						row = append(row, col)
+					}
+					r.Rows = append(r.Rows, row)
+				}
+			case "aggregators":
+				for _, v := range sm[0]["aggregators"].(map[string]interface{}) {
+					columns = append(columns, "aggregator")
+					for k, _ := range v.(map[string]interface{}) {
+						columns = append(columns, k)
+					}
+					break
+				}
+				for _, result := range sm {
+					for k, v := range result["aggregators"].(map[string]interface{}) {
+						var row []interface{}
+						for _, c := range columns {
+							var col interface{}
+							if c == "aggregator" {
+								col = k
+							} else {
+								col = v.(map[string]interface{})[c]
+							}
+							row = append(row, col)
+						}
+						r.Rows = append(r.Rows, row)
+					}
+				}
+			case "columns":
+				for _, v := range sm[0]["columns"].(map[string]interface{}) {
+					columns = append(columns, "column")
+					for k, _ := range v.(map[string]interface{}) {
+						columns = append(columns, k)
+					}
+					break
+				}
+				for _, result := range sm {
+					for k, v := range result["columns"].(map[string]interface{}) {
+						var row []interface{}
+						for _, c := range columns {
+							var col interface{}
+							if c == "column" {
+								col = k
+							} else {
+								col = v.(map[string]interface{})[c]
+							}
+							row = append(row, col)
+						}
+						r.Rows = append(r.Rows, row)
+					}
+				}
+			case "timestampspec":
+				for k, _ := range sm[0]["timestampSpec"].(map[string]interface{}) {
+					columns = append(columns, k)
+				}
+				for _, result := range sm {
+					var row []interface{}
+					for _, c := range columns {
+						col := result["timestampSpec"].(map[string]interface{})[c]
+						row = append(row, col)
+					}
+					r.Rows = append(r.Rows, row)
+				}
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+
+		}
 	default:
-		log.DefaultLogger.Info("DRUID EXECUTE QUERY", "RESPONSE", resp)
+		return r, errors.New("unknown query type")
 	}
 	return r, err
 }
 
-func (ds *druidDatasource) prepareResponse(resp *druidResponse, format string) (backend.DataResponse, error) {
+func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]interface{}) (backend.DataResponse, error) {
+	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
 	frame := data.NewFrame("response")
 	for ic, c := range resp.Columns {
@@ -525,9 +632,14 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, format string) (
 				}
 				ff = append(ff.([]int64), int64(i))
 			case "bool":
-				b, err := strconv.ParseBool(r[ic].(string))
-				if err != nil {
-					b = false
+				var b bool
+				var err error
+				b, ok := r[ic].(bool)
+				if !ok {
+					b, err = strconv.ParseBool(r[ic].(string))
+					if err != nil {
+						b = false
+					}
 				}
 				ff = append(ff.([]bool), b)
 			case "nil":
@@ -551,7 +663,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, format string) (
 		}
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
-	if format == "wide" && len(frame.Fields) > 0 {
+	if settings["format"].(string) == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
 		if err == nil {
 			frame = f
