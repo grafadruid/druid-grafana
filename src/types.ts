@@ -7,15 +7,9 @@ export interface DruidQuery extends DataQuery {
   settings: QuerySettings;
 }
 
-//export const DruidDefaultQuery: Partial<DruidQuery> = {
-//constant: 6.5,
-//};
-
-/**
- * These are options configured for each DataSource instance
- */
 export interface DruidSettings extends DataSourceJsonData {
   connection?: ConnectionSettings;
   query?: QuerySettings;
 }
+
 export interface DruidSecureSettings {}

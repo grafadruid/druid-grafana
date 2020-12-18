@@ -120,7 +120,7 @@ services:
     restart: always
 
   grafana:
-    image: grafana/grafana:7.3.3
+    image: grafana/grafana:7.3.6
     container_name: grafana
     user: root
     volumes:

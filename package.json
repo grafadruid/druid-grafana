@@ -11,17 +11,17 @@
   "author": "Grafadruid",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "7.3.3",
-    "@grafana/runtime": "7.3.3",
-    "@grafana/toolkit": "7.3.3",
-    "@grafana/ui": "7.3.3",
+    "@grafana/data": "7.3.6",
+    "@grafana/runtime": "7.3.6",
+    "@grafana/toolkit": "7.3.6",
+    "@grafana/ui": "7.3.6",
     "@types/lodash": "latest"
   },
   "engines": {
     "node": ">=12 <13"
   },
   "dependencies": {
-    "@types/react-datepicker": "^3.1.1",
+    "@types/react-datepicker": "^3.1.2",
     "react-datepicker": "^3.3.0"
   }
 }
