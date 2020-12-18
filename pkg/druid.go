@@ -79,14 +79,137 @@ func newDatasource() datasource.ServeOpts {
 	ds := &druidDatasource{
 		im: datasource.NewInstanceManager(newDataSourceInstance),
 	}
+
 	return datasource.ServeOpts{
-		QueryDataHandler:   ds,
-		CheckHealthHandler: ds,
+		QueryDataHandler:    ds,
+		CheckHealthHandler:  ds,
+		CallResourceHandler: ds,
 	}
 }
 
 type druidDatasource struct {
 	im instancemgmt.InstanceManager
+}
+
+func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
+	var err error
+	var body interface{}
+	var code int
+	body = "Unknown error"
+	code = 500
+	switch req.Path {
+	case "query-variable":
+		switch req.Method {
+		case "POST":
+			body, err = ds.QueryVariableData(ctx, req)
+			if err == nil {
+				code = 200
+			}
+		default:
+			body = "Method not supported"
+		}
+	default:
+		body = "Path not supported"
+	}
+	resp := &backend.CallResourceResponse{Status: code}
+	resp.Body, err = json.Marshal(body)
+	sender.Send(resp)
+	return nil
+}
+
+type grafanaMetricFindValue struct {
+	Value interface{} `json:"value"`
+	Text  string      `json:"text"`
+}
+
+func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
+	log.DefaultLogger.Info("QUERY VARIABLE", "_________________________REQ___________________________", string(req.Body))
+	s, err := ds.settings(req.PluginContext)
+	if err != nil {
+		return []grafanaMetricFindValue{}, err
+	}
+	return ds.queryVariable(req.Body, s)
+}
+
+func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) ([]grafanaMetricFindValue, error) {
+	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "_________________________GRAFANA QUERY___________________________", string(qry))
+	//feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
+	response := []grafanaMetricFindValue{}
+	q, stg, err := ds.prepareQuery(qry, s)
+	if err != nil {
+		return response, err
+	}
+	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "_________________________DRUID QUERY___________________________", q)
+	r, err := ds.executeQuery(q, s, stg)
+	if err != nil {
+		return response, err
+	}
+	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "_________________________DRUID RESPONSE___________________________", r)
+	response, err = ds.prepareVariableResponse(r, stg)
+	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "_________________________GRAFANA RESPONSE___________________________", response)
+	return response, err
+}
+
+func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings map[string]interface{}) ([]grafanaMetricFindValue, error) {
+	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
+	var response []grafanaMetricFindValue
+	for ic, c := range resp.Columns {
+		for _, r := range resp.Rows {
+			switch c.Type {
+			case "string":
+				if r[ic] != nil {
+					response = append(response, grafanaMetricFindValue{Value: r[ic].(string), Text: r[ic].(string)})
+				}
+			case "float":
+				if r[ic] != nil {
+					response = append(response, grafanaMetricFindValue{Value: r[ic].(float64), Text: fmt.Sprintf("%f", r[ic].(float64))})
+				}
+			case "int":
+				if r[ic] != nil {
+					i, err := strconv.Atoi(r[ic].(string))
+					if err != nil {
+						i = 0
+					}
+					response = append(response, grafanaMetricFindValue{Value: i, Text: r[ic].(string)})
+				}
+			case "bool":
+				var b bool
+				var err error
+				b, ok := r[ic].(bool)
+				if !ok {
+					b, err = strconv.ParseBool(r[ic].(string))
+					if err != nil {
+						b = false
+					}
+				}
+				var i int
+				if b {
+					i = 1
+				} else {
+					i = 0
+				}
+				response = append(response, grafanaMetricFindValue{Value: i, Text: strconv.FormatBool(b)})
+			case "time":
+				var t time.Time
+				var err error
+				if r[ic] == nil {
+					r[ic] = 0.0
+				}
+				switch r[ic].(type) {
+				case string:
+					t, err = time.Parse("2006-01-02T15:04:05.000Z", r[ic].(string))
+					if err != nil {
+						t = time.Now()
+					}
+				case float64:
+					sec, dec := math.Modf(r[ic].(float64) / 1000)
+					t = time.Unix(int64(sec), int64(dec*(1e9)))
+				}
+				response = append(response, grafanaMetricFindValue{Value: t.Unix(), Text: t.Format(time.UnixDate)})
+			}
+		}
+	}
+	return response, nil
 }
 
 func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
@@ -139,7 +262,7 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________GRAFANA QUERY___________________________", qry)
 	//feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
-	q, stg, err := ds.prepareQuery(qry, s)
+	q, stg, err := ds.prepareQuery(qry.JSON, s)
 	if err != nil {
 		response.Error = err
 		return response
@@ -160,9 +283,9 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 	return response
 }
 
-func (ds *druidDatasource) prepareQuery(qry backend.DataQuery, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]interface{}, error) {
+func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]interface{}, error) {
 	var q druidQuery
-	err := json.Unmarshal(qry.JSON, &q)
+	err := json.Unmarshal(qry, &q)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -7,8 +7,8 @@
 - Query builder UI: done
 - Alerting: done
 - Query backend: done (sql, timeseries, topn, groupby, timeboundary, segmentmetadata, datasourcemetadata, scan, search)
-- Variables support: WIP (done: Grafana global variables replacement, todo: query variables )
 - Explore advanced support: "done" (standard: done, advanced: todo? any specific need?)
+- Variables support: WIP (done: Grafana global variables replacement, wip: query variables(chained variables not refreshing))
 
 ## What is this Druid-Grafana plugin?
 
