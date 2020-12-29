@@ -152,7 +152,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 
 func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings map[string]interface{}) ([]grafanaMetricFindValue, error) {
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
-	var response []grafanaMetricFindValue
+	response := []grafanaMetricFindValue{}
 	for ic, c := range resp.Columns {
 		for _, r := range resp.Rows {
 			switch c.Type {

@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 1,
-  "iteration": 1608248006034,
+  "iteration": 1609339085936,
   "links": [],
   "panels": [
     {
@@ -54,7 +54,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "targets": [
         {
           "builder": {
@@ -133,7 +133,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -271,7 +271,7 @@
         },
         "showUnfilled": true
       },
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "targets": [
         {
           "builder": {
@@ -383,7 +383,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -520,7 +520,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -665,7 +665,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "targets": [
         {
           "builder": {
@@ -749,7 +749,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "targets": [
         {
           "builder": {
@@ -815,7 +815,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "targets": [
         {
           "builder": {
@@ -878,7 +878,7 @@
         "showHeader": true,
         "sortBy": []
       },
-      "pluginVersion": "7.3.3",
+      "pluginVersion": "7.3.6",
       "targets": [
         {
           "builder": {
@@ -932,12 +932,12 @@
       {
         "allValue": null,
         "current": {
-          "selected": false,
-          "text": "Belgium",
-          "value": "Belgium"
+          "selected": true,
+          "text": "Belarus",
+          "value": "Belarus"
         },
         "datasource": "Druid",
-        "definition": "okkkkk",
+        "definition": "{\"builder\":{\"query\":\"SELECT DISTINCT countryName FROM wikipedia WHERE countryName IS NOT NULL\",\"queryType\":\"sql\"},\"settings\":{\"contextParameters\":[{\"name\":\"AA\",\"value\":\"BB\"}],\"format\":\"wide\"}}",
         "error": null,
         "hide": 0,
         "includeAll": false,
@@ -1476,6 +1476,7 @@
             "query": "SELECT DISTINCT countryName FROM wikipedia WHERE countryName IS NOT NULL",
             "queryType": "sql"
           },
+          "expr": "{\"builder\":{\"query\":\"SELECT DISTINCT countryName FROM wikipedia WHERE countryName IS NOT NULL\",\"queryType\":\"sql\"},\"settings\":{\"contextParameters\":[{\"name\":\"AA\",\"value\":\"BB\"}],\"format\":\"wide\"}}",
           "settings": {
             "contextParameters": [
               {
@@ -1500,11 +1501,11 @@
         "allValue": null,
         "current": {
           "selected": false,
-          "text": "Antwerp",
-          "value": "Antwerp"
+          "text": "Gomel",
+          "value": "Gomel"
         },
         "datasource": "Druid",
-        "definition": "ok",
+        "definition": "{\"builder\":{\"query\":\"SELECT DISTINCT cityName FROM wikipedia WHERE wikipedia.cityName IS NOT NULL AND wikipedia.countryName = '${country}'\",\"queryType\":\"sql\"},\"settings\":{\"contextParameters\":[{\"name\":\"a\",\"value\":\"b\"}],\"format\":\"wide\"}}",
         "error": null,
         "hide": 0,
         "includeAll": false,
@@ -1517,6 +1518,7 @@
             "query": "SELECT DISTINCT cityName FROM wikipedia WHERE wikipedia.cityName IS NOT NULL AND wikipedia.countryName = '${country}'",
             "queryType": "sql"
           },
+          "expr": "{\"builder\":{\"query\":\"SELECT DISTINCT cityName FROM wikipedia WHERE wikipedia.cityName IS NOT NULL AND wikipedia.countryName = '${country}'\",\"queryType\":\"sql\"},\"settings\":{\"contextParameters\":[{\"name\":\"a\",\"value\":\"b\"}],\"format\":\"wide\"}}",
           "settings": {
             "contextParameters": [
               {
@@ -1545,7 +1547,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "New dashboard Copy",
+  "title": "Grafadruid Wikipedia Sample",
   "uid": "_GuEjEtGk",
-  "version": 17
+  "version": 2
 }

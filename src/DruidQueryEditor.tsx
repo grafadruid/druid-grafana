@@ -30,12 +30,14 @@ export class QueryEditor extends PureComponent<Props, State> {
 
   onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = this.props;
+    query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
     onChange({ ...query, ...queryBuilderOptions });
     onRunQuery();
   };
 
   onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = this.props;
+    query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
     onChange({ ...query, ...querySettingsOptions });
     onRunQuery();
   };
