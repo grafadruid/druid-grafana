@@ -5,6 +5,7 @@ import { ConnectionSettings } from './configuration/ConnectionSettings/types';
 export interface DruidQuery extends DataQuery {
   builder: any;
   settings: QuerySettings;
+  expr: string;
 }
 
 export interface DruidSettings extends DataSourceJsonData {

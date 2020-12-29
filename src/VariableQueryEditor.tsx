@@ -32,12 +32,14 @@ export class VariableQueryEditor extends PureComponent<Props, State> {
 
   onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange } = this.props;
-    onChange({ ...query, ...queryBuilderOptions }, '$country');
+    query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
+    onChange({ ...query, ...queryBuilderOptions }, query.expr);
   };
 
   onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange } = this.props;
-    onChange({ ...query, ...querySettingsOptions }, '$country');
+    query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
+    onChange({ ...query, ...querySettingsOptions }, query.expr);
   };
 
   builderOptions = (): QueryBuilderOptions => {
