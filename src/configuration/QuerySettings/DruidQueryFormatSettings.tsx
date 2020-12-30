@@ -10,13 +10,13 @@ export class DruidQueryFormatSettings extends PureComponent<QuerySettingsProps> 
     const { settings } = this.props.options;
 
     if (settings.format === undefined) {
-      settings.format = 'wide';
+      settings.format = 'long';
     }
   }
 
   selectOptions: Array<SelectableValue<string>> = [
-    { label: 'Wide', value: 'wide' },
     { label: 'Long', value: 'long' },
+    { label: 'Wide', value: 'wide' },
   ];
 
   selectOptionByValue = (value?: string): SelectableValue<string> | undefined => {

@@ -289,9 +289,15 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	if err != nil {
 		return nil, nil, err
 	}
-	q.Builder["context"] = ds.mergeQueryContexts(
-		ds.prepareQueryContext(s.queryContextParameters),
-		ds.prepareQueryContext(q.Settings["contextParameters"].([]interface{})))
+
+	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
+		q.Builder["context"] = ds.mergeQueryContexts(
+			ds.prepareQueryContext(s.queryContextParameters),
+			ds.prepareQueryContext(queryContextParameters.([]interface{})))
+	} else {
+		q.Builder["context"] = ds.prepareQueryContext(s.queryContextParameters)
+	}
+
 	jsonQuery, err := json.Marshal(q.Builder)
 
 	if err != nil {
@@ -307,9 +313,11 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 
 func (ds *druidDatasource) prepareQueryContext(parameters []interface{}) map[string]interface{} {
 	ctx := make(map[string]interface{})
-	for _, parameter := range parameters {
-		p := parameter.(map[string]interface{})
-		ctx[p["name"].(string)] = p["value"]
+	if parameters != nil {
+		for _, parameter := range parameters {
+			p := parameter.(map[string]interface{})
+			ctx[p["name"].(string)] = p["value"]
+		}
 	}
 	return ctx
 }
@@ -786,7 +794,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		}
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
-	if settings["format"].(string) == "wide" && len(frame.Fields) > 0 {
+	if format, ok := settings["format"]; ok && format.(string) == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
 		if err == nil {
 			frame = f
