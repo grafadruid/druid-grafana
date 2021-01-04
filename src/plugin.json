@@ -1,11 +1,11 @@
 {
   "type": "datasource",
   "name": "Druid",
-  "id": "grafadruid-druid-grafana",
+  "id": "grafadruid-druid-datasource",
   "metrics": true,
   "backend": true,
   "alerting": true,
-  "executable": "druid-grafana",
+  "executable": "grafadruid-druid-datasource",
   "info": {
     "description": "Connects Grafana to Druid",
     "author": {

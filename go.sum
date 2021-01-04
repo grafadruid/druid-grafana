@@ -80,6 +80,10 @@ github.com/grafadruid/go-druid v0.0.0-alpha8 h1:UDNboOWPrgBqp6Fb2Ne0WjKjl5HYA3Ms
 github.com/grafadruid/go-druid v0.0.0-alpha8/go.mod h1:tIDI92We2kPp+Bk1jaHfY1JBgMcO5taRr+hNFBqt6fc=
 github.com/grafadruid/go-druid v0.0.0-alpha9 h1:Du7+RvX8bFjmN56+h+xmrxZbK/25JPvCbwfgoL0Qzdc=
 github.com/grafadruid/go-druid v0.0.0-alpha9/go.mod h1:tIDI92We2kPp+Bk1jaHfY1JBgMcO5taRr+hNFBqt6fc=
+github.com/grafadruid/go-druid v0.0.0 h1:iRgxs1jpbAW56JQIlzJbdCie7Kl57T8c4iQ6K5gipWk=
+github.com/grafadruid/go-druid v0.0.0/go.mod h1:HTeF03GSabeCnMEMHokF9C47cagjljPeXizFq3XoNXk=
+github.com/grafadruid/go-druid v0.0.1 h1:EdG7G+8JjHq/5sGUaYf2FmlgKorZVuIfd1eZw/ZcWsU=
+github.com/grafadruid/go-druid v0.0.1/go.mod h1:tIDI92We2kPp+Bk1jaHfY1JBgMcO5taRr+hNFBqt6fc=
 github.com/grafana/grafana-plugin-sdk-go v0.78.0 h1:w43X+b36goTvis4TAW5PzhkGuSJokgm3KKYPOYiENAc=
 github.com/grafana/grafana-plugin-sdk-go v0.78.0/go.mod h1:NvxLzGkVhnoBKwzkst6CFfpMFKwAdIUZ1q8ssuLeF60=
 github.com/grafana/grafana-plugin-sdk-go v0.80.0 h1:BwCpXec5pR5dF4fSIc4Q14hKxT0PVX8k5pbsaif9tzU=
