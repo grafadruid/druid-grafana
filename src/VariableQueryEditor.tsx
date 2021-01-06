@@ -32,15 +32,23 @@ export class VariableQueryEditor extends PureComponent<Props, State> {
 
   onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange } = this.props;
+
     //workaround: https://github.com/grafana/grafana/issues/30013
-    query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
+    if (typeof query === 'object') {
+      query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
+    }
+
     onChange({ ...query, ...queryBuilderOptions }, query.expr);
   };
 
   onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange } = this.props;
+
     //workaround: https://github.com/grafana/grafana/issues/30013
-    query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
+    if (typeof query === 'object') {
+      query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
+    }
+
     onChange({ ...query, ...querySettingsOptions }, query.expr);
   };
 
