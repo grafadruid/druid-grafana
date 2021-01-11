@@ -28,7 +28,7 @@ export class Simple extends PureComponent<QueryBuilderProps> {
     { label: 'None', value: 'none' },
     { label: 'Second', value: 'second' },
     { label: 'Minute', value: 'minute' },
-    { label: 'Fifteen minutes', value: 'fiften_minute' },
+    { label: 'Fifteen minutes', value: 'fifteen_minute' },
     { label: 'Thirty minutes', value: 'thirty_minute' },
     { label: 'Hour', value: 'hour' },
     { label: 'Day', value: 'day' },
