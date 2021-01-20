@@ -11,9 +11,7 @@
     "author": {
       "name": "Grafadruid"
     },
-    "keywords": [
-      "druid"
-    ],
+    "keywords": ["druid"],
     "logos": {
       "small": "img/druid.svg",
       "large": "img/druid.svg"
@@ -28,11 +26,17 @@
         "url": "https://github.com/grafadruid/druid-grafana/blob/master/LICENSE"
       }
     ],
-    "screenshots": [],
+    "screenshots": [
+      { "name": "datasource", "path": "img/screenshot-datasource.png" },
+      { "name": "panels", "path": "img/screenshot-panels.png" },
+      { "name": "query builder", "path": "img/screenshot-querybuilder.png" },
+      { "name": "variables", "path": "img/screenshot-variables.png" }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
   "dependencies": {
+    "grafanaDependency": ">=7.0.0",
     "grafanaVersion": "7.x.x",
     "plugins": []
   }

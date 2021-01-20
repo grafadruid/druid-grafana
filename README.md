@@ -17,4 +17,4 @@ Grafana doesn't supports Druid as a Data Source, this plugin aims to do so.
 
 ## Contribute
 
-See [Contribute](CONTRIBUTE.md)
+See [Contribute](https://github.com/grafadruid/druid-grafana/blob/master/CONTRIBUTE.md)
