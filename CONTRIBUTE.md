@@ -18,6 +18,9 @@ In the same "plug & play" spirit, Mage is provided as a binary so you don't have
 
 - To start the environment, run: `./mage env:start`
 - To stop the environment, run: `./mage env:stop`
+
+Once the env is started (with `./mage env:start`) you can build plugin parts or the whole plugin:
+
 - To build frontend part of the plugin, run `./mage frontend:build`
 - To build backend part of the plugin, run `./mage backend:build`
 - To build the whole plugin, run `./mage buildAll` (or simply, `./mage`)
