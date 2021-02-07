@@ -90,7 +90,7 @@ export class QueryEditor extends PureComponent<Props, State> {
     return (
       <>
         <TabsBar>
-          {tabs.map(t => (
+          {tabs.map((t) => (
             <Tab
               key={t.value}
               label={t.label}
@@ -100,7 +100,7 @@ export class QueryEditor extends PureComponent<Props, State> {
             />
           ))}
         </TabsBar>
-        <TabContent>{tabs.find(t => t.value === activeTab)?.content}</TabContent>
+        <TabContent>{tabs.find((t) => t.value === activeTab)?.content}</TabContent>
       </>
     );
   }

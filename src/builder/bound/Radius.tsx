@@ -64,7 +64,7 @@ export class Radius extends PureComponent<QueryBuilderProps> {
   selectOptions = (component: string, opts: Array<SelectableValue<number>>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder[component] = opts.map(o => o.value);
+    builder[component] = opts.map((o) => o.value);
     this.multiSelectOptions[component] = this.buildMultiSelectOptions(builder[component]);
     onOptionsChange({ ...options, builder });
   };

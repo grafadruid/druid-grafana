@@ -26,7 +26,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
 
   normalizeData = (data: Record<string, any>, namespaced: boolean, namespace: string): object => {
     const keyPrefix = namespace + '.';
-    const keys = Object.keys(data).filter(key => {
+    const keys = Object.keys(data).filter((key) => {
       if (namespaced) {
         return !key.includes('.');
       } else {
@@ -60,9 +60,11 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const jsonData = { ...options.jsonData, ...connectionSettings };
     const connectionSecretSettings = this.normalizeData(secretSettings, true, 'connection');
     const secureJsonData = { ...options.secureJsonData, ...connectionSecretSettings };
-    const connectionSecretSettingsFields = this.normalizeData(secretSettingsFields, true, 'connection') as KeyValue<
-      boolean
-    >;
+    const connectionSecretSettingsFields = this.normalizeData(
+      secretSettingsFields,
+      true,
+      'connection'
+    ) as KeyValue<boolean>;
     const secureJsonFields = { ...options.secureJsonFields, ...connectionSecretSettingsFields };
     onOptionsChange({ ...options, jsonData, secureJsonData, secureJsonFields });
   };
@@ -114,7 +116,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
     return (
       <>
         <TabsBar>
-          {tabs.map(t => (
+          {tabs.map((t) => (
             <Tab
               key={t.value}
               label={t.label}
@@ -124,7 +126,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
             />
           ))}
         </TabsBar>
-        <TabContent>{tabs.find(t => t.value === activeTab)?.content}</TabContent>
+        <TabContent>{tabs.find((t) => t.value === activeTab)?.content}</TabContent>
       </>
     );
   }

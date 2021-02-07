@@ -41,7 +41,7 @@ export class Extraction extends PureComponent<QueryBuilderProps> {
     if (undefined === value) {
       return undefined;
     }
-    const options = this.selectOptions.filter(option => option.value === value);
+    const options = this.selectOptions.filter((option) => option.value === value);
     if (options.length > 0) {
       return options[0];
     }
