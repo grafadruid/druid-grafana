@@ -47,7 +47,7 @@ export class Union extends PureComponent<QueryBuilderProps> {
   selectOptions = (opts: Array<SelectableValue<string>>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.dataSources = opts.map(o => o.value);
+    builder.dataSources = opts.map((o) => o.value);
     this.multiSelectOptions = this.buildMultiSelectOptions(builder.dataSources);
     onOptionsChange({ ...options, builder });
   };

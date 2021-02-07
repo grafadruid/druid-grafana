@@ -101,7 +101,7 @@ export class ExtractionFn extends PureComponent<QueryBuilderProps, State> {
   };
 
   selectOptionByValue = (value: string): SelectableValue<string> | null => {
-    const options = this.selectOptions.filter(option => option.value === value.toLowerCase());
+    const options = this.selectOptions.filter((option) => option.value === value.toLowerCase());
     if (options.length > 0) {
       return options[0];
     }

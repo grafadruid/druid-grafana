@@ -43,7 +43,7 @@ const ComponentRow: FC<ComponentRowProps> = ({ index, component, props, onRemove
   return (
     <div className={styles.layout}>
       <Component {...props} />
-      <Button variant="secondary" size="xs" onClick={_e => onRemove(index)}>
+      <Button variant="secondary" size="xs" onClick={(_e) => onRemove(index)}>
         <Icon name="trash-alt" />
       </Button>
     </div>
@@ -149,7 +149,7 @@ export class SegmentMetadata extends PureComponent<QueryBuilderProps, State> {
     if (undefined === value) {
       return undefined;
     }
-    const options = this.selectOptions[component].filter(option => option.value === value);
+    const options = this.selectOptions[component].filter((option) => option.value === value);
     if (options.length > 0) {
       return options[0];
     }
@@ -182,7 +182,7 @@ export class SegmentMetadata extends PureComponent<QueryBuilderProps, State> {
   onMultiSelectSelectionChange = (component: string, opts: Array<SelectableValue<string>>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder[component] = opts.map(o => o.value);
+    builder[component] = opts.map((o) => o.value);
     onOptionsChange({ ...options, builder });
   };
 

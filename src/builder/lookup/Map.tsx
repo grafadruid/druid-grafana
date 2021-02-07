@@ -51,7 +51,7 @@ const EntryRow: FC<EntryRowProps> = ({ entry, onBlur, onChange, onRemove }: Entr
         placeholder="The map key."
         labelWidth={5}
         value={entry.key || ''}
-        onChange={e => onChange({ ...entry, key: e.target.value })}
+        onChange={(e) => onChange({ ...entry, key: e.target.value })}
         onBlur={onBlur}
       />
       <FormField
@@ -60,10 +60,10 @@ const EntryRow: FC<EntryRowProps> = ({ entry, onBlur, onChange, onRemove }: Entr
         value={entry.value}
         labelWidth={5}
         placeholder="The map value."
-        onChange={e => onChange({ ...entry, value: e.currentTarget.value })}
+        onChange={(e) => onChange({ ...entry, value: e.currentTarget.value })}
         onBlur={onBlur}
       />
-      <Button variant="secondary" size="xs" onClick={_e => onRemove(entry.id)}>
+      <Button variant="secondary" size="xs" onClick={(_e) => onRemove(entry.id)}>
         <Icon name="trash-alt" />
       </Button>
     </div>
@@ -89,7 +89,7 @@ export class Map extends PureComponent<QueryBuilderProps, State> {
     let state: State = { entries: [] };
     if (undefined !== this.props.options.builder.map) {
       state = {
-        entries: Object.entries(this.props.options.builder.map).map(entry => {
+        entries: Object.entries(this.props.options.builder.map).map((entry) => {
           return { id: uniqueId(), key: String(entry.shift()), value: String(entry.shift()) };
         }),
       };
@@ -112,15 +112,15 @@ export class Map extends PureComponent<QueryBuilderProps, State> {
     const { entries } = this.state;
     builder.map = {};
     entries
-      .filter(entry => entry.key !== '')
-      .map(entry => {
+      .filter((entry) => entry.key !== '')
+      .map((entry) => {
         builder.map[entry.key] = entry.value;
       });
     onOptionsChange({ ...options, builder });
   };
 
   onEntryAdd = () => {
-    this.setState(prevState => {
+    this.setState((prevState) => {
       return { entries: [...prevState.entries, { id: uniqueId(), key: '', value: '' }] };
     }, this.updateMap);
   };
@@ -128,7 +128,7 @@ export class Map extends PureComponent<QueryBuilderProps, State> {
   onEntryRemove = (id: string) => {
     this.setState(
       ({ entries }) => ({
-        entries: entries.filter(e => e.id !== id),
+        entries: entries.filter((e) => e.id !== id),
       }),
       this.updateMap
     );
@@ -172,7 +172,7 @@ export class Map extends PureComponent<QueryBuilderProps, State> {
                   <EntryRow
                     key={entry.id}
                     entry={entry}
-                    onChange={e => {
+                    onChange={(e) => {
                       this.onEntryChange(index, e);
                     }}
                     onBlur={this.updateMap}
