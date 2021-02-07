@@ -51,7 +51,7 @@ const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRe
         placeholder="Parameter name. e.g: timeout"
         labelWidth={5}
         value={parameter.name || ''}
-        onChange={e => onChange({ ...parameter, name: e.target.value })}
+        onChange={(e) => onChange({ ...parameter, name: e.target.value })}
         onBlur={onBlur}
       />
       <FormField
@@ -60,10 +60,10 @@ const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRe
         value={parameter.value}
         labelWidth={5}
         placeholder="parameter value. e.g: 10"
-        onChange={e => onChange({ ...parameter, value: e.currentTarget.value })}
+        onChange={(e) => onChange({ ...parameter, value: e.currentTarget.value })}
         onBlur={onBlur}
       />
-      <Button variant="secondary" size="xs" onClick={_e => onRemove(parameter.id)}>
+      <Button variant="secondary" size="xs" onClick={(_e) => onRemove(parameter.id)}>
         <Icon name="trash-alt" />
       </Button>
     </div>
@@ -111,7 +111,7 @@ export class DruidQueryContextSettings extends PureComponent<QuerySettingsProps,
   };
 
   onParameterAdd = () => {
-    this.setState(prevState => {
+    this.setState((prevState) => {
       return { parameters: [...prevState.parameters, { id: uniqueId(), name: '', value: '' }] };
     }, this.updateSettings);
   };
@@ -132,7 +132,7 @@ export class DruidQueryContextSettings extends PureComponent<QuerySettingsProps,
   onParameterRemove = (parameterId: string) => {
     this.setState(
       ({ parameters }) => ({
-        parameters: parameters.filter(p => p.id !== parameterId),
+        parameters: parameters.filter((p) => p.id !== parameterId),
       }),
       this.updateSettings
     );
@@ -148,7 +148,7 @@ export class DruidQueryContextSettings extends PureComponent<QuerySettingsProps,
             <ParameterRow
               key={parameter.id}
               parameter={parameter}
-              onChange={p => {
+              onChange={(p) => {
                 this.onParameterChange(i, p);
               }}
               onBlur={this.updateSettings}

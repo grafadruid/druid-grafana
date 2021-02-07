@@ -60,7 +60,7 @@ export class Javascript extends PureComponent<QueryBuilderProps> {
   selectOptions = (opts: Array<SelectableValue<string>>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.fieldNames = opts.map(o => o.value);
+    builder.fieldNames = opts.map((o) => o.value);
     this.multiSelectOptions = this.buildMultiSelectOptions(builder.fieldNames);
     onOptionsChange({ ...options, builder });
   };

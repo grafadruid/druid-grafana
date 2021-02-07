@@ -65,7 +65,7 @@ export class Fragment extends PureComponent<QueryBuilderProps> {
   selectOptions = (opts: Array<SelectableValue<string>>) => {
     const { options, onOptionsChange } = this.props;
     const { builder } = options;
-    builder.values = opts.map(o => o.value);
+    builder.values = opts.map((o) => o.value);
     this.multiSelectOptions = this.buildMultiSelectOptions(builder.values);
     onOptionsChange({ ...options, builder });
   };
