@@ -32,7 +32,7 @@ export class QueryEditor extends PureComponent<Props, State> {
     const { query, onChange, onRunQuery } = this.props;
 
     //todo: need to implement some kind of hook system to alter a query from modules
-    if (queryBuilderOptions.builder.intervals.length === 0) {
+    if (Array.isArray(queryBuilderOptions.builder.intervals) && queryBuilderOptions.builder.intervals.length === 0) {
       queryBuilderOptions.builder.intervals.push('${__from:date:iso}/${__to:date:iso}');
     }
     //workaround (https://github.com/grafana/grafana/issues/30013)
