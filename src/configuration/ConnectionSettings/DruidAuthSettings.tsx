@@ -9,7 +9,14 @@ export const DruidAuthSettings: FC<ConnectionSettingsProps> = (props: Connection
   const { settings } = options;
 
   const onSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
-    settings.basicAuth = event!.currentTarget.checked;
+    switch (event.target.name) {
+      case 'basicAuth':
+        settings.basicAuth = event!.currentTarget.checked;
+        break;
+      case 'skipTls':
+        settings.skipTls = event!.currentTarget.checked;
+        break;
+    }
     onOptionsChange({ ...options, settings: settings });
   };
 
@@ -22,8 +29,11 @@ export const DruidAuthSettings: FC<ConnectionSettingsProps> = (props: Connection
         `}
       >
         <Field horizontal label="With basic authentication" description="Enable HTTP Basic authentication">
-          <Switch value={settings.basicAuth} onChange={onSettingChange} />
+          <Switch value={settings.basicAuth} name="basicAuth" onChange={onSettingChange} />
         </Field>
+        <Field horizontal label="Skip TLS Verify" description="Skip TLS Verification">
+          <Switch value={settings.skipTls} name="skipTls" onChange={onSettingChange} />
+        </Field>{' '}
       </FieldSet>
       {settings.basicAuth && (
         <>
