@@ -8,4 +8,5 @@ require (
 	github.com/grafadruid/go-druid v0.0.2
 	github.com/grafana/grafana-plugin-sdk-go v0.80.0
 	github.com/magefile/mage v1.10.0
+	github.com/stretchr/testify v1.6.1
 )
