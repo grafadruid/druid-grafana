@@ -29,10 +29,10 @@ export const DruidAuthSettings: FC<ConnectionSettingsProps> = (props: Connection
         `}
       >
         <Field horizontal label="With basic authentication" description="Enable HTTP Basic authentication">
-          <Switch value={settings.basicAuth} name="basicAuth" onChange={onSettingChange} />
+          <Switch value={settings.basicAuth} data-testid="basicAuth" name="basicAuth" onChange={onSettingChange} />
         </Field>
         <Field horizontal label="Skip TLS Verify" description="Skip TLS Verification">
-          <Switch value={settings.skipTls} name="skipTls" onChange={onSettingChange} />
+          <Switch value={settings.skipTls} data-testid="skipTls" name="skipTls" onChange={onSettingChange} />
         </Field>{' '}
       </FieldSet>
       {settings.basicAuth && (

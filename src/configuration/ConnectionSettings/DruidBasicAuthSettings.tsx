@@ -50,6 +50,7 @@ export const DruidBasicAuthSettings: FC<ConnectionSettingsProps> = (props: Conne
         label="User"
         name="user"
         type="text"
+        data-testid="user"
         placeholder="the user. e.g: jdoe"
         labelWidth={11}
         inputWidth={20}
