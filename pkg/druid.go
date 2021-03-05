@@ -56,7 +56,7 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
 	}
 	if skipTls := data.Get("connection.skipTls").MustBool(); skipTls {
-		druidOpts = append(druidOpts, druid.WithSkipTLSVerify(skipTls))
+		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}
 
 	c, err := druid.NewClient(data.Get("connection.url").MustString(), druidOpts...)
