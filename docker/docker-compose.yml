@@ -1,4 +1,4 @@
-version: "2.2"
+version: '2.2'
 
 volumes:
   middle_var: {}
@@ -11,7 +11,7 @@ volumes:
 
 services:
   postgres:
-    container_name: postgres
+    container_name: grafadruid-postgres
     image: postgres:latest
     user: root
     volumes:
@@ -28,7 +28,7 @@ services:
       - ZOO_MY_ID=1
   coordinator:
     image: apache/druid:0.20.0
-    container_name: coordinator
+    container_name: grafadruid-coordinator
     user: root
     volumes:
       - druid_data:/opt/data
@@ -38,7 +38,7 @@ services:
       - zookeeper
       - postgres
     ports:
-      - "8081:8081"
+      - '8081:8081'
     command:
       - coordinator
     env_file:
@@ -46,7 +46,7 @@ services:
     restart: always
   broker:
     image: apache/druid:0.20.0
-    container_name: broker
+    container_name: grafadruid-broker
     user: root
     volumes:
       - broker_var:/opt/druid/var
@@ -56,7 +56,7 @@ services:
       - postgres
       - coordinator
     ports:
-      - "8082:8082"
+      - '8082:8082'
     command:
       - broker
     env_file:
@@ -64,7 +64,7 @@ services:
     restart: always
   historical:
     image: apache/druid:0.20.0
-    container_name: historical
+    container_name: grafadruid-historical
     user: root
     volumes:
       - druid_data:/opt/data
@@ -75,7 +75,7 @@ services:
       - postgres
       - coordinator
     ports:
-      - "8083:8083"
+      - '8083:8083'
     command:
       - historical
     env_file:
@@ -83,7 +83,7 @@ services:
     restart: always
   middlemanager:
     image: apache/druid:0.20.0
-    container_name: middlemanager
+    container_name: grafadruid-middlemanager
     user: root
     volumes:
       - druid_data:/opt/data
@@ -94,7 +94,7 @@ services:
       - postgres
       - coordinator
     ports:
-      - "8091:8091"
+      - '8091:8091'
     command:
       - middleManager
     env_file:
@@ -102,7 +102,7 @@ services:
     restart: always
   router:
     image: apache/druid:0.20.0
-    container_name: router
+    container_name: grafadruid-router
     user: root
     volumes:
       - router_var:/opt/druid/var
@@ -112,7 +112,7 @@ services:
       - postgres
       - coordinator
     ports:
-      - "8888:8888"
+      - '8888:8888'
     command:
       - router
     env_file:
@@ -121,33 +121,24 @@ services:
 
   grafana:
     image: grafana/grafana:7.4.0
-    container_name: grafana
+    container_name: grafadruid-grafana
     user: root
     volumes:
       - ../dist:/var/lib/grafana/plugins/druid-grafana
-      - ./grafana/:/etc/grafana/
+      - ./grafana/dashboards:/etc/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - broker
     ports:
-      - "3000:3000"
+      - '3000:3000'
     env_file:
       - ./grafana/environment
     restart: always
 
-  setup:
-    container_name: setup
+  toolbox:
+    container_name: grafadruid-toolbox
     build:
-      dockerfile: ./provisioning/Dockerfile
-      context: .
-    user: root
-    depends_on:
-      - coordinator
-    restart: "no"
-
-  builder:
-    container_name: builder
-    build:
-      dockerfile: ./builder/Dockerfile
+      dockerfile: ./toolbox/Dockerfile
       context: .
     volumes:
       - ../:/workspace
