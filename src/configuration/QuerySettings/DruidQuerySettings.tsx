@@ -1,5 +1,5 @@
 import React, { FC } from 'react';
-import { DruidQueryContextSettings, DruidQueryFormatSettings } from './';
+import { DruidQueryContextSettings, DruidQueryFormatSettings, DruidQueryEmptyColumnSettings } from './';
 import { QuerySettingsProps } from './types';
 
 export const DruidQuerySettings: FC<QuerySettingsProps> = (props: QuerySettingsProps) => {
@@ -7,6 +7,7 @@ export const DruidQuerySettings: FC<QuerySettingsProps> = (props: QuerySettingsP
     <>
       <DruidQueryContextSettings {...props} />
       <DruidQueryFormatSettings {...props} />
+      <DruidQueryEmptyColumnSettings {...props} />
     </>
   );
 };

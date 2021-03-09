@@ -727,6 +727,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	frame := data.NewFrame("response")
 	for ic, c := range resp.Columns {
 		var ff interface{}
+    columnIsEmpty := true
 		switch c.Type {
 		case "string":
 			ff = make([]string, 0)
@@ -742,6 +743,9 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 			ff = make([]time.Time, 0)
 		}
 		for _, r := range resp.Rows {
+      if columnIsEmpty && r[ic] != nil && r[ic] != "" {
+        columnIsEmpty = false
+      }
 			switch c.Type {
 			case "string":
 				if r[ic] == nil {
@@ -792,7 +796,9 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 				}
 			}
 		}
-		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
+    if hideEmptyColumns, ok := settings["hideEmptyColumns"]; ok && (!hideEmptyColumns.(bool) || !columnIsEmpty) {
+      frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
+    }
 	}
 	if format, ok := settings["format"]; ok && format.(string) == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
