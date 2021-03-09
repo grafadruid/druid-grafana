@@ -55,6 +55,14 @@ func (Env) Stop() error {
 	return nil
 }
 
+// Update update the docker by building images from Dockerfile
+func (Env) Update() error {
+	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "build"); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Restart stop & start the development environment
 func (Env) Restart() {
 	e := Env{}
