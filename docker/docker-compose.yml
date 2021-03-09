@@ -125,7 +125,7 @@ services:
     user: root
     volumes:
       - ../dist:/var/lib/grafana/plugins/druid-grafana
-#      - ./grafana/provisioning.yml:/etc/grafana/provisioning
+      - ./grafana/:/etc/grafana/
     depends_on:
       - broker
     ports:
@@ -133,6 +133,16 @@ services:
     env_file:
       - ./grafana/environment
     restart: always
+
+  setup:
+    container_name: setup
+    build:
+      dockerfile: ./provisioning/Dockerfile
+      context: .
+    user: root
+    depends_on:
+      - coordinator
+    restart: "no"
 
   builder:
     container_name: builder
