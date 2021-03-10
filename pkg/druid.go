@@ -427,7 +427,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		err := json.Unmarshal(result, &tsr)
 		if err == nil && len(tsr) > 0 {
 			var columns = []string{"timestamp"}
-			for c, _ := range tsr[0]["result"].(map[string]interface{}) {
+			for c := range tsr[0]["result"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
 			for _, result := range tsr {
@@ -458,7 +458,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		err := json.Unmarshal(result, &tn)
 		if err == nil && len(tn) > 0 {
 			var columns = []string{"timestamp"}
-			for c, _ := range tn[0]["result"].([]interface{})[0].(map[string]interface{}) {
+			for c := range tn[0]["result"].([]interface{})[0].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
 			for _, result := range tn {
@@ -486,7 +486,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		err := json.Unmarshal(result, &gb)
 		if err == nil && len(gb) > 0 {
 			var columns = []string{"timestamp"}
-			for c, _ := range gb[0]["event"].(map[string]interface{}) {
+			for c := range gb[0]["event"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
 			for _, result := range gb {
@@ -528,7 +528,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		err := json.Unmarshal(result, &s)
 		if err == nil && len(s) > 0 {
 			var columns = []string{"timestamp"}
-			for c, _ := range s[0]["result"].([]interface{})[0].(map[string]interface{}) {
+			for c := range s[0]["result"].([]interface{})[0].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
 			for _, result := range s {
@@ -556,7 +556,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		err := json.Unmarshal(result, &tb)
 		if err == nil && len(tb) > 0 {
 			var columns = []string{"timestamp"}
-			for c, _ := range tb[0]["result"].(map[string]interface{}) {
+			for c := range tb[0]["result"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
 			for _, result := range tb {
@@ -582,7 +582,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		err := json.Unmarshal(result, &dsm)
 		if err == nil && len(dsm) > 0 {
 			var columns = []string{"timestamp"}
-			for c, _ := range dsm[0]["result"].(map[string]interface{}) {
+			for c := range dsm[0]["result"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
 			for _, result := range dsm {
@@ -613,7 +613,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 				for k, v := range sm[0] {
 					if k != "aggregators" && k != "columns" && k != "timestampSpec" {
 						if k == "intervals" {
-							for i, _ := range v.([]interface{}) {
+							for i := range v.([]interface{}) {
 								pos := strconv.Itoa(i)
 								columns = append(columns, "interval_start_"+pos)
 								columns = append(columns, "interval_stop_"+pos)
@@ -649,7 +649,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 			case "aggregators":
 				for _, v := range sm[0]["aggregators"].(map[string]interface{}) {
 					columns = append(columns, "aggregator")
-					for k, _ := range v.(map[string]interface{}) {
+					for k := range v.(map[string]interface{}) {
 						columns = append(columns, k)
 					}
 					break
@@ -672,7 +672,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 			case "columns":
 				for _, v := range sm[0]["columns"].(map[string]interface{}) {
 					columns = append(columns, "column")
-					for k, _ := range v.(map[string]interface{}) {
+					for k := range v.(map[string]interface{}) {
 						columns = append(columns, k)
 					}
 					break
@@ -693,7 +693,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 					}
 				}
 			case "timestampspec":
-				for k, _ := range sm[0]["timestampSpec"].(map[string]interface{}) {
+				for k := range sm[0]["timestampSpec"].(map[string]interface{}) {
 					columns = append(columns, k)
 				}
 				for _, result := range sm {
@@ -725,9 +725,10 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
 	frame := data.NewFrame("response")
+	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
 	for ic, c := range resp.Columns {
 		var ff interface{}
-    columnIsEmpty := true
+		columnIsEmpty := true
 		switch c.Type {
 		case "string":
 			ff = make([]string, 0)
@@ -743,9 +744,9 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 			ff = make([]time.Time, 0)
 		}
 		for _, r := range resp.Rows {
-      if columnIsEmpty && r[ic] != nil && r[ic] != "" {
-        columnIsEmpty = false
-      }
+			if columnIsEmpty && r[ic] != nil && r[ic] != "" {
+				columnIsEmpty = false
+			}
 			switch c.Type {
 			case "string":
 				if r[ic] == nil {
@@ -796,9 +797,10 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 				}
 			}
 		}
-    if hideEmptyColumns, ok := settings["hideEmptyColumns"]; ok && (!hideEmptyColumns.(bool) || !columnIsEmpty) {
-      frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
-    }
+		if hideEmptyColumns && columnIsEmpty {
+			continue
+		}
+		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
 	if format, ok := settings["format"]; ok && format.(string) == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
