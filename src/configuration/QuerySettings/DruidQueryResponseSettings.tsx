@@ -11,7 +11,9 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
 
     if (settings.format === undefined) {
       settings.format = 'long';
-      settings.hideEmptyColumns = true;
+    }
+    if (settings.hideEmptyColumns === undefined) {
+      settings.hideEmptyColumns = false;
     }
   }
 
