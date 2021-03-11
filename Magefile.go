@@ -75,34 +75,31 @@ func (Env) Rebuild() error {
 
 // Provision provisions druid example data in druid
 func (Env) Provision() error {
-	fmt.Printf("\nIngesting example data in druid\n")
+	fmt.Printf("\nDownloading required scripts\n")
 
-	if err := getDruidScripts(); err != nil {
+	fileList := []string{"post-index-task", "post-index-task-main"}
+	if err := downloadDruidScripts(fileList); err != nil {
 		return err
 	}
-
-	url := defaultCoordinatorURL + taskEndpoint
-	if err := run("curl", "-X", "'POST'", "-H", "'Content-Type:application/json'", "-d", defaultIngestFile, url); err != nil {
+	fmt.Printf("\nIngesting example data in druid\n")
+	if err := run("./post-index-task", "--file", "docker/provisioning/ingest-spec.json", "--url", defaultCoordinatorURL, "--complete-timeout", "1200", "--coordinator-url", defaultCoordinatorURL); err != nil {
 		return err
+	}
+	fmt.Printf("\nCleaning up\n")
+	for _, file := range fileList {
+		if err := run("rm", file); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func getDruidScripts() error {
-	fileList := []string{"post-index-task", "post-index-task-main"}
-
-	scriptsDir := "scripts/"
-	if err := run("mkdir", "-p", scriptsDir); err != nil {
-		return err
-	}
+func downloadDruidScripts(fileList []string) error {
 	for _, file := range fileList {
-		if err := run("wget", "https://raw.githubusercontent.com/apache/druid/master/examples/bin/"+file); err != nil {
+		if err := run("wget", "-q", "https://raw.githubusercontent.com/apache/druid/master/examples/bin/"+file); err != nil {
 			return err
 		}
 		if err := run("chmod", "+x", file); err != nil {
-			return err
-		}
-		if err := run("mv", file, scriptsDir); err != nil {
 			return err
 		}
 	}
