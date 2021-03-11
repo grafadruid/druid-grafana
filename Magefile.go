@@ -13,9 +13,15 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
+const (
+	defaultIngestFile     string = "@docker/provisioning/ingest-spec.json"
+	defaultCoordinatorURL string = "http://coordinator:8081"
+	taskEndpoint          string = "/druid/indexer/v1/task"
+)
+
 var (
 	useDocker bool     = os.Getenv("DOCKER") != "0"
-	docker    []string = []string{"docker-compose", "-f", "docker/docker-compose.yml", "exec", "builder"}
+	docker    []string = []string{"docker-compose", "-f", "docker/docker-compose.yml", "exec", "toolbox"}
 )
 
 func run(cmd ...string) error {
@@ -44,6 +50,10 @@ func (Env) Start() error {
 		return err
 	}
 	fmt.Printf("\nGrafana: http://localhost:3000\nDruid: http://localhost:8888\n")
+	e := Env{}
+	if err := e.Provision(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -59,6 +69,42 @@ func (Env) Stop() error {
 func (Env) Rebuild() error {
 	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "build"); err != nil {
 		return err
+	}
+	return nil
+}
+
+// Provision provisions druid example data in druid
+func (Env) Provision() error {
+	fmt.Printf("\nIngesting example data in druid\n")
+
+	if err := getDruidScripts(); err != nil {
+		return err
+	}
+
+	url := defaultCoordinatorURL + taskEndpoint
+	if err := run("curl", "-X", "'POST'", "-H", "'Content-Type:application/json'", "-d", defaultIngestFile, url); err != nil {
+		return err
+	}
+	return nil
+}
+
+func getDruidScripts() error {
+	fileList := []string{"post-index-task", "post-index-task-main"}
+
+	scriptsDir := "scripts/"
+	if err := run("mkdir", "-p", scriptsDir); err != nil {
+		return err
+	}
+	for _, file := range fileList {
+		if err := run("wget", "https://raw.githubusercontent.com/apache/druid/master/examples/bin/"+file); err != nil {
+			return err
+		}
+		if err := run("chmod", "+x", file); err != nil {
+			return err
+		}
+		if err := run("mv", file, scriptsDir); err != nil {
+			return err
+		}
 	}
 	return nil
 }

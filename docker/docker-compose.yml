@@ -137,6 +137,8 @@ services:
 
   toolbox:
     container_name: grafadruid-toolbox
+    depends_on:
+      - coordinator
     build:
       dockerfile: ./toolbox/Dockerfile
       context: .
