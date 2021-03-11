@@ -13,9 +13,16 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
+const (
+	defaultDownloadDir    string = "/tmp/"
+	defaultIngestSpecFile string = "docker/provisioning/ingest-spec.json"
+	defaultCoordinatorURL string = "http://coordinator:8081"
+	taskEndpoint          string = "/druid/indexer/v1/task"
+)
+
 var (
 	useDocker bool     = os.Getenv("DOCKER") != "0"
-	docker    []string = []string{"docker-compose", "-f", "docker/docker-compose.yml", "exec", "builder"}
+	docker    []string = []string{"docker-compose", "-f", "docker/docker-compose.yml", "exec", "toolbox"}
 )
 
 func run(cmd ...string) error {
@@ -43,6 +50,10 @@ func (Env) Start() error {
 	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "up", "-d"); err != nil {
 		return err
 	}
+	e := Env{}
+	if err := e.Provision(); err != nil {
+		return err
+	}
 	fmt.Printf("\nGrafana: http://localhost:3000\nDruid: http://localhost:8888\n")
 	return nil
 }
@@ -51,6 +62,42 @@ func (Env) Start() error {
 func (Env) Stop() error {
 	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "down", "-v"); err != nil {
 		return err
+	}
+	return nil
+}
+
+// Rebuild rebuilds images from Dockerfile
+func (Env) Rebuild() error {
+	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "build"); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Provision provisions druid example data in druid
+func (Env) Provision() error {
+	fileList := []string{"post-index-task", "post-index-task-main"}
+	if err := downloadDruidScripts(defaultDownloadDir, fileList); err != nil {
+		return err
+	}
+	fmt.Printf("\nIngesting example data in druid\n")
+	ingestScript := defaultDownloadDir + "post-index-task"
+	if err := run(ingestScript, "--file", defaultIngestSpecFile, "--url", defaultCoordinatorURL, "--complete-timeout", "1200", "--coordinator-url", defaultCoordinatorURL); err != nil {
+		return err
+	}
+	return nil
+}
+
+func downloadDruidScripts(defaultDownloadDir string, fileList []string) error {
+	fmt.Printf("\nDownloading required scripts\n")
+	for _, file := range fileList {
+		fp := defaultDownloadDir + file
+		if err := run("wget", "-q", "-O", fp, "https://raw.githubusercontent.com/apache/druid/master/examples/bin/"+file); err != nil {
+			return err
+		}
+		if err := run("chmod", "+x", fp); err != nil {
+			return err
+		}
 	}
 	return nil
 }
