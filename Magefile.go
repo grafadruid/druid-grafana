@@ -82,7 +82,6 @@ func (Env) Provision() error {
 	}
 	fmt.Printf("\nIngesting example data in druid\n")
 	ingestScript := defaultDownloadDir + "post-index-task"
-	run("pwd")
 	if err := run(ingestScript, "--file", defaultIngestSpecFile, "--url", defaultCoordinatorURL, "--complete-timeout", "1200", "--coordinator-url", defaultCoordinatorURL); err != nil {
 		return err
 	}
