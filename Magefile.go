@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	defaultIngestFile     string = "@docker/provisioning/ingest-spec.json"
+	defaultDownloadDir    string = "/tmp/"
+	defaultIngestSpecFile string = "docker/provisioning/ingest-spec.json"
 	defaultCoordinatorURL string = "http://coordinator:8081"
 	taskEndpoint          string = "/druid/indexer/v1/task"
 )
@@ -49,11 +50,11 @@ func (Env) Start() error {
 	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "up", "-d"); err != nil {
 		return err
 	}
-	fmt.Printf("\nGrafana: http://localhost:3000\nDruid: http://localhost:8888\n")
 	e := Env{}
 	if err := e.Provision(); err != nil {
 		return err
 	}
+	fmt.Printf("\nGrafana: http://localhost:3000\nDruid: http://localhost:8888\n")
 	return nil
 }
 
@@ -75,31 +76,27 @@ func (Env) Rebuild() error {
 
 // Provision provisions druid example data in druid
 func (Env) Provision() error {
-	fmt.Printf("\nDownloading required scripts\n")
-
 	fileList := []string{"post-index-task", "post-index-task-main"}
-	if err := downloadDruidScripts(fileList); err != nil {
+	if err := downloadDruidScripts(defaultDownloadDir, fileList); err != nil {
 		return err
 	}
 	fmt.Printf("\nIngesting example data in druid\n")
-	if err := run("./post-index-task", "--file", "docker/provisioning/ingest-spec.json", "--url", defaultCoordinatorURL, "--complete-timeout", "1200", "--coordinator-url", defaultCoordinatorURL); err != nil {
+	ingestScript := defaultDownloadDir + "post-index-task"
+	run("pwd")
+	if err := run(ingestScript, "--file", defaultIngestSpecFile, "--url", defaultCoordinatorURL, "--complete-timeout", "1200", "--coordinator-url", defaultCoordinatorURL); err != nil {
 		return err
-	}
-	fmt.Printf("\nCleaning up\n")
-	for _, file := range fileList {
-		if err := run("rm", file); err != nil {
-			return err
-		}
 	}
 	return nil
 }
 
-func downloadDruidScripts(fileList []string) error {
+func downloadDruidScripts(defaultDownloadDir string, fileList []string) error {
+	fmt.Printf("\nDownloading required scripts\n")
 	for _, file := range fileList {
-		if err := run("wget", "-q", "https://raw.githubusercontent.com/apache/druid/master/examples/bin/"+file); err != nil {
+		fp := defaultDownloadDir + file
+		if err := run("wget", "-q", "-O", fp, "https://raw.githubusercontent.com/apache/druid/master/examples/bin/"+file); err != nil {
 			return err
 		}
-		if err := run("chmod", "+x", file); err != nil {
+		if err := run("chmod", "+x", fp); err != nil {
 			return err
 		}
 	}
