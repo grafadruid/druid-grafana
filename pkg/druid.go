@@ -725,7 +725,6 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
 	frame := data.NewFrame("response")
-  frame.SetMeta(&data.FrameMeta{PreferredVisualization: data.VisTypeLogs})
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
 	for ic, c := range resp.Columns {
 		var ff interface{}
@@ -803,11 +802,14 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		}
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
-	if format, ok := settings["format"]; ok && format.(string) == "wide" && len(frame.Fields) > 0 {
+	format, ok := settings["format"]
+	if ok && format.(string) == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
 		if err == nil {
 			frame = f
 		}
+	} else if format.(string) == "log" && len(frame.Fields) > 0 {
+		frame.SetMeta(&data.FrameMeta{PreferredVisualization: data.VisTypeLogs})
 	}
 	response.Frames = append(response.Frames, frame)
 	return response, nil

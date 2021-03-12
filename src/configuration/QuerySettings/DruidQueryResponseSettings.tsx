@@ -20,6 +20,7 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
   formatSelectOptions: Array<SelectableValue<string>> = [
     { label: 'Long', value: 'long' },
     { label: 'Wide', value: 'wide' },
+    { label: 'Log', value: 'log' },
   ];
 
   selectFormatOptionByValue = (value?: string): SelectableValue<string> | undefined => {
