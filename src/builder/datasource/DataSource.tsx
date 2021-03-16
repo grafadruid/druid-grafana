@@ -5,7 +5,8 @@ import { GlobalTable, Inline, Join, Lookup, Query, Table, Union } from './';
 
 export const DataSource = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="Datasource"
+    {...props}
+    label="Datasource"
     components={{
       GlobalTable: GlobalTable,
       Inline: Inline,
@@ -15,6 +16,5 @@ export const DataSource = (props: QueryBuilderProps) => (
       Table: Table,
       Union: Union,
     }}
-    queryBuilderProps={props}
   />
 );

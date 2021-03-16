@@ -1,15 +1,10 @@
-import { PureComponent } from 'react';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class Version extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    const { options, onOptionsChange } = props;
-    const { builder } = options;
-    builder.type = 'version';
-    onOptionsChange({ ...options, builder: builder });
-  }
-  render() {
-    return null;
-  }
-}
+export const Version = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, Version);
+  return <Row>Version.</Row>;
+};
+Version.type = 'version';
+Version.fields = [] as string[];

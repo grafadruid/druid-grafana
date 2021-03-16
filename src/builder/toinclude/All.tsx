@@ -1,39 +1,10 @@
-import React, { PureComponent } from 'react';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class All extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type']);
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder.type = 'all';
-    onOptionsChange({ ...options, builder: builder });
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  render() {
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            All columns should be included in the result
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const All = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, All);
+  return <Row>All columns should be included in the result.</Row>;
+};
+All.type = 'all';
+All.fields = [] as string[];

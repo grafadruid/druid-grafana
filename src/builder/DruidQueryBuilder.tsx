@@ -1,12 +1,7 @@
-import React, { FC } from 'react';
-
+import React from 'react';
 import { Query } from './query';
 import { QueryBuilderProps } from './types';
 
-export const DruidQueryBuilder: FC<QueryBuilderProps> = (props: QueryBuilderProps) => {
-  return (
-    <>
-      <Query {...props} />
-    </>
-  );
+export const DruidQueryBuilder = (props: QueryBuilderProps) => {
+  return <Query {...props} />;
 };

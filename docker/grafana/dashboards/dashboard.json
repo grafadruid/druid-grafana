@@ -15,8 +15,7 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 1,
-  "iteration": 1609339085936,
+  "iteration": 1620081368518,
   "links": [],
   "panels": [
     {
@@ -54,7 +53,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "builder": {
@@ -86,23 +85,10 @@
       "datasource": null,
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": null,
-            "filterable": false
-          },
-          "mappings": [],
+          "custom": {},
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
+            "steps": []
           }
         },
         "overrides": []
@@ -133,7 +119,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -167,12 +153,18 @@
               "value": "France"
             },
             "granularity": "minute",
-            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+            "intervals": {
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
+              "type": "intervals"
+            },
             "limit": 0,
             "postAggregations": [],
             "queryType": "timeseries",
             "virtualColumns": []
           },
+          "expr": "{\"builder\":{\"queryType\":\"timeseries\",\"dataSource\":{\"name\":\"wikipedia\",\"type\":\"table\"},\"descending\":false,\"intervals\":{\"type\":\"intervals\",\"intervals\":[\"${__from:date:iso}/${__to:date:iso}\"]},\"granularity\":\"minute\",\"filter\":{\"dimension\":\"countryName\",\"extractionFn\":null,\"type\":\"selector\",\"value\":\"France\"},\"aggregations\":[{\"name\":\"count\",\"type\":\"count\"},{\"fieldName\":\"sum_added\",\"name\":\"delta\",\"type\":\"longLast\"}],\"postAggregations\":[],\"limit\":0,\"virtualColumns\":[]},\"settings\":{\"contextParameters\":[{\"name\":\"plop\",\"value\":\"plep\"}],\"format\":\"wide\"}}",
           "refId": "A",
           "settings": {
             "contextParameters": [
@@ -233,10 +225,7 @@
           "color": {
             "mode": "continuous-YlBl"
           },
-          "custom": {
-            "align": null,
-            "filterable": false
-          },
+          "custom": {},
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -261,13 +250,16 @@
         "displayMode": "lcd",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["mean"],
+          "calcs": [
+            "mean"
+          ],
           "fields": "",
           "values": true
         },
-        "showUnfilled": true
+        "showUnfilled": true,
+        "text": {}
       },
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "builder": {
@@ -295,7 +287,12 @@
               "value": "France"
             },
             "granularity": "all",
-            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+            "intervals": {
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
+              "type": "intervals"
+            },
             "metric": {
               "metric": "delta",
               "type": "numeric"
@@ -305,6 +302,7 @@
             "threshold": 50,
             "virtualColumns": []
           },
+          "expr": "{\"builder\":{\"queryType\":\"topN\",\"dataSource\":{\"name\":\"wikipedia\",\"type\":\"table\"},\"intervals\":{\"type\":\"intervals\",\"intervals\":[\"${__from:date:iso}/${__to:date:iso}\"]},\"granularity\":\"all\",\"filter\":{\"dimension\":\"countryName\",\"extractionFn\":null,\"type\":\"selector\",\"value\":\"France\"},\"aggregations\":[{\"fieldName\":\"sum_delta\",\"name\":\"delta\",\"type\":\"longSum\"}],\"postAggregations\":[],\"dimension\":{\"dimension\":\"regionName\",\"outputName\":\"region\",\"outputType\":\"STRING\",\"type\":\"default\"},\"threshold\":50,\"metric\":{\"metric\":\"delta\",\"type\":\"numeric\"},\"virtualColumns\":[]},\"settings\":{\"contextParameters\":[{\"name\":\"plop\",\"value\":\"plep\"}],\"format\":\"wide\"}}",
           "refId": "A",
           "settings": {
             "contextParameters": [
@@ -330,23 +328,10 @@
       "datasource": null,
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": null,
-            "filterable": false
-          },
-          "mappings": [],
+          "custom": {},
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
+            "steps": []
           }
         },
         "overrides": []
@@ -377,7 +362,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -420,12 +405,17 @@
               "value": "France"
             },
             "granularity": "minute",
-            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+            "intervals": {
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
+              "type": "intervals"
+            },
             "postAggregations": [],
             "queryType": "groupBy",
-            "subtotalsSpec": [],
             "virtualColumns": []
           },
+          "expr": "{\"builder\":{\"queryType\":\"groupBy\",\"dataSource\":{\"name\":\"wikipedia\",\"type\":\"table\"},\"dimensions\":[{\"dimension\":\"countryName\",\"outputName\":\"country\",\"outputType\":\"STRING\",\"type\":\"default\"},{\"dimension\":\"regionName\",\"outputName\":\"region\",\"outputType\":\"STRING\",\"type\":\"default\"}],\"granularity\":\"minute\",\"filter\":{\"dimension\":\"countryName\",\"extractionFn\":null,\"type\":\"selector\",\"value\":\"France\"},\"aggregations\":[{\"fieldName\":\"sum_delta\",\"name\":\"delta\",\"type\":\"longSum\"}],\"postAggregations\":[],\"intervals\":{\"type\":\"intervals\",\"intervals\":[\"${__from:date:iso}/${__to:date:iso}\"]},\"virtualColumns\":[]},\"settings\":{\"contextParameters\":[],\"format\":\"wide\"}}",
           "refId": "A",
           "settings": {
             "contextParameters": [],
@@ -512,7 +502,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -560,12 +550,18 @@
               "type": "selector",
               "value": "France"
             },
-            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+            "intervals": {
+              "intervals": [
+                "${__from:date:iso}/P5D"
+              ],
+              "type": "intervals"
+            },
             "limit": 0,
             "order": "none",
             "queryType": "scan",
             "virtualColumns": []
           },
+          "expr": "{\"builder\":{\"queryType\":\"scan\",\"dataSource\":{\"name\":\"wikipedia\",\"type\":\"table\"},\"intervals\":{\"type\":\"intervals\",\"intervals\":[\"${__from:date:iso}/P5D\"]},\"filter\":{\"dimension\":\"countryName\",\"extractionFn\":null,\"type\":\"selector\",\"value\":\"France\"},\"columns\":[\"__time\",\"channel\",\"cityName\",\"comment\",\"count\",\"countryIsoCode\",\"diffUrl\",\"flags\",\"isAnonymous\",\"isMinor\",\"isNew\",\"isRobot\",\"isUnpatrolled\",\"metroCode\",\"namespace\",\"page\",\"regionIsoCode\",\"regionName\",\"sum_added\",\"sum_commentLength\",\"sum_deleted\",\"sum_delta\",\"sum_deltaBucket\",\"user\"],\"batchSize\":20480,\"limit\":0,\"order\":\"none\",\"virtualColumns\":[]},\"settings\":{\"contextParameters\":[{\"name\":\"plop\",\"value\":\"plep\"}],\"format\":\"wide\"}}",
           "refId": "A",
           "settings": {
             "contextParameters": [
@@ -655,7 +651,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "builder": {
@@ -669,7 +665,12 @@
               "type": "selector",
               "value": "France"
             },
-            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+            "intervals": {
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
+              "type": "intervals"
+            },
             "limit": 0,
             "query": {
               "type": "contains",
@@ -685,6 +686,7 @@
               }
             ]
           },
+          "expr": "{\"builder\":{\"queryType\":\"search\",\"dataSource\":{\"name\":\"wikipedia\",\"type\":\"table\"},\"filter\":{\"dimension\":\"countryName\",\"extractionFn\":null,\"type\":\"selector\",\"value\":\"France\"},\"limit\":0,\"intervals\":{\"type\":\"intervals\",\"intervals\":[\"${__from:date:iso}/${__to:date:iso}\"]},\"searchDimensions\":[{\"dimension\":\"regionName\",\"outputName\":\"regionName\",\"outputType\":\"STRING\",\"type\":\"default\"}],\"query\":{\"type\":\"contains\",\"value\":\"ari\"}},\"settings\":{\"contextParameters\":[{\"name\":\"plop\",\"value\":\"plep\"}],\"format\":\"long\"}}",
           "refId": "A",
           "settings": {
             "contextParameters": [
@@ -737,7 +739,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "builder": {
@@ -746,9 +748,15 @@
               "name": "wikipedia",
               "type": "table"
             },
-            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+            "intervals": {
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
+              "type": "intervals"
+            },
             "queryType": "timeBoundary"
           },
+          "expr": "{\"builder\":{\"queryType\":\"timeBoundary\",\"dataSource\":{\"name\":\"wikipedia\",\"type\":\"table\"},\"bound\":null,\"intervals\":{\"type\":\"intervals\",\"intervals\":[\"${__from:date:iso}/${__to:date:iso}\"]}},\"settings\":{\"contextParameters\":[{\"name\":\"\",\"value\":\"\"}],\"format\":\"wide\"}}",
           "refId": "A",
           "settings": {
             "contextParameters": [
@@ -801,7 +809,7 @@
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "builder": {
@@ -864,7 +872,7 @@
         "showHeader": true,
         "sortBy": []
       },
-      "pluginVersion": "7.3.6",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "builder": {
@@ -882,7 +890,12 @@
               "name": "wikipedia",
               "type": "table"
             },
-            "intervals": [],
+            "intervals": {
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
+              "type": "intervals"
+            },
             "lenientAggregatorMerge": false,
             "queryType": "segmentMetadata",
             "toInclude": {
@@ -890,6 +903,7 @@
             },
             "usingDefaultInterval": false
           },
+          "expr": "{\"builder\":{\"queryType\":\"segmentMetadata\",\"dataSource\":{\"name\":\"wikipedia\",\"type\":\"table\"},\"intervals\":{\"type\":\"intervals\",\"intervals\":[\"${__from:date:iso}/${__to:date:iso}\"]},\"toInclude\":{\"type\":\"all\"},\"analysisTypes\":[\"cardinality\",\"size\",\"aggregators\",\"interval\",\"minmax\",\"queryGranularity\",\"timestampSpec\",\"rollup\"],\"lenientAggregatorMerge\":false,\"usingDefaultInterval\":false},\"settings\":{\"contextParameters\":[{\"name\":\"\",\"value\":\"\"}],\"format\":\"long\",\"view\":\"columns\"}}",
           "refId": "A",
           "settings": {
             "contextParameters": [
@@ -910,7 +924,7 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 26,
+  "schemaVersion": 27,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -919,11 +933,12 @@
         "allValue": null,
         "current": {
           "selected": true,
-          "text": "Belarus",
-          "value": "Belarus"
+          "text": "France",
+          "value": "France"
         },
         "datasource": "Druid",
         "definition": "{\"builder\":{\"query\":\"SELECT DISTINCT countryName FROM wikipedia WHERE countryName IS NOT NULL\",\"queryType\":\"sql\"},\"settings\":{\"contextParameters\":[{\"name\":\"AA\",\"value\":\"BB\"}],\"format\":\"wide\"}}",
+        "description": null,
         "error": null,
         "hide": 0,
         "includeAll": false,
@@ -977,7 +992,7 @@
             "value": "Bangladesh"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Belarus",
             "value": "Belarus"
           },
@@ -1077,7 +1092,7 @@
             "value": "Finland"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "France",
             "value": "France"
           },
@@ -1486,12 +1501,13 @@
       {
         "allValue": null,
         "current": {
-          "selected": false,
-          "text": "Gomel",
-          "value": "Gomel"
+          "selected": true,
+          "text": "Paris",
+          "value": "Paris"
         },
         "datasource": "Druid",
         "definition": "{\"builder\":{\"query\":\"SELECT DISTINCT cityName FROM wikipedia WHERE wikipedia.cityName IS NOT NULL AND wikipedia.countryName = '${country}'\",\"queryType\":\"sql\"},\"settings\":{\"contextParameters\":[{\"name\":\"a\",\"value\":\"b\"}],\"format\":\"wide\"}}",
+        "description": null,
         "error": null,
         "hide": 0,
         "includeAll": false,
@@ -1528,12 +1544,12 @@
     ]
   },
   "time": {
-    "from": "2016-06-26T23:56:11.000Z",
-    "to": "2016-06-27T21:20:44.000Z"
+    "from": "2016-06-26T23:47:04.557Z",
+    "to": "2016-06-27T21:28:55.611Z"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Grafadruid Wikipedia Sample",
   "uid": "_GuEjEtGk",
-  "version": 2
+  "version": 1
 }

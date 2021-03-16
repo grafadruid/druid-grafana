@@ -1,55 +1,20 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
+import { FilterTuning } from '.';
 
-const { FormField } = LegacyForms;
-
-export class Expression extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type', 'expression']);
-    const { builder } = props.options;
-    builder.type = 'expression';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder[event.target.name] = event.target.value;
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  render() {
-    const { builder } = this.props.options;
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <FormField
-              label="Expression"
-              name="expression"
-              type="text"
-              placeholder="the expression"
-              value={builder.expression}
-              onChange={this.onInputChange}
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const Expression = (props: QueryBuilderProps) => {
+  const scopedProps = useScopedQueryBuilderFieldProps(props, Expression);
+  return (
+    <>
+      <Row>
+        <Input {...scopedProps('expression')} label="Expression" description="The expression" type="text" />
+      </Row>
+      <Row>
+        <FilterTuning {...scopedProps('filterTuning')} />
+      </Row>
+    </>
+  );
+};
+Expression.type = 'expression';
+Expression.fields = ['expression', 'filterTuning'];

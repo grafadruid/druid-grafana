@@ -1,15 +1,10 @@
-import { PureComponent } from 'react';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class StrLen extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    const { options, onOptionsChange } = props;
-    const { builder } = options;
-    builder.type = 'strlen';
-    onOptionsChange({ ...options, builder: builder });
-  }
-  render() {
-    return null;
-  }
-}
+export const StrLen = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, StrLen);
+  return <Row>StrLen.</Row>;
+};
+StrLen.type = 'strlen';
+StrLen.fields = [] as string[];

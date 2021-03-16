@@ -1,67 +1,19 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
 
-const { FormField } = LegacyForms;
-
-export class Bucket extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type', 'size', 'offset']);
-    const { builder } = props.options;
-    builder.type = 'bucket';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    let value: any = event.target.value;
-    if ('number' === event.target.type) {
-      value = Number(value);
-    }
-    builder[event.target.name] = value;
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  render() {
-    const { builder } = this.props.options;
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <FormField
-              label="Size"
-              name="size"
-              type="number"
-              placeholder="the size of the buckets"
-              value={builder.size}
-              onChange={this.onInputChange}
-            />
-            <FormField
-              label="Offset"
-              name="offset"
-              type="number"
-              placeholder="the offset for the buckets"
-              value={builder.offset}
-              onChange={this.onInputChange}
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const Bucket = (props: QueryBuilderProps) => {
+  const scopedProps = useScopedQueryBuilderFieldProps(props, Bucket);
+  return (
+    <>
+      <Row>
+        <Input {...scopedProps('size')} label="Size" description="The buckets size" type="number" />
+      </Row>
+      <Row>
+        <Input {...scopedProps('offset')} label="Offset" description="The buckets offset" type="number" />
+      </Row>
+    </>
+  );
+};
+Bucket.type = 'bucket';
+Bucket.fields = ['size', 'offset'];

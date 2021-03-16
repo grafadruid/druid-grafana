@@ -5,7 +5,8 @@ import { Default, Extraction, ListFiltered, Lookup, RegisteredLookup, PrefixFilt
 
 export const Dimension = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="Dimension"
+    {...props}
+    label="Dimension"
     components={{
       Default: Default,
       Extraction: Extraction,
@@ -15,6 +16,5 @@ export const Dimension = (props: QueryBuilderProps) => (
       PrefixFiltered: PrefixFiltered,
       RegexFiltered: RegexFiltered,
     }}
-    queryBuilderProps={props}
   />
 );

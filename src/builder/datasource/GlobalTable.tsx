@@ -1,61 +1,14 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
 
-const { FormField } = LegacyForms;
-
-export class GlobalTable extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type', 'name']);
-    const { builder } = props.options;
-    builder.type = 'globalTable';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    const value = event.target.value;
-    switch (event.target.name) {
-      case 'name': {
-        builder.name = value;
-        break;
-      }
-    }
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  render() {
-    const { builder } = this.props.options;
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <FormField
-              label="Name"
-              name="name"
-              type="text"
-              placeholder="the global table name"
-              value={builder.name}
-              onChange={this.onInputChange}
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const GlobalTable = (props: QueryBuilderProps) => {
+  const scopedProps = useScopedQueryBuilderFieldProps(props, GlobalTable);
+  return (
+    <Row>
+      <Input {...scopedProps('name')} label="Name" description="The global table name" type="text" />
+    </Row>
+  );
+};
+GlobalTable.type = 'globalTable';
+GlobalTable.fields = ['name'];

@@ -8,7 +8,6 @@ import {
   Expression,
   Extraction,
   False,
-  FilterTuning,
   Interval,
   In,
   Javascript,
@@ -24,7 +23,8 @@ import {
 
 export const Filter = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="Filter"
+    {...props}
+    label="Filter"
     components={{
       And: And,
       Bound: Bound,
@@ -32,7 +32,6 @@ export const Filter = (props: QueryBuilderProps) => (
       Expression: Expression,
       Extraction: Extraction,
       False: False,
-      FilterTuning: FilterTuning,
       Interval: Interval,
       In: In,
       Javascript: Javascript,
@@ -45,6 +44,5 @@ export const Filter = (props: QueryBuilderProps) => (
       Spatial: Spatial,
       True: True,
     }}
-    queryBuilderProps={props}
   />
 );

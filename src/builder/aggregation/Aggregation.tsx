@@ -1,6 +1,7 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { QueryBuilderComponentSelector } from '../abstract';
+
 import {
   Cardinality,
   Count,
@@ -36,7 +37,8 @@ import {
 
 export const Aggregation = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="Aggregation"
+    {...props}
+    label="Aggregation"
     components={{
       Cardinality: Cardinality,
       Count: Count,
@@ -69,6 +71,5 @@ export const Aggregation = (props: QueryBuilderProps) => (
       StringLastFolding: StringLastFolding,
       StringLast: StringLast,
     }}
-    queryBuilderProps={props}
   />
 );

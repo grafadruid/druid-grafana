@@ -5,7 +5,8 @@ import { And, DimSelector, EqualTo, Filter, GreaterThan, LessThan, Not, Or } fro
 
 export const HavingSpec = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="HavingSpec"
+    {...props}
+    label="HavingSpec"
     components={{
       And: And,
       DimSelector: DimSelector,
@@ -16,6 +17,5 @@ export const HavingSpec = (props: QueryBuilderProps) => (
       Not: Not,
       Or: Or,
     }}
-    queryBuilderProps={props}
   />
 );

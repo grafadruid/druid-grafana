@@ -1,67 +1,19 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
 
-const { FormField } = LegacyForms;
-
-export class Substring extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type', 'index', 'length']);
-    const { builder } = props.options;
-    builder.type = 'substring';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    let value: any = event.target.value;
-    if ('number' === event.target.type) {
-      value = Number(value);
-    }
-    builder[event.target.name] = value;
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  render() {
-    const { builder } = this.props.options;
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <FormField
-              label="Index"
-              name="index"
-              type="number"
-              placeholder="the starting index."
-              value={builder.index}
-              onChange={this.onInputChange}
-            />
-            <FormField
-              label="Length"
-              name="length"
-              type="number"
-              placeholder="the substring length."
-              value={builder.length}
-              onChange={this.onInputChange}
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const Substring = (props: QueryBuilderProps) => {
+  const scopedProps = useScopedQueryBuilderFieldProps(props, Substring);
+  return (
+    <>
+      <Row>
+        <Input {...scopedProps('index')} label="Index" description="The starting index" type="number" />
+      </Row>
+      <Row>
+        <Input {...scopedProps('length')} label="Length" description="The substring length" type="number" />
+      </Row>
+    </>
+  );
+};
+Substring.type = 'substring';
+Substring.fields = ['index', 'length'];
