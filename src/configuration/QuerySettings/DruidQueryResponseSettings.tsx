@@ -1,7 +1,8 @@
 import React, { PureComponent, ChangeEvent } from 'react';
-import { InlineFieldRow, InlineField, InlineSwitch, Select, Input, Collapse } from '@grafana/ui';
+import { InlineFieldRow, InlineField, InlineSwitch, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QuerySettingsProps } from './types';
+import { DruidQueryLogSettings } from './DruidQueryLogSettings';
 
 export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps> {
   constructor(props: QuerySettingsProps) {
@@ -63,21 +64,7 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
             />
           </InlineField>
         </InlineFieldRow>
-        {settings.format === 'log' && (
-          <Collapse label="Log Settings" isOpen={true}>
-            <InlineFieldRow>
-              <InlineField label="Time column" tooltip="Use this column as the time for logs">
-                <Input value={'__time'} />
-              </InlineField>
-              <InlineField label="Level column" tooltip="Use this column as the level for logs">
-                <Input value={'level'} />
-              </InlineField>
-              <InlineField label="Message column" tooltip="Use this column as the message for logs">
-                <Input value={'message'} />
-              </InlineField>
-            </InlineFieldRow>
-          </Collapse>
-        )}
+        {settings.format === 'log' && <DruidQueryLogSettings {...this.props} />}
         <InlineFieldRow>
           <InlineField
             label="Hide empty columns"
