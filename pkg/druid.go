@@ -734,8 +734,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	}
 	if format == "log" {
 		for ic, c := range resp.Columns {
-			var ff []string
-			ff = make([]string, 0)
+			ff := make([]string, 0)
 			if c.Type == "string" && c.Name == "message" {
 				for _, r := range resp.Rows {
 					if r[ic] == nil {
