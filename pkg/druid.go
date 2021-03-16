@@ -725,30 +725,76 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
 	frame := data.NewFrame("response")
+	//fetch settings
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
-	format, ok := settings["format"]
-	if !ok {
+	format, found := settings["format"]
+	if !found {
 		format = "long"
 	} else {
 		format = format.(string)
 	}
+	logColumnTime, found := settings["logColumnTime"]
+	if !found {
+		logColumnTime = "__time"
+	} else {
+		logColumnTime = logColumnTime.(string)
+	}
+	logColumnLevel, found := settings["logColumnLevel"]
+	if !found {
+		logColumnLevel = "level"
+	} else {
+		logColumnLevel = logColumnLevel.(string)
+	}
+	logColumnMessage, found := settings["logColumnMessage"]
+	if !found {
+		logColumnMessage = "message"
+	} else {
+		logColumnMessage = logColumnMessage.(string)
+	}
+	//do some preprocessing for logs to make sure the chosen fields are the first of their type
+	//since that's how grafana log ui decides which time and message to display
 	if format == "log" {
 		for ic, c := range resp.Columns {
-			ff := make([]string, 0)
-			if c.Type == "string" && c.Name == "message" {
+			if c.Type == "time" && c.Name == logColumnTime {
+				ff := make([]time.Time, 0)
+				for _, r := range resp.Rows {
+					if r[ic] == nil {
+						r[ic] = 0.0
+					}
+					switch r[ic].(type) {
+					case string:
+						t, err := time.Parse("2006-01-02T15:04:05.000Z", r[ic].(string))
+						if err != nil {
+							t = time.Now()
+						}
+						ff = append(ff, t)
+					case float64:
+						sec, dec := math.Modf(r[ic].(float64) / 1000)
+						ff = append(ff, time.Unix(int64(sec), int64(dec*(1e9))))
+					}
+				}
+				frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
+			} else if c.Type == "string" && c.Name == logColumnMessage {
+				ff := make([]string, 0)
 				for _, r := range resp.Rows {
 					if r[ic] == nil {
 						r[ic] = ""
 					}
 					ff = append(ff, r[ic].(string))
 				}
-        // log message is the first string field. set a new field so the original message field
-        // can still be displayed when showing detected fields
+				//the log message must be the first string field. set a new field rather than use the
+				//existing one so the original message field can still be displayed when showing detected
+				//fields
 				frame.Fields = append(frame.Fields, data.NewField("____message", nil, ff))
 			}
 		}
 	}
+	//regular response processing
 	for ic, c := range resp.Columns {
+		if format == "log" && c.Type == "time" && c.Name == logColumnTime {
+			//time field already processed above so don't need to add it again
+			continue
+		}
 		var ff interface{}
 		columnIsEmpty := true
 		switch c.Type {
@@ -822,7 +868,12 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		if hideEmptyColumns && columnIsEmpty {
 			continue
 		}
-		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
+		//rename the level column for logs so the ui will use it
+		if format == "log" && c.Name == logColumnLevel {
+			frame.Fields = append(frame.Fields, data.NewField("level", nil, ff))
+		} else {
+			frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
+		}
 	}
 	if format == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
