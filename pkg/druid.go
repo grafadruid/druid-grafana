@@ -726,6 +726,27 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	response := backend.DataResponse{}
 	frame := data.NewFrame("response")
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
+	format, ok := settings["format"]
+  if !ok {
+    format = "long"
+  } else {
+    format = format.(string)
+  }
+  if format == "log" {
+    for ic, c := range resp.Columns {
+      var ff []string
+      ff = make([]string, 0)
+      if c.Type == "string" && c.Name == "message" {
+        for _, r := range resp.Rows {
+          if r[ic] == nil {
+            r[ic] = ""
+          }
+          ff = append(ff, r[ic].(string))
+        }
+        frame.Fields = append(frame.Fields, data.NewField("____message", nil, ff))
+      }
+    }
+  }
 	for ic, c := range resp.Columns {
 		var ff interface{}
 		columnIsEmpty := true
@@ -802,13 +823,12 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		}
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
-	format, ok := settings["format"]
-	if ok && format.(string) == "wide" && len(frame.Fields) > 0 {
+	if format == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
 		if err == nil {
 			frame = f
 		}
-	} else if format.(string) == "log" && len(frame.Fields) > 0 {
+	} else if format == "log" && len(frame.Fields) > 0 {
 		frame.SetMeta(&data.FrameMeta{PreferredVisualization: data.VisTypeLogs})
 	}
 	response.Frames = append(response.Frames, frame)
