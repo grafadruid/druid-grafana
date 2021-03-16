@@ -727,26 +727,26 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	frame := data.NewFrame("response")
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
 	format, ok := settings["format"]
-  if !ok {
-    format = "long"
-  } else {
-    format = format.(string)
-  }
-  if format == "log" {
-    for ic, c := range resp.Columns {
-      var ff []string
-      ff = make([]string, 0)
-      if c.Type == "string" && c.Name == "message" {
-        for _, r := range resp.Rows {
-          if r[ic] == nil {
-            r[ic] = ""
-          }
-          ff = append(ff, r[ic].(string))
-        }
-        frame.Fields = append(frame.Fields, data.NewField("____message", nil, ff))
-      }
-    }
-  }
+	if !ok {
+		format = "long"
+	} else {
+		format = format.(string)
+	}
+	if format == "log" {
+		for ic, c := range resp.Columns {
+			var ff []string
+			ff = make([]string, 0)
+			if c.Type == "string" && c.Name == "message" {
+				for _, r := range resp.Rows {
+					if r[ic] == nil {
+						r[ic] = ""
+					}
+					ff = append(ff, r[ic].(string))
+				}
+				frame.Fields = append(frame.Fields, data.NewField("____message", nil, ff))
+			}
+		}
+	}
 	for ic, c := range resp.Columns {
 		var ff interface{}
 		columnIsEmpty := true
