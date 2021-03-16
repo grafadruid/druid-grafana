@@ -742,6 +742,8 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 					}
 					ff = append(ff, r[ic].(string))
 				}
+        // log message is the first string field. set a new field so the original message field
+        // can still be displayed when showing detected fields
 				frame.Fields = append(frame.Fields, data.NewField("____message", nil, ff))
 			}
 		}
