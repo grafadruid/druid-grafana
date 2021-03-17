@@ -57,6 +57,11 @@ jobs:
         with:
           go-version: "1.14"
 
+      - name: Setup environment variable
+        id: env-setup
+        run: |
+          export DOCKER=0
+
       - name: Test backend
         if: steps.check-for-backend.outputs.has-backend == 'true'
         uses: magefile/mage-action@v1
