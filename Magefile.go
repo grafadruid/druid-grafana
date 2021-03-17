@@ -54,7 +54,8 @@ func (Env) Start() error {
 	if err := e.Provision(); err != nil {
 		return err
 	}
-	fmt.Printf("\nGrafana: http://localhost:3000\nDruid: http://localhost:8888\n")
+	fmt.Printf("\nDruid: http://localhost:8888\n")
+	fmt.Printf("\nGrafana: http://localhost:3000 (use druid/druid to login)\n")
 	return nil
 }
 
