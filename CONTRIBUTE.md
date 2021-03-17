@@ -5,7 +5,7 @@ For more technical information about backend plugins, refer to the documentation
 
 ## Development environment
 
-The unified development environment is built atop Docker containers, composed with Docker Compose. It provides a running Druid instance, a running Grafana instance, and a builder container.
+The unified development environment is built atop Docker containers, composed with Docker Compose. It provides a running Druid instance, a running Grafana instance (use druid/druid as username/password to login), and a builder container.
 You, only, gonna need to install Compose (See https://docs.docker.com/compose/install).
 
 Any "building" is done within the `builder` container (that saves you from setting up Node and Golang development environments on your host).
