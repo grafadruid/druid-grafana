@@ -5,6 +5,7 @@
   "metrics": true,
   "backend": true,
   "alerting": true,
+  "logs": true,
   "executable": "grafadruid-druid-datasource",
   "info": {
     "description": "Connects Grafana to Druid",
