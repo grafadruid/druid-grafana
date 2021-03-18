@@ -7,6 +7,7 @@ export interface ConnectionSettings {
   retryableRetryWaitMax?: number;
   basicAuth?: boolean;
   basicAuthUser?: string;
+  skipTls?: boolean;
 }
 export interface ConnectionSecretSettings {
   basicAuthPassword?: string;
