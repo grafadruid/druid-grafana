@@ -829,7 +829,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	return response, nil
 }
 
-func longToLog(longFrame *Frame, settings map[string]interface{}) (*Frame, error) {
+func longToLog(longFrame *data.Frame, settings map[string]interface{}) (*data.Frame, error) {
 	logFrame := data.NewFrame("response")
 	logFrame.SetMeta(&data.FrameMeta{PreferredVisualization: data.VisTypeLogs})
 	//fetch settings
