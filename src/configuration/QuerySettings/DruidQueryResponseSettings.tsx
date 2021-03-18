@@ -2,6 +2,7 @@ import React, { PureComponent, ChangeEvent } from 'react';
 import { InlineFieldRow, InlineField, InlineSwitch, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QuerySettingsProps } from './types';
+import { DruidQueryLogSettings } from './DruidQueryLogSettings';
 
 export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps> {
   constructor(props: QuerySettingsProps) {
@@ -20,6 +21,7 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
   formatSelectOptions: Array<SelectableValue<string>> = [
     { label: 'Long', value: 'long' },
     { label: 'Wide', value: 'wide' },
+    { label: 'Log', value: 'log' },
   ];
 
   selectFormatOptionByValue = (value?: string): SelectableValue<string> | undefined => {
@@ -62,6 +64,7 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
             />
           </InlineField>
         </InlineFieldRow>
+        {settings.format === 'log' && <DruidQueryLogSettings {...this.props} />}
         <InlineFieldRow>
           <InlineField
             label="Hide empty columns"

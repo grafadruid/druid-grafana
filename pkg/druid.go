@@ -725,7 +725,15 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
 	frame := data.NewFrame("response")
+	//fetch settings
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
+	format, found := settings["format"]
+	if !found {
+		format = "long"
+	} else {
+		format = format.(string)
+	}
+	//turn druid response into grafana long frame
 	for ic, c := range resp.Columns {
 		var ff interface{}
 		columnIsEmpty := true
@@ -802,12 +810,61 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		}
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
-	if format, ok := settings["format"]; ok && format.(string) == "wide" && len(frame.Fields) > 0 {
+	//convert to other formats if specified
+	if format == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
+		if err == nil {
+			frame = f
+		}
+	} else if format == "log" && len(frame.Fields) > 0 {
+		f, err := longToLog(frame, settings)
 		if err == nil {
 			frame = f
 		}
 	}
 	response.Frames = append(response.Frames, frame)
 	return response, nil
+}
+
+func longToLog(longFrame *Frame, settings map[string]interface{}) (*Frame, error) {
+	logFrame := data.NewFrame("response")
+	logFrame.SetMeta(&data.FrameMeta{PreferredVisualization: data.VisTypeLogs})
+	//fetch settings
+	logColumnTime, found := settings["logColumnTime"]
+	if !found {
+		logColumnTime = "__time"
+	} else {
+		logColumnTime = logColumnTime.(string)
+	}
+	logColumnLevel, found := settings["logColumnLevel"]
+	if !found {
+		logColumnLevel = "level"
+	} else {
+		logColumnLevel = logColumnLevel.(string)
+	}
+	logColumnMessage, found := settings["logColumnMessage"]
+	if !found {
+		logColumnMessage = "message"
+	} else {
+		logColumnMessage = logColumnMessage.(string)
+	}
+	//make sure the special time and message fields come first in the frame because that's how
+	//the log ui decides what time and message to display
+	for _, f := range longFrame.Fields {
+		if f.Name == logColumnTime || f.Name == logColumnMessage {
+			logFrame.Fields = append(logFrame.Fields, f)
+		}
+	}
+	//now copy over the rest of the fields
+	for _, f := range longFrame.Fields {
+		if f.Name == logColumnTime {
+			//skip because time already copied above. does not skip message because we want it
+			//included twice since otherwise it won't be available as a detected field
+			continue
+		} else if f.Name == logColumnLevel {
+			f.Name = "level"
+		}
+		logFrame.Fields = append(logFrame.Fields, f)
+	}
+	return logFrame, nil
 }

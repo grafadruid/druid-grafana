@@ -7,7 +7,7 @@
 - Query builder UI: done
 - Alerting: done
 - Query backend: done (sql, timeseries, topn, groupby, timeboundary, segmentmetadata, datasourcemetadata, scan, search)
-- Explore advanced support: done (standard: done, advanced: todo? any specific need?)
+- Explore advanced support: done (standard: done, logs: done, advanced: todo? any specific need?)
 - Variables support: done (Grafana global variables replacement, query variables)
 - Extensions support: todo
 
