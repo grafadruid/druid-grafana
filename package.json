@@ -16,7 +16,11 @@
     "@grafana/runtime": "7.4.3",
     "@grafana/toolkit": "7.4.3",
     "@grafana/ui": "7.4.3",
-    "@types/lodash": "latest"
+    "@types/lodash": "latest",
+    "enzyme": "^3.11.0",
+    "enzyme-adapter-react-16": "^1.15.6",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.4"
   },
   "resolutions": {
     "rxjs": "6.6.3"
