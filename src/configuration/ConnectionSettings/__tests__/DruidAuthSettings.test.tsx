@@ -21,8 +21,8 @@ describe('A suite', function () {
     console.log(wrapper.debug());
 
     expect(wrapper.find(FieldSet)).toHaveLength(1);
-    expect(wrapper.find(Field)).toHaveLength(1);
-    expect(wrapper.find(Switch)).toHaveLength(1);
+    expect(wrapper.find(Field)).toHaveLength(2);
+    expect(wrapper.find(Switch)).toHaveLength(2);
     const x = wrapper.find(Switch);
     expect(x.find('.value')).toBeTruthy();
     // expect(shallow(<DruidAuthSettings {...fakeProps} />).contains(<div className="DruidAuthSettings">Bar</div>)).toBe(
