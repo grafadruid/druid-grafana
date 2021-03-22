@@ -12,4 +12,7 @@ module.exports = {
     '^.+\\.(ts|tsx)$': 'ts-jest',
   },
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
+  moduleNameMapper: {
+    '\\.(css|scss)$': '<rootDir>/src/__mocks__/styleMock.js',
+  },
 };
