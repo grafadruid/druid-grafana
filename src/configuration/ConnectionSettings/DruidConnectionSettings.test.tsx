@@ -2,8 +2,8 @@
 import { shallow } from 'enzyme';
 import * as React from 'react';
 
-import { /*DruidAuthSettings, */ DruidHttpSettings } from '../';
-import { ConnectionSettingsProps } from '../types';
+import { /*DruidAuthSettings, */ DruidHttpSettings } from './DruidHttpSettings';
+import { ConnectionSettingsProps } from './types';
 
 describe('DruidAuthSettings', function () {
   const fakeProps: ConnectionSettingsProps = {
