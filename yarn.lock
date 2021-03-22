@@ -1573,6 +1573,13 @@
     "@types/connect" "*"
     "@types/node" "*"
 
+"@types/cheerio@*":
+  "integrity" "sha512-UpmYZewEWNEE6Ya24RzAQ2X2OYwz32AaLyzYinpM8qqFGRyYufqKSvxPjjZkvS+h16bajfXl7VojrAxWzG/+mA=="
+  "resolved" "https://registry.npmjs.org/@types/cheerio/-/cheerio-0.22.27.tgz"
+  "version" "0.22.27"
+  dependencies:
+    "@types/node" "*"
+
 "@types/clean-css@*":
   "integrity" "sha512-ET0ldU/vpXecy5vO8JRIhtJWSrk1vzXdJcp3Bjf8bARZynl6vfkhEKY/A7njfNIRlmyTGuVFuqnD6I3tOGdXpQ=="
   "resolved" "https://registry.npmjs.org/@types/clean-css/-/clean-css-4.2.3.tgz"
@@ -1612,6 +1619,14 @@
   "version" "1.4.2"
   dependencies:
     "@types/d3-color" "^1"
+
+"@types/enzyme@^3.10.8":
+  "integrity" "sha512-vlOuzqsTHxog6PV79+tvOHFb6hq4QZKMq1lLD9MaWD1oec2lHTKndn76XOpSwCA0oFTaIbKVPrgM3k78Jjd16g=="
+  "resolved" "https://registry.npmjs.org/@types/enzyme/-/enzyme-3.10.8.tgz"
+  "version" "3.10.8"
+  dependencies:
+    "@types/cheerio" "*"
+    "@types/react" "*"
 
 "@types/eslint@*":
   version "7.2.7"
@@ -12043,6 +12058,22 @@ tr46@^1.0.1:
   "integrity" "sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A=="
   "resolved" "https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz"
   "version" "1.2.2"
+
+"ts-jest@^26.5.3":
+  "integrity" "sha512-nBiiFGNvtujdLryU7MiMQh1iPmnZ/QvOskBbD2kURiI1MwqvxlxNnaAB/z9TbslMqCsSbu5BXvSSQPc5tvHGeA=="
+  "resolved" "https://registry.npmjs.org/ts-jest/-/ts-jest-26.5.3.tgz"
+  "version" "26.5.3"
+  dependencies:
+    "bs-logger" "0.x"
+    "buffer-from" "1.x"
+    "fast-json-stable-stringify" "2.x"
+    "jest-util" "^26.1.0"
+    "json5" "2.x"
+    "lodash" "4.x"
+    "make-error" "1.x"
+    "mkdirp" "1.x"
+    "semver" "7.x"
+    "yargs-parser" "20.x"
 
 "ts-jest@26.4.4":
   "integrity" "sha512-3lFWKbLxJm34QxyVNNCgXX1u4o/RV0myvA2y2Bxm46iGIjKlaY0own9gIckbjZJPn+WaJEnfPPJ20HHGpoq4yg=="

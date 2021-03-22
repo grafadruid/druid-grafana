@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@types/react-datepicker": "^3.1.2",
+    "babel-jest": "^26.6.3",
     "react-datepicker": "^3.3.0"
   }
 }
