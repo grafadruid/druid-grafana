@@ -16,6 +16,7 @@
     "@grafana/runtime": "7.4.3",
     "@grafana/toolkit": "7.4.3",
     "@grafana/ui": "7.4.3",
+    "@types/enzyme": "^3.10.8",
     "@types/lodash": "latest",
     "enzyme": "^3.11.0",
     "enzyme-adapter-react-16": "^1.15.6",
