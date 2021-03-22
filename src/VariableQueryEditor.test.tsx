@@ -2,7 +2,7 @@
 import { shallow } from 'enzyme';
 import * as React from 'react';
 
-import { VariableQueryEditor } from '../VariableQueryEditor';
+import { VariableQueryEditor } from './VariableQueryEditor';
 
 describe('VariableQueryEditor', function () {
   const fakeProps = {

@@ -2,8 +2,8 @@ import { Field, FieldSet, Switch } from '@grafana/ui';
 import { shallow } from 'enzyme';
 import * as React from 'react';
 
-import { DruidAuthSettings } from '../DruidAuthSettings';
-import { ConnectionSettingsProps } from '../types';
+import { DruidAuthSettings } from './DruidAuthSettings';
+import { ConnectionSettingsProps } from './types';
 
 describe('A suite', function () {
   const fakeProps: ConnectionSettingsProps = {
