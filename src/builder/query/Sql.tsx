@@ -7,8 +7,15 @@ export class Sql extends PureComponent<QueryBuilderProps> {
   constructor(props: QueryBuilderProps) {
     super(props);
     this.resetBuilder(['queryType', 'query']);
-    const { builder } = props.options;
-    builder.queryType = 'sql';
+    // const { builder } = props.options;
+    // builder.queryType = 'sql';
+    props.onOptionsChange({
+      ...props.options,
+      builder: {
+        ...props.options.builder,
+        ['queryType']: 'sql',
+      },
+    });
   }
 
   resetBuilder = (properties: string[]) => {
@@ -22,9 +29,19 @@ export class Sql extends PureComponent<QueryBuilderProps> {
 
   onInputChange = (event: FormEvent<HTMLTextAreaElement> | ChangeEvent<HTMLInputElement>) => {
     const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder[event.currentTarget.name] = event.currentTarget.value;
-    onOptionsChange({ ...options, builder: builder });
+    // const { builder } = options;
+    // builder[event.currentTarget.name] = event.currentTarget.value;
+    // props.onOptionsChange({
+    //   ...props.options,
+    //   builder: {
+    //     ...props.options.builder,
+    //     ['queryType']: 'sql',
+    //   },
+    // });
+    onOptionsChange({
+      ...options,
+      [event.currentTarget.name]: event.currentTarget.value,
+    });
   };
 
   onOptionsChange = (component: string, componentBuilderOptions: QueryBuilderOptions) => {
