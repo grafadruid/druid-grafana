@@ -1,9 +1,11 @@
+---
 name: Release
 
+# yamllint disable-line rule:truthy
 on:
   push:
     tags:
-      - "v*.*.*" # Run workflow on version tags, e.g. v1.0.0.
+      - 'v*.*.*'  # Run workflow on version tags, e.g. v1.0.0.
 
 jobs:
   release:
@@ -15,12 +17,12 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v2.1.2
         with:
-          node-version: "12.x"
+          node-version: '12.x'
 
       - name: Setup Go environment
         uses: actions/setup-go@v2
         with:
-          go-version: "1.14"
+          go-version: '1.14'
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -40,6 +42,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: node_modules
+          # yamllint disable-line rule:line-length
           key: ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-
@@ -78,10 +81,12 @@ jobs:
       - name: Sign plugin
         run: yarn run grafana-toolkit plugin:sign
         env:
-          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }} # Requires a Grafana API key from Grafana.com.
+          # yamllint disable-line rule:line-length
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}  # Requires a Grafana API key from Grafana.com.
 
       - name: Get plugin metadata
         id: metadata
+        # yamllint disable rule:line-length
         run: |
           sudo apt-get install jq
 
@@ -99,6 +104,7 @@ jobs:
 
           echo ::set-output name=github-tag::${GITHUB_REF#refs/*/}
 
+        # yamllint enable rule:line-length
       - name: Read changelog
         id: changelog
         run: |
@@ -106,6 +112,7 @@ jobs:
           echo "::set-output name=path::release_notes.md"
 
       - name: Check package version
+        # yamllint disable rule:line-length
         run: if [ "v${{ steps.metadata.outputs.plugin-version }}" != "${{ steps.metadata.outputs.github-tag }}" ]; then printf "\033[0;31mPlugin version doesn't match tag name\033[0m\n"; exit 1; fi
 
       - name: Package plugin
@@ -116,6 +123,7 @@ jobs:
           md5sum ${{ steps.metadata.outputs.archive }} > ${{ steps.metadata.outputs.archive-checksum }}
           echo "::set-output name=checksum::$(cat ./${{ steps.metadata.outputs.archive-checksum }} | cut -d' ' -f1)"
 
+        # yamllint enable rule:line-length
       - name: Lint plugin
         run: |
           git clone https://github.com/grafana/plugin-validator
@@ -158,7 +166,10 @@ jobs:
           asset_content_type: text/plain
 
       - name: Publish to Grafana.com
+        # yamllint disable rule:line-length
         run: |
           echo Publish your plugin to grafana.com/plugins by opening a PR to https://github.com/grafana/grafana-plugin-repository with the following entry:
           echo
           echo '{ "id": "${{ steps.metadata.outputs.plugin-id }}", "type": "${{ steps.metadata.outputs.plugin-type }}", "url": "https://github.com/${{ github.repository }}", "versions": [ { "version": "${{ steps.metadata.outputs.plugin-version }}", "commit": "${{ github.sha }}", "url": "https://github.com/${{ github.repository }}", "download": { "any": { "url": "${{ steps.upload-plugin-asset.outputs.browser_download_url }}", "md5": "${{ steps.package-plugin.outputs.checksum }}" } } } ] }' | jq .
+
+        # yamllint enable rule:line-length

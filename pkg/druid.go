@@ -136,7 +136,7 @@ func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.C
 
 func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) ([]grafanaMetricFindValue, error) {
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "_________________________GRAFANA QUERY___________________________", string(qry))
-	//feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
+	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
 	q, stg, err := ds.prepareQuery(qry, s)
 	if err != nil {
@@ -263,7 +263,7 @@ func (ds *druidDatasource) settings(ctx backend.PluginContext) (*druidInstanceSe
 
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________GRAFANA QUERY___________________________", qry)
-	//feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
+	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
 	q, stg, err := ds.prepareQuery(qry.JSON, s)
 	if err != nil {
@@ -279,7 +279,7 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID RESPONSE___________________________", r)
 	response, err = ds.prepareResponse(r, stg)
 	if err != nil {
-		//note: error could be set from prepareResponse but this gives a chance to react to error here
+		// note: error could be set from prepareResponse but this gives a chance to react to error here
 		response.Error = err
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________GRAFANA RESPONSE___________________________", response)
@@ -302,14 +302,13 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	}
 
 	jsonQuery, err := json.Marshal(q.Builder)
-
 	if err != nil {
 		return nil, nil, err
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID JSON QUERY___________________________", string(jsonQuery))
 
 	query, err := s.client.Query().Load(jsonQuery)
-	//feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
+	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
 
 	return query, q.Settings, err
 }
@@ -350,7 +349,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 	if err != nil {
 		return r, err
 	}
-	var detectColumnType = func(c *struct {
+	detectColumnType := func(c *struct {
 		Name string
 		Type string
 	}, pos int, rr [][]interface{}) {
@@ -429,7 +428,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		var tsr []map[string]interface{}
 		err := json.Unmarshal(result, &tsr)
 		if err == nil && len(tsr) > 0 {
-			var columns = []string{"timestamp"}
+			columns := []string{"timestamp"}
 			for c := range tsr[0]["result"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
@@ -437,7 +436,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 				var row []interface{}
 				t := result["timestamp"]
 				if t == nil {
-					//grand total, lets keep it last
+					// grand total, lets keep it last
 					t = r.Rows[len(r.Rows)-1][0]
 				}
 				row = append(row, t)
@@ -460,7 +459,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		var tn []map[string]interface{}
 		err := json.Unmarshal(result, &tn)
 		if err == nil && len(tn) > 0 {
-			var columns = []string{"timestamp"}
+			columns := []string{"timestamp"}
 			for c := range tn[0]["result"].([]interface{})[0].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
@@ -488,7 +487,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		var gb []map[string]interface{}
 		err := json.Unmarshal(result, &gb)
 		if err == nil && len(gb) > 0 {
-			var columns = []string{"timestamp"}
+			columns := []string{"timestamp"}
 			for c := range gb[0]["event"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
@@ -530,7 +529,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		var s []map[string]interface{}
 		err := json.Unmarshal(result, &s)
 		if err == nil && len(s) > 0 {
-			var columns = []string{"timestamp"}
+			columns := []string{"timestamp"}
 			for c := range s[0]["result"].([]interface{})[0].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
@@ -558,7 +557,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		var tb []map[string]interface{}
 		err := json.Unmarshal(result, &tb)
 		if err == nil && len(tb) > 0 {
-			var columns = []string{"timestamp"}
+			columns := []string{"timestamp"}
 			for c := range tb[0]["result"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
@@ -584,7 +583,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 		var dsm []map[string]interface{}
 		err := json.Unmarshal(result, &dsm)
 		if err == nil && len(dsm) > 0 {
-			var columns = []string{"timestamp"}
+			columns := []string{"timestamp"}
 			for c := range dsm[0]["result"].(map[string]interface{}) {
 				columns = append(columns, c)
 			}
@@ -728,7 +727,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
 	frame := data.NewFrame("response")
-	//fetch settings
+	// fetch settings
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
 	format, found := settings["format"]
 	if !found {
@@ -736,7 +735,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	} else {
 		format = format.(string)
 	}
-	//turn druid response into grafana long frame
+	// turn druid response into grafana long frame
 	for ic, c := range resp.Columns {
 		var ff interface{}
 		columnIsEmpty := true
@@ -813,7 +812,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		}
 		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
 	}
-	//convert to other formats if specified
+	// convert to other formats if specified
 	if format == "wide" && len(frame.Fields) > 0 {
 		f, err := data.LongToWide(frame, nil)
 		if err == nil {
@@ -832,7 +831,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 func longToLog(longFrame *data.Frame, settings map[string]interface{}) (*data.Frame, error) {
 	logFrame := data.NewFrame("response")
 	logFrame.SetMeta(&data.FrameMeta{PreferredVisualization: data.VisTypeLogs})
-	//fetch settings
+	// fetch settings
 	logColumnTime, found := settings["logColumnTime"]
 	if !found {
 		logColumnTime = "__time"
@@ -851,18 +850,18 @@ func longToLog(longFrame *data.Frame, settings map[string]interface{}) (*data.Fr
 	} else {
 		logColumnMessage = logColumnMessage.(string)
 	}
-	//make sure the special time and message fields come first in the frame because that's how
-	//the log ui decides what time and message to display
+	// make sure the special time and message fields come first in the frame because that's how
+	// the log ui decides what time and message to display
 	for _, f := range longFrame.Fields {
 		if f.Name == logColumnTime || f.Name == logColumnMessage {
 			logFrame.Fields = append(logFrame.Fields, f)
 		}
 	}
-	//now copy over the rest of the fields
+	// now copy over the rest of the fields
 	for _, f := range longFrame.Fields {
 		if f.Name == logColumnTime {
-			//skip because time already copied above. does not skip message because we want it
-			//included twice since otherwise it won't be available as a detected field
+			// skip because time already copied above. does not skip message because we want it
+			// included twice since otherwise it won't be available as a detected field
 			continue
 		} else if f.Name == logColumnLevel {
 			f.Name = "level"

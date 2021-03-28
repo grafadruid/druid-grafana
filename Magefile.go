@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	//mage:import sdk
 	_ "github.com/grafana/grafana-plugin-sdk-go/build"
@@ -21,192 +22,189 @@ const (
 )
 
 var (
-	useDocker bool     = os.Getenv("DOCKER") != "0"
-	docker    []string = []string{"docker-compose", "-f", "docker/docker-compose.yml", "exec", "toolbox"}
+	useDocker        bool     = os.Getenv("GRAFADRUID_USE_DOCKER") != "0"
+	dockerToolboxCmd []string = []string{"docker-compose", "exec", "toolbox"}
 )
 
-func run(cmd ...string) error {
+func runToolboxCmd(cmd ...string) error {
 	if useDocker {
-		cmd = append(docker, cmd...)
+		cmd = append(dockerToolboxCmd, cmd...)
 	}
-	if err := sh.RunV(cmd[0], cmd[1:]...); err != nil {
-		return err
-	}
-	return nil
+
+	return sh.RunV(cmd[0], cmd[1:]...)
 }
 
 type Env mg.Namespace
 
-// Mage Compiles mage in order to avoid Mage dependency on the host.
-func (Env) UpdateMage() error {
-	if err := sh.Run("mage", "-compile", "./mage"); err != nil {
+// UpdateMage mage compiles mage in order to avoid Mage dependency on the host
+func (e Env) UpdateMage() error { return sh.Run("mage", "-compile", "./mage") }
+
+// Fmt formats the backend code (gofumpt)
+func (e Env) Fmt() error {
+	goFiles, err := filepath.Glob("**/*.go")
+	if err != nil {
 		return err
 	}
-	return nil
+
+	if err := sh.RunV(
+		"gofumpt", append([]string{"-w", "Magefile.go"}, goFiles...)...,
+	); err != nil {
+		return err
+	}
+
+	return sh.RunV("yarn", "fmt")
 }
 
 // Start starts the development environment
-func (Env) Start() error {
-	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "up", "-d"); err != nil {
+func (e Env) Start() error {
+	if err := sh.RunV("docker-compose", "up", "-d"); err != nil {
 		return err
 	}
-	e := Env{}
+
 	if err := e.Provision(); err != nil {
 		return err
 	}
-	fmt.Printf("\nDruid: http://localhost:8888\n")
-	fmt.Printf("\nGrafana: http://localhost:3000 (use druid/druid to login)\n")
+
+	fmt.Println("\nDruid: http://localhost:8888")
+	fmt.Println("\nGrafana: http://localhost:3000 (use druid/druid to login)")
+
 	return nil
 }
 
-// Stop stop the development environment
-func (Env) Stop() error {
-	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "down", "-v"); err != nil {
-		return err
-	}
-	return nil
-}
+// Stop stops the development environment
+func (e Env) Stop() error { return sh.RunV("docker-compose", "down", "-v") }
 
-// Rebuild rebuilds images from Dockerfile
-func (Env) Rebuild() error {
-	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "build"); err != nil {
-		return err
-	}
-	return nil
-}
+// Rebuild rebuilds container images from Dockerfiles
+func (e Env) Rebuild() error { return sh.RunV("docker-compose", "build") }
 
-// Provision provisions druid example data in druid
-func (Env) Provision() error {
+// Provision provisions example data in Druid
+func (e Env) Provision() error {
 	fileList := []string{"post-index-task", "post-index-task-main"}
+
 	if err := downloadDruidScripts(defaultDownloadDir, fileList); err != nil {
 		return err
 	}
-	fmt.Printf("\nIngesting example data in druid\n")
-	ingestScript := defaultDownloadDir + "post-index-task"
-	if err := run(ingestScript, "--file", defaultIngestSpecFile, "--url", defaultCoordinatorURL, "--complete-timeout", "1200", "--coordinator-url", defaultCoordinatorURL); err != nil {
-		return err
-	}
-	return nil
+
+	fmt.Println("\nIngesting example data in Druid")
+
+	ingestScript := fmt.Sprintf("%s%s", defaultDownloadDir, "post-index-task")
+
+	return runToolboxCmd(
+		ingestScript,
+		"--file",
+		defaultIngestSpecFile,
+		"--url",
+		defaultCoordinatorURL,
+		"--complete-timeout",
+		"1200",
+		"--coordinator-url",
+		defaultCoordinatorURL,
+	)
 }
 
 func downloadDruidScripts(defaultDownloadDir string, fileList []string) error {
-	fmt.Printf("\nDownloading required scripts\n")
+	fmt.Println("\nDownloading required scripts")
+
 	for _, file := range fileList {
 		fp := defaultDownloadDir + file
-		if err := run("wget", "-q", "-O", fp, "https://raw.githubusercontent.com/apache/druid/master/examples/bin/"+file); err != nil {
+
+		if err := runToolboxCmd(
+			"wget", "-q", "-O", fp,
+			fmt.Sprintf(
+				"%s%s",
+				"https://raw.githubusercontent.com/apache/druid/master/examples/bin/",
+				file,
+			),
+		); err != nil {
 			return err
 		}
-		if err := run("chmod", "+x", fp); err != nil {
+
+		if err := runToolboxCmd("chmod", "+x", fp); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
-// Restart stop & start the development environment
-func (Env) Restart() {
-	e := Env{}
-	e.Stop()
-	e.Start()
+// Restart stops and start the development environment
+func (e Env) Restart() error {
+	if err := e.Stop(); err != nil {
+		return err
+	}
+
+	return e.Start()
 }
 
 type Frontend mg.Namespace
 
 // Build builds the frontend plugin
 func (Frontend) Build() error {
-	err := run("yarn", "install")
-	if err == nil {
-		err = run("npx", "@grafana/toolkit", "plugin:build")
+	err := runToolboxCmd("yarn", "install")
+	if err != nil {
+		return err
 	}
-	return err
+
+	return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build")
 }
 
 // Test runs frontend tests
 func (Frontend) Test() error {
-	return run("npx", "@grafana/toolkit", "plugin:test")
+	return runToolboxCmd("npx", "@grafana/toolkit", "plugin:test")
 }
 
-// Dev frontend dev
+// Dev runs frontend in development mode
 func (Frontend) Dev() error {
-	return run("npx", "@grafana/toolkit", "plugin:dev")
+	return runToolboxCmd("npx", "@grafana/toolkit", "plugin:dev")
 }
 
-// Watch frontend dev watch
+// Watch runs frontend in development mode + autoreload on changes
 func (Frontend) Watch() error {
-	return run("npx", "@grafana/toolkit", "plugin:dev", "--watch")
+	return runToolboxCmd("npx", "@grafana/toolkit", "plugin:dev", "--watch")
 }
 
 type Backend mg.Namespace
 
-// Build build a production build for all platforms.
-func (Backend) Build() {
-	run("mage", "sdk:build:backend")
-}
+// Build creates a release build of the backend plugin for all platforms
+func (Backend) Build() error { return runToolboxCmd("mage", "sdk:build:backend") }
 
-// Linux builds the back-end plugin for Linux.
-func (Backend) Linux() {
-	run("mage", "sdk:build:linux")
-}
+// Linux creates a release build of the backend plugin for Linux
+func (Backend) Linux() error { return runToolboxCmd("mage", "sdk:build:linux") }
 
-// Darwin builds the back-end plugin for OSX.
-func (Backend) Darwin() {
-	run("mage", "sdk:build:darwin")
-}
+// Darwin creates a release build of the backend plugin for macOS
+func (Backend) Darwin() error { return runToolboxCmd("mage", "sdk:build:darwin") }
 
-// Windows builds the back-end plugin for Windows.
-func (Backend) Windows() {
-	run("mage", "sdk:build:windows")
-}
+// Windows creates a relese build of the backend plugin for Windows
+func (Backend) Windows() error { return runToolboxCmd("mage", "sdk:build:windows") }
 
-// Debug builds the debug version for the current platform.
-func (Backend) Debug() {
-	run("mage", "sdk:build:debug")
-}
+// Debug creates a debug build of the backend plugin for the current platform
+func (Backend) Debug() error { return runToolboxCmd("mage", "sdk:build:debug") }
 
-// BuildAll builds production back-end components.
-func (Backend) BuildAll() {
-	run("mage", "sdk:buildAll")
-}
+// BuildAll creates release build of all plugin components
+func (Backend) BuildAll() error { return runToolboxCmd("mage", "sdk:buildAll") }
 
-// Clean cleans build artifacts, by deleting the dist directory.
-func (Backend) Clean() {
-	run("mage", "sdk:clean")
-}
+// Clean cleans build artifacts (by deleting the dist directory)
+func (Backend) Clean() error { return runToolboxCmd("mage", "sdk:clean") }
 
-//Coverage runs backend tests and makes a coverage report.
-func (Backend) Coverage() {
-	run("mage", "sdk:coverage")
-}
+// Coverage rune backend tests and make a coverage report
+func (Backend) Coverage() error { return runToolboxCmd("mage", "sdk:coverage") }
 
-// Format formats the sources.
-func (Backend) Format() {
-	run("mage", "sdk:format")
-}
+// Format formats the sources
+func (Backend) Format() error { return runToolboxCmd("mage", "sdk:format") }
 
-// Lint audits the source style.
-func (Backend) Lint() {
-	run("mage", "sdk:lint")
-}
+// Lint audits the source style
+func (Backend) Lint() error { return runToolboxCmd("mage", "sdk:lint") }
 
-// ReloadPlugin kills any running instances and waits for grafana to reload the plugin.
+// ReloadPlugin kills any running instances and wait for Grafana to reload the plugin
 func (Backend) ReloadPlugin() error {
-	if err := sh.RunV("docker-compose", "-f", "docker/docker-compose.yml", "restart", "grafana"); err != nil {
-		return err
-	}
-	return nil
+	return sh.RunV("docker-compose", "restart", "grafana")
 }
 
-//Test runs backend tests.
-func (Backend) Test() {
-	run("mage", "sdk:test")
-}
+// Test runs backend tests
+func (Backend) Test() error { return runToolboxCmd("mage", "sdk:test") }
 
-//BuildAll builds the plugin, frontend and backend.
-func BuildAll() {
-	b := Backend{}
-	f := Frontend{}
-	mg.Deps(b.BuildAll, f.Build)
-}
+// BuildAll builds the plugin (both frontend and backend)
+func BuildAll() { mg.Deps(Backend{}.BuildAll, Frontend{}.Build) }
 
-// Default configures the default target.
+// Default configures the default target (build all plugin components)
 var Default = BuildAll
