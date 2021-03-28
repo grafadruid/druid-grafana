@@ -23,5 +23,5 @@ test_script:
 
 # Run the build
 build_script:
-  - yarn dev  # This will also run prettier!
-  - yarn build  # make sure both scripts work
+  - yarn dev # This will also run prettier!
+  - yarn build # make sure both scripts work
