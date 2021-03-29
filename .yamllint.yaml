@@ -1,0 +1,8 @@
+---
+extends: default
+
+ignore: |
+  node_modules
+
+rules:
+  comments: disable

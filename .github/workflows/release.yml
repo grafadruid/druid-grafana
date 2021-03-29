@@ -5,7 +5,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # Run workflow on version tags, e.g. v1.0.0.
+      - 'v*.*.*' # Run workflow on version tags, e.g. v1.0.0.
 
 jobs:
   release:
@@ -82,7 +82,7 @@ jobs:
         run: yarn run grafana-toolkit plugin:sign
         env:
           # yamllint disable-line rule:line-length
-          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}  # Requires a Grafana API key from Grafana.com.
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }} # Requires a Grafana API key from Grafana.com.
 
       - name: Get plugin metadata
         id: metadata
