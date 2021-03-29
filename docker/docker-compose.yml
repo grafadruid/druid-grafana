@@ -1,147 +1,145 @@
-version: '2.2'
-
-volumes:
-  middle_var: {}
-  historical_var: {}
-  broker_var: {}
-  coordinator_var: {}
-  router_var: {}
-  postgres: {}
-  druid_data: {}
+---
+version: '3.8'
 
 services:
-  postgres:
-    container_name: grafadruid-postgres
-    image: postgres:latest
+  broker:
+    command:
+      - broker
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    env_file:
+      - ./druid/environment
+    image: apache/druid:${DRUID_VERSION}
+    ports:
+      - 8082:8082
+    restart: on-failure
     user: root
     volumes:
-      - postgres:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_PASSWORD=FoolishPassword
-      - POSTGRES_USER=druid
-      - POSTGRES_DB=druid
-    restart: always
-  zookeeper:
-    container_name: zookeeper
-    image: zookeeper:3.6
-    environment:
-      - ZOO_MY_ID=1
+      - broker_var:/opt/druid/var
+      - ./druid/properties:/properties
+
   coordinator:
-    image: apache/druid:0.20.0
-    container_name: grafadruid-coordinator
+    command:
+      - coordinator
+    depends_on:
+      - zookeeper
+      - postgres
+    env_file:
+      - ./druid/environment
+    image: apache/druid:${DRUID_VERSION}
+    ports:
+      - 8081:8081
+    restart: on-failure
     user: root
     volumes:
       - druid_data:/opt/data
       - coordinator_var:/opt/druid/var
       - ./druid/properties:/properties
-    depends_on:
-      - zookeeper
-      - postgres
-    ports:
-      - '8081:8081'
-    command:
-      - coordinator
-    env_file:
-      - ./druid/environment
-    restart: always
-  broker:
-    image: apache/druid:0.20.0
-    container_name: grafadruid-broker
-    user: root
-    volumes:
-      - broker_var:/opt/druid/var
-      - ./druid/properties:/properties
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - '8082:8082'
-    command:
-      - broker
-    env_file:
-      - ./druid/environment
-    restart: always
-  historical:
-    image: apache/druid:0.20.0
-    container_name: grafadruid-historical
-    user: root
-    volumes:
-      - druid_data:/opt/data
-      - historical_var:/opt/druid/var
-      - ./druid/properties:/properties
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - '8083:8083'
-    command:
-      - historical
-    env_file:
-      - ./druid/environment
-    restart: always
-  middlemanager:
-    image: apache/druid:0.20.0
-    container_name: grafadruid-middlemanager
-    user: root
-    volumes:
-      - druid_data:/opt/data
-      - middle_var:/opt/druid/var
-      - ./druid/properties:/properties
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - '8091:8091'
-    command:
-      - middleManager
-    env_file:
-      - ./druid/environment
-    restart: always
-  router:
-    image: apache/druid:0.20.0
-    container_name: grafadruid-router
-    user: root
-    volumes:
-      - router_var:/opt/druid/var
-      - ./druid/properties:/properties
-    depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
-    ports:
-      - '8888:8888'
-    command:
-      - router
-    env_file:
-      - ./druid/environment
-    restart: always
 
   grafana:
-    image: grafana/grafana:7.4.3
-    container_name: grafadruid-grafana
+    depends_on:
+      - broker
+    env_file:
+      - ./grafana/environment
+    image: grafana/grafana:${GRAFANA_VERSION}
+    ports:
+      - 3000:3000
+    restart: on-failure
     user: root
     volumes:
       - ../dist:/var/lib/grafana/plugins/druid-grafana
       - ./grafana/dashboards:/etc/grafana/dashboards
       - ./grafana/provisioning:/etc/grafana/provisioning
+
+  historical:
+    command:
+      - historical
     depends_on:
-      - broker
-    ports:
-      - '3000:3000'
+      - zookeeper
+      - postgres
+      - coordinator
     env_file:
-      - ./grafana/environment
-    restart: always
+      - ./druid/environment
+    image: apache/druid:${DRUID_VERSION}
+    ports:
+      - 8083:8083
+    restart: on-failure
+    user: root
+    volumes:
+      - druid_data:/opt/data
+      - historical_var:/opt/druid/var
+      - ./druid/properties:/properties
+
+  middlemanager:
+    command:
+      - middleManager
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    env_file:
+      - ./druid/environment
+    image: apache/druid:${DRUID_VERSION}
+    ports:
+      - 8091:8091
+    restart: on-failure
+    user: root
+    volumes:
+      - druid_data:/opt/data
+      - middle_var:/opt/druid/var
+      - ./druid/properties:/properties
+
+  postgres:
+    environment:
+      POSTGRES_DB: druid
+      POSTGRES_PASSWORD: FoolishPassword
+      POSTGRES_USER: druid
+    image: postgres:${POSTGRES_VERSION}
+    restart: on-failure
+    user: root
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  router:
+    command:
+      - router
+    depends_on:
+      - zookeeper
+      - postgres
+      - coordinator
+    env_file:
+      - ./druid/environment
+    image: apache/druid:${DRUID_VERSION}
+    ports:
+      - 8888:8888
+    restart: on-failure
+    user: root
+    volumes:
+      - router_var:/opt/druid/var
+      - ./druid/properties:/properties
 
   toolbox:
-    container_name: grafadruid-toolbox
+    build:
+      context: .
+      dockerfile: ./toolbox/Dockerfile
     depends_on:
       - coordinator
-    build:
-      dockerfile: ./toolbox/Dockerfile
-      context: .
+    restart: on-failure
     volumes:
       - ../:/workspace
-    restart: always
+
+  zookeeper:
+    environment:
+      ZOO_MY_ID: 1
+    image: zookeeper:${ZOOKEEPER_VERSION}
+
+volumes:
+  broker_var: ~
+  coordinator_var: ~
+  druid_data: ~
+  historical_var: ~
+  middle_var: ~
+  postgres: ~
+  router_var: ~

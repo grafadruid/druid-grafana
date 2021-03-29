@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Connects Grafana to Druid",
   "scripts": {
+    "fmt": "prettier -uw '**/*'",
     "build": "grafana-toolkit plugin:build",
     "test": "grafana-toolkit plugin:test",
     "dev": "grafana-toolkit plugin:dev",

@@ -22,12 +22,12 @@ See [Contribute](https://github.com/grafadruid/druid-grafana/blob/master/CONTRIB
 ## Install
 
 - From Grafana.com (soon, process in progress):
-`grafana-cli plugins install grafadruid-druid-datasource $VERSION`
+  `grafana-cli plugins install grafadruid-druid-datasource $VERSION`
   - If `$VERSION` is not specified latest version will be installed
 - From remote archive:
-`grafana-cli --pluginUrl https://github.com/grafadruid/druid-grafana/releases/download/v$VERSION/grafadruid-druid-datasource-$VERSION.zip plugins install grafadruid-druid-datasource`
+  `grafana-cli --pluginUrl https://github.com/grafadruid/druid-grafana/releases/download/v$VERSION/grafadruid-druid-datasource-$VERSION.zip plugins install grafadruid-druid-datasource`
 - From local archive:
-`unzip grafadruid-druid-datasource-$VERSION.zip -d $YOUR_PLUGIN_DIR`
+  `unzip grafadruid-druid-datasource-$VERSION.zip -d $YOUR_PLUGIN_DIR`
 
 Where `$VERSION` is for instance `1.0.0` and `$YOUR_PLUGIN_DIR` is for instance `/var/lib/grafana/plugins`
 
@@ -36,4 +36,3 @@ Where `$VERSION` is for instance `1.0.0` and `$YOUR_PLUGIN_DIR` is for instance 
 ## Usage
 
 You can try out various advanced features of the plugin by importing the [demo dashboard](https://github.com/grafadruid/druid-grafana/blob/master/dashboard.json) and running it against the Wikipedia dataset used in the [Druid quickstart tutorial](https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data).
-

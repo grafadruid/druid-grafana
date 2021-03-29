@@ -12,7 +12,7 @@ Any "building" is done within the `builder` container (that saves you from setti
 
 Mage (See https://magefile.org) is used in order to run commands over that environment (mostly within that `builder` container).
 
-_If you don't want to run commands in that development environment container, you can set the environment variable `DOCKER=0` and the commands will be run against your host._
+_If you don't want to run commands in that development environment container, you can set the environment variable `GRAFADRUID_USE_DOCKER=0` and the commands will be run against your host._
 
 In the same "plug & play" spirit, Mage is provided as a binary so you don't have have to install it locally.
 

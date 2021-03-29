@@ -167,9 +167,7 @@
               "value": "France"
             },
             "granularity": "minute",
-            "intervals": [
-              "${__from:date:iso}/${__to:date:iso}"
-            ],
+            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
             "limit": 0,
             "postAggregations": [],
             "queryType": "timeseries",
@@ -263,9 +261,7 @@
         "displayMode": "lcd",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": [
-            "mean"
-          ],
+          "calcs": ["mean"],
           "fields": "",
           "values": true
         },
@@ -299,9 +295,7 @@
               "value": "France"
             },
             "granularity": "all",
-            "intervals": [
-              "${__from:date:iso}/${__to:date:iso}"
-            ],
+            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
             "metric": {
               "metric": "delta",
               "type": "numeric"
@@ -426,9 +420,7 @@
               "value": "France"
             },
             "granularity": "minute",
-            "intervals": [
-              "${__from:date:iso}/${__to:date:iso}"
-            ],
+            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
             "postAggregations": [],
             "queryType": "groupBy",
             "subtotalsSpec": [],
@@ -568,9 +560,7 @@
               "type": "selector",
               "value": "France"
             },
-            "intervals": [
-              "${__from:date:iso}/${__to:date:iso}"
-            ],
+            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
             "limit": 0,
             "order": "none",
             "queryType": "scan",
@@ -679,9 +669,7 @@
               "type": "selector",
               "value": "France"
             },
-            "intervals": [
-              "${__from:date:iso}/${__to:date:iso}"
-            ],
+            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
             "limit": 0,
             "query": {
               "type": "contains",
@@ -758,9 +746,7 @@
               "name": "wikipedia",
               "type": "table"
             },
-            "intervals": [
-              "${__from:date:iso}/${__to:date:iso}"
-            ],
+            "intervals": ["${__from:date:iso}/${__to:date:iso}"],
             "queryType": "timeBoundary"
           },
           "refId": "A",
