@@ -37,3 +37,6 @@ e2e-results/
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+
+# Direnv (https://direnv.net)
+.envrc
