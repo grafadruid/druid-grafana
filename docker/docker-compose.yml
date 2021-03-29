@@ -122,8 +122,8 @@ services:
 
   toolbox:
     build:
-      context: .
-      dockerfile: ./toolbox/Dockerfile
+      context: ..
+      dockerfile: ./docker/toolbox/Dockerfile
     depends_on:
       - coordinator
     restart: on-failure

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultDownloadDir    string = "/tmp/"
+	defaultIngestScript   string = "docker/provisioning/post-index-task"
 	defaultIngestSpecFile string = "docker/provisioning/ingest-spec.json"
 	defaultCoordinatorURL string = "http://coordinator:8081"
 	taskEndpoint          string = "/druid/indexer/v1/task"
@@ -79,18 +79,10 @@ func (e Env) Rebuild() error { return sh.RunV("docker-compose", "build") }
 
 // Provision provisions example data in Druid
 func (e Env) Provision() error {
-	fileList := []string{"post-index-task", "post-index-task-main"}
-
-	if err := downloadDruidScripts(defaultDownloadDir, fileList); err != nil {
-		return err
-	}
-
-	fmt.Println("\nIngesting example data in Druid")
-
-	ingestScript := fmt.Sprintf("%s%s", defaultDownloadDir, "post-index-task")
+	fmt.Println("\nIngesting example data into Druid")
 
 	return runToolboxCmd(
-		ingestScript,
+		defaultIngestScript,
 		"--file",
 		defaultIngestSpecFile,
 		"--url",
@@ -100,31 +92,6 @@ func (e Env) Provision() error {
 		"--coordinator-url",
 		defaultCoordinatorURL,
 	)
-}
-
-func downloadDruidScripts(defaultDownloadDir string, fileList []string) error {
-	fmt.Println("\nDownloading required scripts")
-
-	for _, file := range fileList {
-		fp := defaultDownloadDir + file
-
-		if err := runToolboxCmd(
-			"wget", "-q", "-O", fp,
-			fmt.Sprintf(
-				"%s%s",
-				"https://raw.githubusercontent.com/apache/druid/master/examples/bin/",
-				file,
-			),
-		); err != nil {
-			return err
-		}
-
-		if err := runToolboxCmd("chmod", "+x", fp); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Restart stops and start the development environment
