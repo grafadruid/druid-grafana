@@ -56,7 +56,7 @@ def post_task(args, task_json, timeout_at):
 
       if datasource in json.load(urllib.request.urlopen(args.broker_url.rstrip("/") + "/druid/v2/datasources")):
         if not args.force:
-          sys.stderr.write("Datasource {0} alrady present - skipping (use -F/--force to ingest anyway)\n".format(datasource))
+          sys.stderr.write("Datasource {0} already present - skipping (use -F/--force to ingest anyway)\n".format(datasource))
           sys.exit(0)
         else:
           break
