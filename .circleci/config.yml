@@ -1,3 +1,4 @@
+---
 version: 2.1
 
 parameters:
@@ -20,7 +21,7 @@ workflows:
       - build
 
 executors:
-  default_exec: # declares a reusable executor
+  default_exec:  # declares a reusable executor
     docker:
       - image: srclosson/grafana-plugin-ci-alpine:latest
   e2e_exec:
@@ -35,16 +36,20 @@ jobs:
       - restore_cache:
           name: restore node_modules
           keys:
-          - build-cache-{{ .Environment.CACHE_VERSION }}-{{ checksum "yarn.lock" }}
+            # yamllint disable-line rule:line-length
+            - build-cache-{{ .Environment.CACHE_VERSION }}-{{ checksum "yarn.lock" }}
       - run:
           name: Install dependencies
+          # yamllint disable rule:line-length
           command: |
             mkdir ci
             [ -f ~/project/node_modules/.bin/grafana-toolkit ] || yarn install --frozen-lockfile
+          # yamllint enable rule:line-length
       - save_cache:
           name: save node_modules
           paths:
             - ~/project/node_modules
+          # yamllint disable-line rule:line-length
           key: build-cache-{{ .Environment.CACHE_VERSION }}-{{ checksum "yarn.lock" }}
       - run:
           name: Build and test frontend
@@ -67,9 +72,9 @@ jobs:
       - persist_to_workspace:
           root: .
           paths:
-          - ci/jobs/package
-          - ci/packages
-          - ci/dist
-          - ci/grafana-test-env
+            - ci/jobs/package
+            - ci/packages
+            - ci/dist
+            - ci/grafana-test-env
       - store_artifacts:
           path: ci
