@@ -29,3 +29,14 @@ e2e-results/
 # Editor
 .idea
 .vscode
+
+### vscode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Direnv (https://direnv.net)
+.envrc
