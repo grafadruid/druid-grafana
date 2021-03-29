@@ -18,6 +18,7 @@ const (
 	defaultIngestScript   string = "docker/provisioning/post-index-task"
 	defaultIngestSpecFile string = "docker/provisioning/ingest-spec.json"
 	defaultCoordinatorURL string = "http://coordinator:8081"
+	defaultBrokerURL      string = "http://broker:8082"
 	taskEndpoint          string = "/druid/indexer/v1/task"
 )
 
@@ -65,14 +66,22 @@ func (e Env) Start() error {
 		return err
 	}
 
-	fmt.Println("\nDruid: http://localhost:8888")
+	fmt.Printf("\nDruid: http://localhost:8888")
 	fmt.Println("\nGrafana: http://localhost:3000 (use druid/druid to login)")
 
 	return nil
 }
 
 // Stop stops the development environment
-func (e Env) Stop() error { return sh.RunV("docker-compose", "down", "-v") }
+func (e Env) Stop(removeVolumes bool) error {
+	cmd := []string{"docker-compose", "down"}
+
+	if removeVolumes {
+		cmd = append(cmd, "-v")
+	}
+
+	return sh.RunV(cmd[0], cmd[1:]...)
+}
 
 // Rebuild rebuilds container images from Dockerfiles
 func (e Env) Rebuild() error { return sh.RunV("docker-compose", "build") }
@@ -91,12 +100,14 @@ func (e Env) Provision() error {
 		"1200",
 		"--coordinator-url",
 		defaultCoordinatorURL,
+		"--broker-url",
+		defaultBrokerURL,
 	)
 }
 
 // Restart stops and start the development environment
 func (e Env) Restart() error {
-	if err := e.Stop(); err != nil {
+	if err := e.Stop(false); err != nil {
 		return err
 	}
 

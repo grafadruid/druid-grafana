@@ -44,6 +44,40 @@ def add_basic_auth_header(args, req):
 
 # Keep trying until timeout_at, maybe die then
 def post_task(args, task_json, timeout_at):
+  max_retries = 10
+  retries = 0
+  task_parsed = json.loads(task_json)
+  while True:
+    try:
+      if task_parsed['type'] == "compact":
+        datasource = task_parsed['dataSource']
+      else:
+        datasource = task_parsed["spec"]["dataSchema"]["dataSource"]
+
+      if datasource in json.load(urllib.request.urlopen(args.broker_url.rstrip("/") + "/druid/v2/datasources")):
+        if not args.force:
+          sys.stderr.write("Datasource {0} alrady present - skipping (use -F/--force to ingest anyway)\n".format(datasource))
+          sys.exit(0)
+        else:
+          break
+
+      else:
+        break
+
+    except urllib.error.URLError as e:
+      if isinstance(e.reason, ConnectionRefusedError):
+        if retries <= max_retries:
+          retries += 1
+          sys.stderr.write("Waiting for broker to become available...\n")
+          time.sleep(5)
+          continue
+        else:
+          sys.stderr.write("Unable to get past error {0}. Please investigate.".format(e))
+          raise
+      else:
+        sys.stderr.write("Received unexpected error: {0}".format(e))
+        raise
+
   try:
     url = args.url.rstrip("/") + "/druid/indexer/v1/task"
     req = urllib.request.Request(url, task_json.encode(), {'Content-Type' : 'application/json'})
@@ -134,8 +168,10 @@ def await_load_completion(args, datasource, timeout_at):
 def main():
   parser = argparse.ArgumentParser(description='Post Druid indexing tasks.')
   parser.add_argument('--url', '-u', metavar='url', type=str, default='http://localhost:8090/', help='Druid Overlord url')
+  parser.add_argument('--broker-url', type=str, default='http://localhost:8082/', help='Druid Broker url')
   parser.add_argument('--coordinator-url', type=str, default='http://localhost:8081/', help='Druid Coordinator url')
   parser.add_argument('--file', '-f', type=str, required=True, help='Query JSON file')
+  parser.add_argument('--force', '-F', type=bool, default=False, help='Force index task even if datasource exists')
   parser.add_argument('--submit-timeout', type=int, default=120, help='Timeout (in seconds) for submitting tasks')
   parser.add_argument('--complete-timeout', type=int, default=14400, help='Timeout (in seconds) for completing tasks')
   parser.add_argument('--load-timeout', type=int, default=14400, help='Timeout (in seconds) for waiting for tasks to load')
