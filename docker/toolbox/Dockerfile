@@ -19,6 +19,9 @@ WORKDIR /workspace
 COPY docker/toolbox/asdf-init.sh .tool-versions ./
 RUN ./asdf-init.sh
 
+RUN npm config set unsafe-perm true
+RUN npm i -g yarn
+
 RUN printf "%s\n" "export GOPATH=\$(asdf where golang)/go" >> ~/.bashrc
 
 RUN git clone https://github.com/magefile/mage /usr/local/mage \

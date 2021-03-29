@@ -144,34 +144,34 @@ func (Frontend) Watch() error {
 type Backend mg.Namespace
 
 // Build creates a release build of the backend plugin for all platforms
-func (Backend) Build() error { return runToolboxCmd("mage", "sdk:build:backend") }
+func (Backend) Build() error { return runToolboxCmd("./mage", "sdk:build:backend") }
 
 // Linux creates a release build of the backend plugin for Linux
-func (Backend) Linux() error { return runToolboxCmd("mage", "sdk:build:linux") }
+func (Backend) Linux() error { return runToolboxCmd("./mage", "sdk:build:linux") }
 
 // Darwin creates a release build of the backend plugin for macOS
-func (Backend) Darwin() error { return runToolboxCmd("mage", "sdk:build:darwin") }
+func (Backend) Darwin() error { return runToolboxCmd("./mage", "sdk:build:darwin") }
 
 // Windows creates a relese build of the backend plugin for Windows
-func (Backend) Windows() error { return runToolboxCmd("mage", "sdk:build:windows") }
+func (Backend) Windows() error { return runToolboxCmd("./mage", "sdk:build:windows") }
 
 // Debug creates a debug build of the backend plugin for the current platform
-func (Backend) Debug() error { return runToolboxCmd("mage", "sdk:build:debug") }
+func (Backend) Debug() error { return runToolboxCmd("./mage", "sdk:build:debug") }
 
 // BuildAll creates release build of all plugin components
-func (Backend) BuildAll() error { return runToolboxCmd("mage", "sdk:buildAll") }
+func (Backend) BuildAll() error { return runToolboxCmd("./mage", "sdk:buildAll") }
 
 // Clean cleans build artifacts (by deleting the dist directory)
-func (Backend) Clean() error { return runToolboxCmd("mage", "sdk:clean") }
+func (Backend) Clean() error { return runToolboxCmd("./mage", "sdk:clean") }
 
 // Coverage rune backend tests and make a coverage report
-func (Backend) Coverage() error { return runToolboxCmd("mage", "sdk:coverage") }
+func (Backend) Coverage() error { return runToolboxCmd("./mage", "sdk:coverage") }
 
 // Format formats the sources
-func (Backend) Format() error { return runToolboxCmd("mage", "sdk:format") }
+func (Backend) Format() error { return runToolboxCmd("./mage", "sdk:format") }
 
 // Lint audits the source style
-func (Backend) Lint() error { return runToolboxCmd("mage", "sdk:lint") }
+func (Backend) Lint() error { return runToolboxCmd("./mage", "sdk:lint") }
 
 // ReloadPlugin kills any running instances and wait for Grafana to reload the plugin
 func (Backend) ReloadPlugin() error {
@@ -179,7 +179,7 @@ func (Backend) ReloadPlugin() error {
 }
 
 // Test runs backend tests
-func (Backend) Test() error { return runToolboxCmd("mage", "sdk:test") }
+func (Backend) Test() error { return runToolboxCmd("./mage", "sdk:test") }
 
 // BuildAll builds the plugin (both frontend and backend)
 func BuildAll() { mg.Deps(Backend{}.BuildAll, Frontend{}.Build) }
