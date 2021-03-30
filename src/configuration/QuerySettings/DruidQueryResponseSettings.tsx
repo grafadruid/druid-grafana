@@ -17,7 +17,7 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
       settings.hideEmptyColumns = false;
     }
     if (settings.responseLimit === undefined) {
-      settings.responseLimit = 1000000;
+      settings.responseLimit = 0;
     }
   }
 

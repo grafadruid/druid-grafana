@@ -737,7 +737,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		format = format.(string)
 	}
 	// turn druid response into grafana long frame
-	if len(resp.Rows) > int(responseLimit) {
+	if responseLimit > 0 && len(resp.Rows) > int(responseLimit) {
 		resp.Rows = resp.Rows[:int(responseLimit)]
 		response.Error = fmt.Errorf("Query response limit exceeded (limit: %d rows). Consider adding filters and/or reducing the query time range.", int(responseLimit))
 	}
