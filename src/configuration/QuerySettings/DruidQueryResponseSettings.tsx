@@ -1,5 +1,5 @@
 import React, { PureComponent, ChangeEvent } from 'react';
-import { InlineFieldRow, InlineField, InlineSwitch, Select } from '@grafana/ui';
+import { InlineFieldRow, InlineField, InlineSwitch, Select, Input } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QuerySettingsProps } from './types';
 import { DruidQueryLogSettings } from './DruidQueryLogSettings';
@@ -15,6 +15,9 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
     }
     if (settings.hideEmptyColumns === undefined) {
       settings.hideEmptyColumns = false;
+    }
+    if (settings.responseLimit === undefined) {
+      settings.responseLimit = 1000000;
     }
   }
 
@@ -49,6 +52,13 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
     onOptionsChange({ ...options, settings: settings });
   };
 
+  onResponseLimitChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { options, onOptionsChange } = this.props;
+    const { settings } = options;
+    settings.responseLimit = Number(event.target.value);
+    onOptionsChange({ ...options, settings: settings });
+  };
+
   render() {
     const { settings } = this.props.options;
     return (
@@ -71,6 +81,11 @@ export class DruidQueryResponseSettings extends PureComponent<QuerySettingsProps
             tooltip="Hide columns from the response where no row has a value for those columns"
           >
             <InlineSwitch value={settings.hideEmptyColumns} disabled={false} onChange={this.onHideEmptyColumnsChange} />
+          </InlineField>
+        </InlineFieldRow>
+        <InlineFieldRow>
+          <InlineField label="Response Limit" tooltip="Limit the response rows to prevent browser overload">
+            <Input type="number" value={settings.responseLimit} onChange={this.onResponseLimitChange} />
           </InlineField>
         </InlineFieldRow>
       </div>
