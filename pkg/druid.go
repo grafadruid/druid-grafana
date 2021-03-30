@@ -729,6 +729,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	frame := data.NewFrame("response")
 	// fetch settings
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
+	responseLimit, _ := settings["responseLimit"].(float64)
 	format, found := settings["format"]
 	if !found {
 		format = "long"
@@ -736,6 +737,10 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		format = format.(string)
 	}
 	// turn druid response into grafana long frame
+	if len(resp.Rows) > int(responseLimit) {
+		resp.Rows = resp.Rows[:int(responseLimit)]
+		response.Error = fmt.Errorf("Query response limit exceeded (limit: %d rows). Consider adding filters and/or reducing the query time range.", int(responseLimit))
+	}
 	for ic, c := range resp.Columns {
 		var ff interface{}
 		columnIsEmpty := true
