@@ -1,7 +1,6 @@
 import React, { PureComponent, ChangeEvent } from 'react';
-import { MultiSelect } from '@grafana/ui';
+import { MultiSelect, LegacyForms } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
-import { LegacyForms } from '@grafana/ui';
 import { css } from 'emotion';
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { ExtractionFn } from '../extractionfn';
