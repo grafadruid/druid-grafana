@@ -1,7 +1,5 @@
-import { DataSourceInstanceSettings } from '@grafana/data';
-import { MetricFindValue } from '@grafana/data';
-import { DataSourceWithBackend } from '@grafana/runtime';
-import { getTemplateSrv } from '@grafana/runtime';
+import { DataSourceInstanceSettings, MetricFindValue } from '@grafana/data';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { DruidSettings, DruidQuery } from './types';
 import { cloneDeepWith } from 'lodash';
 

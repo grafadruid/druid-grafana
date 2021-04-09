@@ -61,7 +61,7 @@ export class Arithmetic extends PureComponent<QueryBuilderProps, State> {
     super(props);
     this.resetBuilder(['type', 'name', 'fn', 'fields', 'ordering']);
     const { builder } = props.options;
-    builder.type = 'cardinality';
+    builder.type = 'arithmetic';
     if (undefined === builder.fields) {
       builder.fields = [];
     }
