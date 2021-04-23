@@ -25,19 +25,5 @@ describe('A suite', function () {
     expect(wrapper.find(Switch)).toHaveLength(2);
     const x = wrapper.find(Switch);
     expect(x.find('.value')).toBeTruthy();
-    // expect(shallow(<DruidAuthSettings {...fakeProps} />).contains(<div className="DruidAuthSettings">Bar</div>)).toBe(
-    // true
   });
 });
-
-// it('should be selectable by class "DruidAuthSettings"', function () {
-//   expect(shallow(<DruidAuthSettings />).is('.DruidAuthSettings')).toBe(true);
-// });
-
-// it('should mount in a full DOM', function () {
-//   expect(mount(<DruidAuthSettings />).find('.DruidAuthSettings').length).toBe(1);
-// });
-
-// it('should render to static HTML', function () {
-//   expect(render(<DruidAuthSettings />).text()).toEqual('Bar');
-// });
