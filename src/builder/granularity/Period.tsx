@@ -5,34 +5,23 @@ import { useScopedQueryBuilderFieldProps, Input, DateTime, Row } from '../abstra
 export const Period = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Period);
   return (
-    <>
-      <Row>
-        <Input
-          {...scopedProps('period')}
-          label="Period"
-          description="The period in ISO8601 format (e.g. P2W, P3M, PT1H30M, PT0.750S)"
-          type="text"
-        />
-      </Row>
-      <Row>
-        <Input
-          {...scopedProps('timeZone')}
-          label="Timezone"
-          description="The timezone (e.g. Europe/Paris)"
-          type="text"
-        />
-      </Row>
-      <Row>
-        <DateTime
-          {...scopedProps('origin')}
-          label="Origin"
-          description="Defines where to start counting time buckets from"
-          format="MMMM d, yyyy h:mm aa"
-          time
-        />
-      </Row>
-    </>
+    <Row>
+      <DateTime
+        {...scopedProps('origin')}
+        label="Origin"
+        description="Defines where to start counting time buckets from"
+        format="MMMM d, yyyy h:mm aa"
+        time
+      />
+      <Input
+        {...scopedProps('period')}
+        label="Period"
+        description="The period in ISO8601 format (e.g. P2W, P3M, PT1H30M, PT0.750S)"
+        type="text"
+      />
+      <Input {...scopedProps('timeZone')} label="Timezone" description="The timezone (e.g. Europe/Paris)" type="text" />
+    </Row>
   );
 };
 Period.type = 'period';
-Period.fields = ['period', 'timeZone', 'origin'];
+Period.fields = ['origin', 'period', 'timeZone'];

@@ -24,11 +24,7 @@ export const Lookup = (props: QueryBuilderProps) => {
           label="Retain missing value?"
           description="Specifies if the missing value should be retained"
         />
-      </Row>
-      <Row>
         <Checkbox {...scopedProps('injective')} label="Injective?" description="Specifies if the lookup is injective" />
-      </Row>
-      <Row>
         <Checkbox
           {...scopedProps('optimize')}
           label="Optimize?"

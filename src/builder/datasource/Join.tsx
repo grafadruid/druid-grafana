@@ -21,16 +21,12 @@ export const Join = (props: QueryBuilderProps) => {
           description="The right datasource prefix"
           type="text"
         />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('condition')}
           label="Condition"
           description="The join condition expression"
           type="text"
         />
-      </Row>
-      <Row>
         <Select
           {...scopedProps('joinType')}
           label="Join type"

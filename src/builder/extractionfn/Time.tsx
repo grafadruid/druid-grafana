@@ -8,8 +8,6 @@ export const Time = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('timeFormat')} label="Time format" description="the time format" type="text" />
-      </Row>
-      <Row>
         <Input {...scopedProps('resultFormat')} label="Result format" description="the result format" type="text" />
       </Row>
       <Row>

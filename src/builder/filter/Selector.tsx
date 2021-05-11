@@ -10,8 +10,6 @@ export const Selector = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('dimension')} label="Dimension" description="the dimension name" type="text" />
-      </Row>
-      <Row>
         <Input {...scopedProps('value')} label="Value" description="the dimension value" type="text" />
       </Row>
       <Row>

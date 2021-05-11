@@ -10,11 +10,7 @@ export const TimeFormat = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('format')} label="Format" description="The format" type="text" />
-      </Row>
-      <Row>
         <Input {...scopedProps('timeZone')} label="Time zone" description="The time zone" type="text" />
-      </Row>
-      <Row>
         <Input {...scopedProps('locale')} label="Locale" description="The locale" type="text" />
       </Row>
       <Row>

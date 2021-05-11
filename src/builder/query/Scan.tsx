@@ -34,17 +34,6 @@ export const Scan = (props: QueryBuilderProps) => {
         />
       </Row>
       <Row>
-        <Input
-          {...scopedProps('batchSize')}
-          label="Batch size"
-          description="The maximum number of rows buffered"
-          type="number"
-        />
-      </Row>
-      <Row>
-        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
-      </Row>
-      <Row>
         <Select
           {...scopedProps('order')}
           label="Order"
@@ -54,6 +43,13 @@ export const Scan = (props: QueryBuilderProps) => {
             ascending: 'Ascending',
             descending: 'Descending',
           }}
+        />
+        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
+        <Input
+          {...scopedProps('batchSize')}
+          label="Batch size"
+          description="The maximum number of rows buffered"
+          type="number"
         />
       </Row>
       <Row>
@@ -72,4 +68,4 @@ export const Scan = (props: QueryBuilderProps) => {
   );
 };
 Scan.queryType = 'scan';
-Scan.fields = ['dataSource', 'intervals', 'filter', 'columns', 'batchSize', 'limit', 'order', 'virtualColumns'];
+Scan.fields = ['dataSource', 'intervals', 'filter', 'columns', 'order', 'limit', 'batchSize', 'virtualColumns'];

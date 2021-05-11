@@ -26,8 +26,6 @@ export const RegisteredLookup = (props: QueryBuilderProps) => {
       </Row>
       <Row>
         <Checkbox {...scopedProps('injective')} label="Injective?" description="Specifies if the lookup is injective" />
-      </Row>
-      <Row>
         <Checkbox
           {...scopedProps('optimize')}
           label="Optimize?"
