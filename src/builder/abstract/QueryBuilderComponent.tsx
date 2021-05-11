@@ -31,7 +31,7 @@ export const useScopedQueryBuilderProps = (
       name = '';
     }
     let scopedProps = cloneDeep(props);
-    scopedProps.options.builder = name in builder ? builder[name] : builder;
+    scopedProps.options.builder = name in builder ? builder[name] : undefined;
     scopedProps.onOptionsChange = (options: QueryBuilderOptions) => {
       let newBuilder: any = {};
       if (name === undefined) {
@@ -87,7 +87,11 @@ export const onBuilderChange = (props: QueryBuilderProps | QueryBuilderFieldProp
 
 export const useQueryBuilderAutoSubmit = (props: QueryBuilderProps, component: QueryBuilderComponent<Component>) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, component);
-  if (props.options.builder === undefined || props.options.builder.type !== component.type) {
+  if (
+    props.options.builder === null ||
+    props.options.builder === undefined ||
+    props.options.builder.type !== component.type
+  ) {
     const { options, onOptionsChange } = scopedProps(undefined);
     onOptionsChange(options);
   }

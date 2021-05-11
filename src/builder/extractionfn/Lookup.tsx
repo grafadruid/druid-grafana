@@ -7,9 +7,7 @@ export const Lookup = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Lookup);
   return (
     <>
-      <Row>
-        <Map {...scopedProps('lookup')} />
-      </Row>
+      <Map {...scopedProps('lookup')} />
       <Row>
         <Input
           {...scopedProps('replaceMissingValueWith')}
