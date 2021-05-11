@@ -1,90 +1,38 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { css } from 'emotion';
-import { QueryBuilderProps, QueryBuilderOptions } from '../types';
-import { DateTime } from '../date';
+import React from 'react';
+import { QueryBuilderProps } from '../types';
+import { useScopedQueryBuilderFieldProps, Input, DateTime, Row } from '../abstract';
 
-const { FormField } = LegacyForms;
-
-export class Period extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type', 'period', 'timeZone', 'origin']);
-    const { builder } = props.options;
-    builder.type = 'period';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    let { builder } = this.props.options;
-    if ('string' === typeof builder) {
-      builder = null;
-    } else {
-      for (let key of Object.keys(builder)) {
-        if (!properties.includes(key)) {
-          delete builder[key];
-        }
-      }
-    }
-  };
-
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    let value: any = event.target.value;
-    if ('number' === event.target.type) {
-      value = Number(value);
-    }
-    builder[event.target.name] = value;
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  onOptionsChange = (component: string, componentBuilderOptions: QueryBuilderOptions) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder, settings } = options;
-    builder[component] = componentBuilderOptions.builder;
-    onOptionsChange({ ...options, builder, settings });
-  };
-
-  builderOptions = (component: string): QueryBuilderOptions => {
-    const { builder, settings } = this.props.options;
-    return { builder: builder[component] || {}, settings: settings || {} };
-  };
-
-  render() {
-    const { builder } = this.props.options;
-
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <FormField
-              label="Period"
-              name="period"
-              type="text"
-              placeholder="The period in ISO8601 format (e.g. P2W, P3M, PT1H30M, PT0.750S)"
-              value={builder.period}
-              onChange={this.onInputChange}
-            />
-            <FormField
-              label="Timezone"
-              name="timeZone"
-              type="text"
-              placeholder="The timezone (e.g. Europe/Paris)"
-              value={builder.timeZone}
-              onChange={this.onInputChange}
-            />
-            <DateTime
-              label="Origin"
-              options={this.builderOptions('origin')}
-              onOptionsChange={this.onOptionsChange.bind(this, 'origin')}
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const Period = (props: QueryBuilderProps) => {
+  const scopedProps = useScopedQueryBuilderFieldProps(props, Period);
+  return (
+    <>
+      <Row>
+        <Input
+          {...scopedProps('period')}
+          label="Period"
+          description="The period in ISO8601 format (e.g. P2W, P3M, PT1H30M, PT0.750S)"
+          type="text"
+        />
+      </Row>
+      <Row>
+        <Input
+          {...scopedProps('timeZone')}
+          label="Timezone"
+          description="The timezone (e.g. Europe/Paris)"
+          type="text"
+        />
+      </Row>
+      <Row>
+        <DateTime
+          {...scopedProps('origin')}
+          label="Origin"
+          description="Defines where to start counting time buckets from"
+          format="MMMM d, yyyy h:mm aa"
+          time
+        />
+      </Row>
+    </>
+  );
+};
+Period.type = 'period';
+Period.fields = ['period', 'timeZone', 'origin'];

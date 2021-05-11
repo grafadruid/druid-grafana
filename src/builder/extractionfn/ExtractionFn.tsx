@@ -22,7 +22,8 @@ import {
 
 export const ExtractionFn = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="ExtractionFn"
+    {...props}
+    label="ExtractionFn"
     components={{
       Bucket: Bucket,
       Cascade: Cascade,
@@ -41,6 +42,5 @@ export const ExtractionFn = (props: QueryBuilderProps) => (
       Time: Time,
       Upper: Upper,
     }}
-    queryBuilderProps={props}
   />
 );

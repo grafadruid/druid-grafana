@@ -1,15 +1,10 @@
-import { PureComponent } from 'react';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class Lexicographic extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    const { options, onOptionsChange } = props;
-    const { builder } = options;
-    builder.type = 'lexicographic';
-    onOptionsChange({ ...options, builder: builder });
-  }
-  render() {
-    return null;
-  }
-}
+export const Lexicographic = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, Lexicographic);
+  return <Row>Lexicographic.</Row>;
+};
+Lexicographic.type = 'lexicographic';
+Lexicographic.fields = [] as string[];

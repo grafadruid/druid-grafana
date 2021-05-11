@@ -1,102 +1,33 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { Checkbox, MultiSelect } from '@grafana/ui';
-import { SelectableValue } from '@grafana/data';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useScopedQueryBuilderFieldProps, Input, Checkbox, Multiple, Row } from '../abstract';
 
-export class Fragment extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type', 'case_sensitive', 'values']);
-    const { builder } = props.options;
-    builder.type = 'fragment';
-    if (undefined === builder.values) {
-      builder.values = [];
-    } else {
-      this.multiSelectOptions = this.buildMultiSelectOptions(builder.values);
-    }
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    let value: any = event.target.value;
-    if ('number' === event.target.type) {
-      value = Number(value);
-    }
-    builder[event.target.name] = value;
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  onCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder.case_sensitive = event.currentTarget.checked;
-    onOptionsChange({ ...options, builder });
-  };
-
-  multiSelectOptions: Array<SelectableValue<string>> = [];
-
-  buildMultiSelectOptions = (values: string[]): Array<SelectableValue<string>> => {
-    return values.map((key, index) => {
-      return { value: key, label: key };
-    });
-  };
-
-  onSelectionChange = (options: Array<SelectableValue<string>>) => {
-    this.selectOptions(options);
-  };
-
-  onCustomSelection = (selection: string) => {
-    const option: SelectableValue<string> = { value: selection, label: selection };
-    this.multiSelectOptions.push(option);
-    this.selectOptions(this.multiSelectOptions);
-  };
-
-  selectOptions = (opts: Array<SelectableValue<string>>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder.values = opts.map((o) => o.value);
-    this.multiSelectOptions = this.buildMultiSelectOptions(builder.values);
-    onOptionsChange({ ...options, builder });
-  };
-
-  render() {
-    const { builder } = this.props.options;
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <Checkbox
-              value={builder.case_sensitive}
-              onChange={this.onCheckboxChange}
-              label="Case sensitive"
-              description="Specifies if the match should be case sensitive"
-            />
-            <label className="gf-form-label">Values</label>
-            <MultiSelect
-              onChange={this.onSelectionChange}
-              onCreateOption={this.onCustomSelection}
-              options={this.multiSelectOptions}
-              value={builder.values}
-              allowCustomValue
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const Fragment = (props: QueryBuilderProps) => {
+  const scopedProps = useScopedQueryBuilderFieldProps(props, Fragment);
+  return (
+    <>
+      <Row>
+        <Checkbox
+          {...scopedProps('case_sensitive')}
+          label="Case sensitive"
+          description="Specifies if the match should be case sensitive"
+        />
+      </Row>
+      <Row>
+        <Multiple
+          {...scopedProps('values')}
+          label="Values"
+          description="the set of values that has to be contained"
+          component={Input}
+          componentExtraProps={{
+            label: 'Value',
+            description: 'the value that has to be contained',
+            type: 'text',
+          }}
+        />
+      </Row>
+    </>
+  );
+};
+Fragment.type = 'fragment';
+Fragment.fields = ['case_sensitive', 'values'];

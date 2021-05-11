@@ -30,30 +30,29 @@ export class QueryEditor extends PureComponent<Props, State> {
 
   onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = this.props;
-
     //todo: need to implement some kind of hook system to alter a query from modules
-    if (Array.isArray(queryBuilderOptions.builder.intervals) && queryBuilderOptions.builder.intervals.length === 0) {
-      queryBuilderOptions.builder.intervals.push('${__from:date:iso}/${__to:date:iso}');
+    if (
+      queryBuilderOptions.builder !== null &&
+      (queryBuilderOptions.builder.intervals === undefined ||
+        (Array.isArray(queryBuilderOptions.builder.intervals.intervals) &&
+          queryBuilderOptions.builder.intervals.intervals.length === 0))
+    ) {
+      queryBuilderOptions.builder.intervals = {
+        type: 'intervals',
+        intervals: ['${__from:date:iso}/${__to:date:iso}'],
+      };
     }
-    //workaround (https://github.com/grafana/grafana/issues/30013)
-    //+ this should be in a module that alter the query as the intervals one but also this shouldn't exists at all
-    if (typeof query === 'object') {
-      query.expr = JSON.stringify(queryBuilderOptions);
-    }
-
-    onChange({ ...query, ...queryBuilderOptions });
+    //workaround: https://github.com/grafana/grafana/issues/30013
+    const expr = JSON.stringify(queryBuilderOptions);
+    onChange({ ...query, ...queryBuilderOptions, expr: expr });
     onRunQuery();
   };
 
   onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = this.props;
-
     //workaround: https://github.com/grafana/grafana/issues/30013
-    if (typeof query === 'object') {
-      query.expr = JSON.stringify({ builder: query.builder, settings: query.settings });
-    }
-
-    onChange({ ...query, ...querySettingsOptions });
+    const expr = JSON.stringify(querySettingsOptions);
+    onChange({ ...query, ...querySettingsOptions, expr: expr });
     onRunQuery();
   };
 

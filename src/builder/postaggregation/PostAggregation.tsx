@@ -16,7 +16,8 @@ import {
 
 export const PostAggregation = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="PostAggregation"
+    {...props}
+    label="PostAggregation"
     components={{
       Arithmetic: Arithmetic,
       Constant: Constant,
@@ -29,6 +30,5 @@ export const PostAggregation = (props: QueryBuilderProps) => (
       LongGreatest: LongGreatest,
       LongLeast: LongLeast,
     }}
-    queryBuilderProps={props}
   />
 );

@@ -1,15 +1,10 @@
-import { PureComponent } from 'react';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class AlphaNumeric extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    const { options, onOptionsChange } = props;
-    const { builder } = options;
-    builder.type = 'alphanumeric';
-    onOptionsChange({ ...options, builder: builder });
-  }
-  render() {
-    return null;
-  }
-}
+export const AlphaNumeric = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, AlphaNumeric);
+  return <Row>AlphaNumeric.</Row>;
+};
+AlphaNumeric.type = 'alphanumeric';
+AlphaNumeric.fields = [] as string[];

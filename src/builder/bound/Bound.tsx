@@ -5,8 +5,8 @@ import { Polygon, Radius, Rectangular } from './';
 
 export const Bound = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="Bound"
+    {...props}
+    label="Bound"
     components={{ Polygon: Polygon, Radius: Radius, Rectangular: Rectangular }}
-    queryBuilderProps={props}
   />
 );

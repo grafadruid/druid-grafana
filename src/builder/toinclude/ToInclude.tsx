@@ -4,9 +4,5 @@ import { QueryBuilderComponentSelector } from '../abstract';
 import { All, List, None } from './';
 
 export const ToInclude = (props: QueryBuilderProps) => (
-  <QueryBuilderComponentSelector
-    name="ToInclude"
-    components={{ All: All, List: List, None: None }}
-    queryBuilderProps={props}
-  />
+  <QueryBuilderComponentSelector {...props} label="ToInclude" components={{ All: All, List: List, None: None }} />
 );

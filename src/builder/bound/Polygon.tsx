@@ -1,67 +1,25 @@
-import React, { PureComponent, ChangeEvent } from 'react';
-import { LegacyForms } from '@grafana/ui';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
 
-const { FormField } = LegacyForms;
-
-export class Polygon extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type', 'abscissa', 'ordinate']);
-    const { builder } = props.options;
-    builder.type = 'polygon';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    let value: any = event.target.value;
-    if ('number' === event.target.type) {
-      value = Number(value);
-    }
-    builder[event.target.name] = value;
-    onOptionsChange({ ...options, builder: builder });
-  };
-
-  render() {
-    const { builder } = this.props.options;
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            <FormField
-              label="Abscissa"
-              name="abscissa"
-              type="number"
-              placeholder="Horizontal coordinate for corners of the polygon"
-              value={builder.abscissa}
-              onChange={this.onInputChange}
-            />
-            <FormField
-              label="Ordinate"
-              name="ordinate"
-              type="number"
-              placeholder="Vertical coordinate for corners of the polygon"
-              value={builder.ordinate}
-              onChange={this.onInputChange}
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const Polygon = (props: QueryBuilderProps) => {
+  const scopedProps = useScopedQueryBuilderFieldProps(props, Polygon);
+  return (
+    <Row>
+      <Input
+        {...scopedProps('abscissa')}
+        label="Abscissa"
+        description="Horizontal coordinate for corners of the polygon"
+        type="number"
+      />
+      <Input
+        {...scopedProps('ordinate')}
+        label="Ordinate"
+        description="Vertical coordinate for corners of the polygon"
+        type="number"
+      />
+    </Row>
+  );
+};
+Polygon.type = 'polygon';
+Polygon.fields = ['abscissa', 'ordinate'];

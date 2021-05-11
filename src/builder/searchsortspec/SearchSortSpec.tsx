@@ -5,7 +5,8 @@ import { AlphaNumeric, Lexicographic, Numeric, StrLen, Version } from './';
 
 export const SearchSortSpec = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="SearchSortSpec"
+    {...props}
+    label="SearchSortSpec"
     components={{
       AlphaNumeric: AlphaNumeric,
       Lexicographic: Lexicographic,
@@ -13,6 +14,5 @@ export const SearchSortSpec = (props: QueryBuilderProps) => (
       StrLen: StrLen,
       Version: Version,
     }}
-    queryBuilderProps={props}
   />
 );

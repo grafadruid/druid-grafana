@@ -1,40 +1,15 @@
-import React, { PureComponent } from 'react';
-import { css } from 'emotion';
+import React from 'react';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class False extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type']);
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder.type = 'false';
-    onOptionsChange({ ...options, builder: builder });
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  render() {
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
-          >
-            The false filter is a filter which matches no value. It can be used to temporarily disable other filters
-            without removing the filter.
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+export const False = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, False);
+  return (
+    <Row>
+      The false filter is a filter which matches no value. It can be used to temporarily disable other filters without
+      removing the filter.
+    </Row>
+  );
+};
+False.type = 'false';
+False.fields = [] as string[];

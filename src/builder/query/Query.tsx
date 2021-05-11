@@ -16,7 +16,8 @@ import {
 
 export const Query = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
-    name="Query"
+    {...props}
+    label="Query"
     components={{
       DatasourceMetadata: DatasourceMetadata,
       GroupBy: GroupBy,
@@ -29,6 +30,5 @@ export const Query = (props: QueryBuilderProps) => (
       Timeseries: Timeseries,
       TopN: TopN,
     }}
-    queryBuilderProps={props}
   />
 );
