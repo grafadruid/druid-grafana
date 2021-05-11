@@ -17,8 +17,8 @@ services:
     restart: on-failure
     user: root
     volumes:
-      - broker_var:/opt/druid/var
-      - ./druid/properties:/properties
+      - broker_var:/opt/druid/var:z
+      - ./druid/properties:/properties:z
 
   coordinator:
     command:
@@ -34,9 +34,9 @@ services:
     restart: on-failure
     user: root
     volumes:
-      - druid_data:/opt/data
-      - coordinator_var:/opt/druid/var
-      - ./druid/properties:/properties
+      - druid_data:/opt/data:z
+      - coordinator_var:/opt/druid/var:z
+      - ./druid/properties:/properties:z
 
   grafana:
     depends_on:
@@ -49,9 +49,9 @@ services:
     restart: on-failure
     user: root
     volumes:
-      - ../dist:/var/lib/grafana/plugins/druid-grafana
-      - ./grafana/dashboards:/etc/grafana/dashboards
-      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ../dist:/var/lib/grafana/plugins/druid-grafana:z
+      - ./grafana/dashboards:/etc/grafana/dashboards:z
+      - ./grafana/provisioning:/etc/grafana/provisioning:z
 
   historical:
     command:
@@ -68,9 +68,9 @@ services:
     restart: on-failure
     user: root
     volumes:
-      - druid_data:/opt/data
-      - historical_var:/opt/druid/var
-      - ./druid/properties:/properties
+      - druid_data:/opt/data:z
+      - historical_var:/opt/druid/var:z
+      - ./druid/properties:/properties:z
 
   middlemanager:
     command:
@@ -87,9 +87,9 @@ services:
     restart: on-failure
     user: root
     volumes:
-      - druid_data:/opt/data
-      - middle_var:/opt/druid/var
-      - ./druid/properties:/properties
+      - druid_data:/opt/data:z
+      - middle_var:/opt/druid/var:z
+      - ./druid/properties:/properties:z
 
   postgres:
     environment:
@@ -100,7 +100,7 @@ services:
     restart: on-failure
     user: root
     volumes:
-      - postgres:/var/lib/postgresql/data
+      - postgres:/var/lib/postgresql/data:z
 
   router:
     command:
@@ -117,8 +117,8 @@ services:
     restart: on-failure
     user: root
     volumes:
-      - router_var:/opt/druid/var
-      - ./druid/properties:/properties
+      - router_var:/opt/druid/var:z
+      - ./druid/properties:/properties:z
 
   toolbox:
     build:
@@ -128,7 +128,7 @@ services:
       - coordinator
     restart: on-failure
     volumes:
-      - ../:/workspace
+      - ../:/workspace:z
 
   zookeeper:
     environment:
