@@ -10,13 +10,6 @@ export const RegisteredLookup = (props: QueryBuilderProps) => {
         <Input {...scopedProps('lookup')} label="Lookup" description="The lookup name" type="text" />
       </Row>
       <Row>
-        <Checkbox
-          {...scopedProps('retainMissingValue')}
-          label="Retain missing value?"
-          description="Specifies if the missing value should be retained"
-        />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('replaceMissingValueWith')}
           label="Replace missing value with"
@@ -25,6 +18,11 @@ export const RegisteredLookup = (props: QueryBuilderProps) => {
         />
       </Row>
       <Row>
+        <Checkbox
+          {...scopedProps('retainMissingValue')}
+          label="Retain missing value?"
+          description="Specifies if the missing value should be retained"
+        />
         <Checkbox {...scopedProps('injective')} label="Injective?" description="Specifies if the lookup is injective" />
         <Checkbox
           {...scopedProps('optimize')}
