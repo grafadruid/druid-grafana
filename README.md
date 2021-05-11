@@ -8,7 +8,7 @@
 - Alerting: done
 - Query backend: done (sql, timeseries, topn, groupby, timeboundary, segmentmetadata, datasourcemetadata, scan, search)
 - Explore advanced support: done (standard: done, logs: done, advanced: todo? any specific need?)
-- Variables support: done (Grafana global variables replacement, query variables)
+- Variables support: done (Grafana global variables replacement, query variables, formatter `druid:json` provide support for multi-value variables within rune queries).
 - Extensions support: todo
 
 ## What is this Druid-Grafana plugin?

@@ -122,8 +122,8 @@ func (Frontend) Build() error {
 	if err != nil {
 		return err
 	}
-
 	return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build")
+	//return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build", "--preserveConsole")
 }
 
 // Test runs frontend tests
