@@ -40,3 +40,6 @@ e2e-results/
 
 # Direnv (https://direnv.net)
 .envrc
+
+#API key
+.api.key
