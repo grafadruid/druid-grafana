@@ -10,9 +10,7 @@ export const Regex = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      </Row>
-      <Row>
-        <Input {...scopedProps('pattern')} label="Pattern" description="the regex pattern" type="text" />
+        <Input {...scopedProps('pattern')} label="Pattern" description="The regex pattern" type="text" />
       </Row>
       <Row>
         <ExtractionFn {...scopedProps('extractionFn')} />

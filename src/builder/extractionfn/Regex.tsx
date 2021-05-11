@@ -8,8 +8,6 @@ export const Regex = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('expr')} label="Expression" description="The regular expression" type="text" />
-      </Row>
-      <Row>
         <Input {...scopedProps('index')} label="Index" description="The index" type="number" />
       </Row>
       <Row>
@@ -18,8 +16,6 @@ export const Regex = (props: QueryBuilderProps) => {
           label="Replace missing value"
           description="Specifies if the missing value should be replaced"
         />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('replaceMissingValueWith')}
           label="Replace missing value with"

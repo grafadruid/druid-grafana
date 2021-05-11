@@ -9,8 +9,6 @@ export const Arithmetic = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
-      </Row>
-      <Row>
         <Select
           {...scopedProps('fn')}
           label="Function"

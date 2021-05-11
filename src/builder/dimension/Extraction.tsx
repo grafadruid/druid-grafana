@@ -9,16 +9,12 @@ export const Extraction = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('outputName')}
           label="Output name"
           description="The, optionnal, dimension output name"
           type="text"
         />
-      </Row>
-      <Row>
         <Select
           {...scopedProps('outputType')}
           label="Output type"

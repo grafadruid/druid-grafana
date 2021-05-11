@@ -14,21 +14,12 @@ export const FilterTuning = (props: QueryBuilderProps) => {
         Filter tuning
       </InlineLabel>
       <Row>
-        <Checkbox
-          {...scopedProps('useBitmapIndex')}
-          label="Use bitmap index?"
-          description="If set to false will disallow a filter to utilize bitmap indexes"
-        />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('minCardinalityToUseBitmapIndex')}
           label="Min cardinality to use bitmap index"
           description="Allow using bitmap index only if cardinality is over min value"
           type="number"
         />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('maxCardinalityToUseBitmapIndex')}
           label="Max cardinality to use bitmap index"
@@ -36,8 +27,15 @@ export const FilterTuning = (props: QueryBuilderProps) => {
           type="number"
         />
       </Row>
+      <Row>
+        <Checkbox
+          {...scopedProps('useBitmapIndex')}
+          label="Use bitmap index?"
+          description="If set to false will disallow a filter to utilize bitmap indexes"
+        />
+      </Row>
     </>
   );
 };
 FilterTuning.type = 'filterTuning';
-FilterTuning.fields = ['useBitmapIndex', 'minCardinalityToUseBitmapIndex', 'maxCardinalityToUseBitmapIndex'];
+FilterTuning.fields = ['minCardinalityToUseBitmapIndex', 'maxCardinalityToUseBitmapIndex', 'useBitmapIndex'];

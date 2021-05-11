@@ -9,8 +9,6 @@ export const Lookup = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('outputName')}
           label="Output name"
@@ -50,8 +48,6 @@ export const Lookup = (props: QueryBuilderProps) => {
           label="Injective?"
           description="Specifies if the lookup is injective or not"
         />
-      </Row>
-      <Row>
         <Checkbox
           {...scopedProps('optimize')}
           label="Optimize?"

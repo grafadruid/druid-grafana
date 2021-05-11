@@ -28,13 +28,6 @@ export const SegmentMetadata = (props: QueryBuilderProps) => {
         <ToInclude {...scopedComponentProps('toInclude')} />
       </Row>
       <Row>
-        <Checkbox
-          {...scopedProps('merge')}
-          label="Merge"
-          description="Merge all individual segment metadata results into a single result"
-        />
-      </Row>
-      <Row>
         <MultiSelect
           {...scopedProps('analysisTypes')}
           label="Analysis types"
@@ -52,6 +45,26 @@ export const SegmentMetadata = (props: QueryBuilderProps) => {
         />
       </Row>
       <Row>
+        <Select
+          {...scopedProps('view', ScopeType.Settings)}
+          label="View"
+          description="The view to apply over response rows"
+          entries={{
+            base: 'Base',
+            aggregators: 'Aggregators',
+            columns: 'Columns',
+            timestampspec: 'TimestampSpec',
+          }}
+        />
+      </Row>
+      <Row>
+        <Checkbox
+          {...scopedProps('merge')}
+          label="Merge"
+          description="Merge all individual segment metadata results into a single result"
+        />
+      </Row>
+      <Row>
         <Checkbox
           {...scopedProps('lenientAggregatorMerge')}
           label="Lenient aggregator merge"
@@ -63,19 +76,6 @@ export const SegmentMetadata = (props: QueryBuilderProps) => {
           {...scopedProps('usingDefaultInterval')}
           label="Using default interval"
           description="Define if it uses the default interval"
-        />
-      </Row>
-      <Row>
-        <Select
-          {...scopedProps('view', ScopeType.Settings)}
-          label="View"
-          description="The view to apply over response rows"
-          entries={{
-            base: 'Base',
-            aggregators: 'Aggregators',
-            columns: 'Columns',
-            timestampspec: 'TimestampSpec',
-          }}
         />
       </Row>
     </>

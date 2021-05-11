@@ -10,16 +10,12 @@ export const Like = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Input {...scopedProps('dimension')} label="Dimension" description="The dimension to filter on." type="text" />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('pattern')}
           label="Pattern"
           description="LIKE pattern, such as 'foo%' or '___bar'."
           type="text"
         />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('escape')}
           label="Escape"
