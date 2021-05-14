@@ -1,94 +1,81 @@
-import React, { PureComponent } from 'react';
-import { TabsBar, Tab, TabContent, IconName } from '@grafana/ui';
-import { SelectableValue } from '@grafana/data';
+import React, { useState } from 'react';
+import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
+import { css, cx } from 'emotion';
 import { DruidQuery } from './types';
 import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
 
-enum Tabs {
-  Builder,
-  Settings,
-}
-
 interface Props {
   query: DruidQuery;
   onChange: (query: DruidQuery, definition: string) => void;
 }
 
-interface State {
-  activeTab: Tabs;
-}
-
-export class VariableQueryEditor extends PureComponent<Props, State> {
-  state: State = {
-    activeTab: Tabs.Builder,
-  };
-
-  onSelectTab = (item: SelectableValue<Tabs>) => {
-    this.setState({ activeTab: item.value! });
-  };
-
-  onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
-    const { query, onChange } = this.props;
+export const VariableQueryEditor = (props: Props) => {
+  const { builder, settings } = props.query;
+  const builderOptions = { builder: builder || {}, settings: settings || {} };
+  const settingsOptions = { settings: settings || {} };
+  const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
+    const { query, onChange } = props;
+    //todo: need to implement some kind of hook system to alter a query from modules
+    if (
+      queryBuilderOptions.builder !== null &&
+      (queryBuilderOptions.builder.intervals === undefined ||
+        (Array.isArray(queryBuilderOptions.builder.intervals.intervals) &&
+          queryBuilderOptions.builder.intervals.intervals.length === 0))
+    ) {
+      queryBuilderOptions.builder.intervals = {
+        type: 'intervals',
+        intervals: ['${__from:date:iso}/${__to:date:iso}'],
+      };
+    }
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify(queryBuilderOptions);
     onChange({ ...query, ...queryBuilderOptions, expr: expr }, expr);
   };
-
-  onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
-    const { query, onChange } = this.props;
+  const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
+    const { query, onChange } = props;
     //workaround: https://github.com/grafana/grafana/issues/30013
-    const expr = JSON.stringify(querySettingsOptions);
+    const expr = JSON.stringify({ builder: query.builder, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr }, expr);
   };
+  const [showDrawer, setShowDrawer] = useState(false);
+  return (
+    <>
+      <ToolbarButtonRow className={cx(styles.toolbar)}>
+        <ToolbarButton
+          icon="cog"
+          onClick={(event) => {
+            setShowDrawer(true);
+            event.preventDefault();
+          }}
+        >
+          Query settings
+        </ToolbarButton>
+      </ToolbarButtonRow>
+      {showDrawer && (
+        <Drawer
+          inline={false}
+          title="Settings"
+          subtitle="The settings to attach to the query. Those settings will be merged with the ones defined at datasource level."
+          closeOnMaskClick={true}
+          scrollableContent={true}
+          width="42%"
+          onClose={() => {
+            setShowDrawer(false);
+          }}
+        >
+          <DruidQuerySettings options={settingsOptions} onOptionsChange={onSettingsOptionsChange} />
+        </Drawer>
+      )}
+      <DruidQueryBuilder options={builderOptions} onOptionsChange={onBuilderOptionsChange} />
+    </>
+  );
+};
 
-  builderOptions = (): QueryBuilderOptions => {
-    const { builder, settings } = this.props.query;
-    return { builder: builder || {}, settings: settings || {} };
-  };
-
-  settingsOptions = (): QuerySettingsOptions => {
-    const { settings } = this.props.query;
-    return { settings: settings || {} };
-  };
-
-  render() {
-    const builderOptions = this.builderOptions();
-    const settingsOptions = this.settingsOptions();
-
-    const BuilderTab = {
-      label: 'Builder',
-      value: Tabs.Builder,
-      content: <DruidQueryBuilder options={builderOptions} onOptionsChange={this.onBuilderOptionsChange} />,
-      icon: 'edit',
-    };
-    const SettingsTab = {
-      label: 'Settings',
-      value: Tabs.Settings,
-      content: <DruidQuerySettings options={settingsOptions} onOptionsChange={this.onSettingsOptionsChange} />,
-      icon: 'cog',
-    };
-
-    const tabs = [BuilderTab, SettingsTab];
-    const { activeTab } = this.state;
-
-    return (
-      <>
-        <TabsBar>
-          {tabs.map((t) => (
-            <Tab
-              key={t.value}
-              label={t.label}
-              active={t.value === activeTab}
-              onChangeTab={() => this.onSelectTab(t)}
-              icon={t.icon as IconName}
-            />
-          ))}
-        </TabsBar>
-        <TabContent>{tabs.find((t) => t.value === activeTab)?.content}</TabContent>
-      </>
-    );
-  }
-}
+const styles = {
+  toolbar: css`
+    margin-bottom: 4px;
+  `,
+};

@@ -47,11 +47,12 @@ export const Multiple = (props: Props) => {
           <Button
             variant="secondary"
             size="xs"
-            onClick={() =>
+            onClick={(event) => {
               setProxyBuilder(
                 Object.fromEntries(Object.entries(proxyBuilder).filter((_: any, i: number) => i !== index))
-              )
-            }
+              );
+              event.preventDefault();
+            }}
           >
             <Icon name="trash-alt" />
           </Button>
@@ -60,9 +61,10 @@ export const Multiple = (props: Props) => {
       <Button
         variant="secondary"
         icon="plus"
-        onClick={() =>
-          setProxyBuilder({ ...proxyBuilder, [props.name + '_' + Object.entries(proxyBuilder).length]: undefined })
-        }
+        onClick={(event) => {
+          setProxyBuilder({ ...proxyBuilder, [props.name + '_' + Object.entries(proxyBuilder).length]: undefined });
+          event.preventDefault();
+        }}
       >
         Add
       </Button>
