@@ -1,13 +1,12 @@
-import React, { FC, ChangeEvent } from 'react';
+import React, { ChangeEvent } from 'react';
 import { LegacyForms, FieldSet } from '@grafana/ui';
 import { ConnectionSettingsProps } from './types';
 
 const { FormField, SecretFormField } = LegacyForms;
 
-export const DruidBasicAuthSettings: FC<ConnectionSettingsProps> = (props: ConnectionSettingsProps) => {
+export const DruidBasicAuthSettings = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
   const { settings, secretSettings, secretSettingsFields } = options;
-
   const onSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     switch (event.target.name) {
@@ -18,7 +17,6 @@ export const DruidBasicAuthSettings: FC<ConnectionSettingsProps> = (props: Conne
     }
     onOptionsChange({ ...options, settings: settings });
   };
-
   const onSecretSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     switch (event.target.name) {
@@ -29,7 +27,6 @@ export const DruidBasicAuthSettings: FC<ConnectionSettingsProps> = (props: Conne
     }
     onOptionsChange({ ...options, secretSettings: secretSettings });
   };
-
   const onPasswordReset = () => {
     onOptionsChange({
       ...options,
@@ -43,7 +40,6 @@ export const DruidBasicAuthSettings: FC<ConnectionSettingsProps> = (props: Conne
       },
     });
   };
-
   return (
     <FieldSet label="Basic Authentication">
       <FormField

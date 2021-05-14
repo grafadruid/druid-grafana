@@ -1,165 +1,121 @@
-import React, { FC, PureComponent } from 'react';
-import { css } from 'emotion';
-import uniqueId from 'lodash/uniqueId';
-import { LegacyForms, Button, Icon, stylesFactory } from '@grafana/ui';
+import React, { ChangeEvent } from 'react';
+import { InlineLabel, InlineField, InlineFieldRow, Input, Button, Icon, useTheme, stylesFactory } from '@grafana/ui';
+import { GrafanaTheme } from '@grafana/data';
+import { css, cx } from 'emotion';
 import { QuerySettingsProps } from './types';
 
-interface Parameter {
-  id: string;
-  name: string;
-  value: any;
-}
+const useParameters = (props: QuerySettingsProps): any => {
+  const { options, onOptionsChange } = props;
+  const { settings } = options;
+  let parameters: any = {};
+  const contextParameters =
+    props.options.settings.contextParameters !== undefined ? props.options.settings.contextParameters : [];
+  contextParameters.forEach((value: any, index: number) => {
+    parameters['parameter_' + index] = value;
+  });
+  const setParameters = (parameters: any) => {
+    onOptionsChange({
+      ...options,
+      settings: {
+        ...settings,
+        contextParameters: Object.entries(parameters).map((parameter: any) => parameter[1]),
+      },
+    });
+  };
+  return [parameters, setParameters];
+};
 
-interface State {
-  parameters: Parameter[];
-}
+export const DruidQueryContextSettings = (props: QuerySettingsProps) => {
+  const theme = useTheme();
+  const styles = getStyles(theme);
+  const [parameters, setParameters] = useParameters(props);
+  const onParameterChange = (name: string, parameter: Parameter) => {
+    setParameters({ ...parameters, [name]: parameter });
+  };
+  return (
+    <InlineFieldRow className={cx(styles.row)}>
+      <InlineLabel width="auto" tooltip="The query context is used for various query configuration parameters.">
+        Context
+      </InlineLabel>
+      {Object.entries(parameters).map((parameter: any, index: number) => (
+        <InlineFieldRow key={index} className={cx(styles.row)}>
+          <ParameterRow
+            key={parameter[0]}
+            parameter={parameter[1]}
+            onChange={(p) => {
+              onParameterChange(parameter[0], p);
+            }}
+          />
+          <Button
+            variant="secondary"
+            size="xs"
+            onClick={(event) => {
+              setParameters(Object.fromEntries(Object.entries(parameters).filter((_: any, i: number) => i !== index)));
+              event.preventDefault();
+            }}
+          >
+            <Icon name="trash-alt" />
+          </Button>
+        </InlineFieldRow>
+      ))}
+      <Button
+        variant="secondary"
+        icon="plus"
+        onClick={(event) => {
+          setParameters({
+            ...parameters,
+            ['parameter_' + Object.entries(parameters).length]: { name: '', value: '' },
+          });
+          event.preventDefault();
+        }}
+      >
+        Add
+      </Button>
+    </InlineFieldRow>
+  );
+};
 
-interface ParameterRowProps {
-  parameter: Parameter;
-  onRemove: (id: string) => void;
-  onChange: (value: Parameter) => void;
-  onBlur: () => void;
-}
-
-const getParameterRowStyles = stylesFactory(() => {
+const getStyles = stylesFactory((theme: GrafanaTheme) => {
   return {
-    layout: css`
-      display: flex;
-      margin-bottom: 4px;
-      > * {
-        margin-left: 4px;
-        margin-bottom: 0;
-        height: 100%;
-        &:first-child,
-        &:last-child {
-          margin-left: 0;
-        }
+    row: css`
+      width: 100%;
+      & > & {
+        border-left: 1px solid ${theme.colors.border2};
+        padding: 5px 0px 0px 10px;
       }
     `,
   };
 });
 
-const ParameterRow: FC<ParameterRowProps> = ({ parameter, onBlur, onChange, onRemove }: ParameterRowProps) => {
-  const styles = getParameterRowStyles();
-  const { FormField } = LegacyForms;
+interface Parameter {
+  name: string;
+  value: any;
+}
 
+interface ParameterRowProps {
+  parameter: Parameter;
+  onChange: (value: Parameter) => void;
+}
+
+const ParameterRow = ({ parameter, onChange }: ParameterRowProps) => {
   return (
-    <div className={styles.layout}>
-      <FormField
-        label="Name"
-        name="name"
-        placeholder="Parameter name. e.g: timeout"
-        labelWidth={5}
-        value={parameter.name || ''}
-        onChange={(e) => onChange({ ...parameter, name: e.target.value })}
-        onBlur={onBlur}
-      />
-      <FormField
-        label="Value"
-        name="value"
-        value={parameter.value}
-        labelWidth={5}
-        placeholder="parameter value. e.g: 10"
-        onChange={(e) => onChange({ ...parameter, value: e.currentTarget.value })}
-        onBlur={onBlur}
-      />
-      <Button variant="secondary" size="xs" onClick={(_e) => onRemove(parameter.id)}>
-        <Icon name="trash-alt" />
-      </Button>
-    </div>
+    <InlineFieldRow>
+      <InlineField label="Name">
+        <Input
+          name="name"
+          placeholder="Parameter name. e.g: timeout"
+          value={parameter.name || ''}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...parameter, name: e.target.value })}
+        />
+      </InlineField>
+      <InlineField label="Value">
+        <Input
+          name="value"
+          value={parameter.value}
+          placeholder="parameter value. e.g: 10"
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onChange({ ...parameter, value: e.target.value })}
+        />
+      </InlineField>
+    </InlineFieldRow>
   );
 };
-
-ParameterRow.displayName = 'ParameterRow';
-
-export class DruidQueryContextSettings extends PureComponent<QuerySettingsProps, State> {
-  state: State = {
-    parameters: [],
-  };
-
-  constructor(props: QuerySettingsProps) {
-    super(props);
-
-    const { options } = this.props;
-    const { settings } = options;
-
-    if (settings.contextParameters === undefined) {
-      settings.contextParameters = [];
-    }
-    this.state = {
-      parameters: settings.contextParameters.sort().map((parameter, index) => {
-        return {
-          id: uniqueId(),
-          name: parameter.name,
-          value: parameter.value,
-        };
-      }),
-    };
-  }
-
-  updateSettings = () => {
-    const { options, onOptionsChange } = this.props;
-    const { settings } = options;
-
-    settings.contextParameters = this.state.parameters.sort().map((parameter, index) => {
-      return {
-        name: parameter.name,
-        value: parameter.value,
-      };
-    });
-    onOptionsChange({ ...options, settings: settings });
-  };
-
-  onParameterAdd = () => {
-    this.setState((prevState) => {
-      return { parameters: [...prevState.parameters, { id: uniqueId(), name: '', value: '' }] };
-    }, this.updateSettings);
-  };
-
-  onParameterChange = (parameterIndex: number, value: Parameter) => {
-    this.setState(({ parameters }) => {
-      return {
-        parameters: parameters.map((item, index) => {
-          if (parameterIndex !== index) {
-            return item;
-          }
-          return { ...value };
-        }),
-      };
-    });
-  };
-
-  onParameterRemove = (parameterId: string) => {
-    this.setState(
-      ({ parameters }) => ({
-        parameters: parameters.filter((p) => p.id !== parameterId),
-      }),
-      this.updateSettings
-    );
-  };
-
-  render() {
-    const { parameters } = this.state;
-    return (
-      <div className={'gf-form-group'}>
-        <h3 className="page-heading">Query context</h3>
-        <div>
-          {parameters.map((parameter, i) => (
-            <ParameterRow
-              key={parameter.id}
-              parameter={parameter}
-              onChange={(p) => {
-                this.onParameterChange(i, p);
-              }}
-              onBlur={this.updateSettings}
-              onRemove={this.onParameterRemove}
-            />
-          ))}
-        </div>
-        <Button variant="secondary" icon="plus" onClick={this.onParameterAdd}>
-          Add parameter
-        </Button>
-      </div>
-    );
-  }
-}

@@ -1,23 +1,91 @@
-# Druid as a Data Source for Grafana!
+# Druid as a Data Source for Grafana
 
-## Status
+Table of Contents
+=================
 
-- Development environment: done
-- Plugin boilerplates (Frontend / Backend): done
-- Query builder UI: done
-- Alerting: done
-- Query backend: done (sql, timeseries, topn, groupby, timeboundary, segmentmetadata, datasourcemetadata, scan, search)
-- Explore advanced support: done (standard: done, logs: done, advanced: todo? any specific need?)
-- Variables support: done (Grafana global variables replacement, query variables, formatter `druid:json` provide support for multi-value variables within rune queries).
-- Extensions support: todo
+* [What is this Druid-Grafana plugin ?](#what-is-this-druid-grafana-plugin)
+* [Features](#features)
+* [Screenshots](#screenshots)
+  * [Datasource - connection](#datasource---connection)
+  * [Datasource - default settings](#datasource---default-settings)
+  * [Panels](#panelss)
+  * [Query builder - JSON](#query-builder---json)
+  * [Query builder - SQL](#query-builder---sql)
+  * [Query builder - timeseries](#query-builder---timeseries)
+  * [Query builder - settings](#query-builder---settings)
+  * [Variables](#variables)
+  * [Variables - formatter - druid:json](#variables---formatter---druidjson)
+  * [Explore - logs](#explore-logs)
+  * [Query builder - settings - logs](#query-builder-settings-logs)
+* [Contribute](#contribute)
+* [Install](#install)
 
 ## What is this Druid-Grafana plugin?
 
 Grafana doesn't supports Druid as a Data Source, this plugin aims to do so.
 
+## Features
+
+At the time of writing, the plugin supports all Grafana features and all Druid queries:
+
+- Druid queries: SQL, timeseries, topn, groupby, timeboundary, segmentmetadata, datasourcemetadata, scan, search, JSON
+- Variables: Grafana global variables replacement, query variables, formatter `druid:json` (provide support for multi-value variables within rune queries).
+- Alerts
+- Explore
+- Logs
+
+> if you're using a self-signed TLS certificate, an option to "Skip TLS verify" will be shown when "https" is used in datasource URI)
+
+## Screenshots
+
+### Datasource - Connection
+
+![Datasource - connection](src/img/screenshot-datasource-connection.png)
+
+### Datasource - Default settings
+
+![Datasource - default settings](src/img/screenshot-datasource-default-settings.png)
+
+### Panels
+
+![Panels](src/img/screenshot-panels.png)
+
+### Query builder - JSON
+
+![Query builder - JSON](src/img/screenshot-querybuilder-json.png)
+
+### Query builder - SQL
+
+![Query builder - SQL](src/img/screenshot-querybuilder-sql.png)
+
+### Query builder - Timeseries
+
+![Query builder - timeseries](src/img/screenshot-querybuilder-timeseries.png)
+
+### Query builder - Settings
+
+![Query builder - settings](src/img/screenshot-querybuilder-settings.png)
+
+### Variables
+
+![Variables](src/img/screenshot-variables.png)
+
+### Variables - Formatter - druid:json
+
+![Variables - formatter - druid:json](src/img/screenshot-querybuilder-formatter-druidjson.png)
+
+### Explore - Logs
+
+![Explore - logs](src/img/screenshot-explore-logs.png)
+
+### Query builder - Settings - Logs
+
+![Query builder - settings - logs](src/img/screenshot-querybuilder-settings-logs.png)
+
 ## Contribute
 
-See [Contribute](https://github.com/grafadruid/druid-grafana/blob/master/CONTRIBUTE.md)
+Any contribution is welcome! Feel free to join on Slack to discuss :)
+To go further, see [Contribute](CONTRIBUTE.md)
 
 ## Install
 
@@ -33,6 +101,7 @@ Where `$VERSION` is for instance `1.0.0` and `$YOUR_PLUGIN_DIR` is for instance 
 
 (Source: https://grafana.com/docs/grafana/latest/plugins/installation/)
 
-## Usage
+## Examples
 
 You can try out various advanced features of the plugin by importing the [demo dashboard](https://github.com/grafadruid/druid-grafana/blob/master/dashboard.json) and running it against the Wikipedia dataset used in the [Druid quickstart tutorial](https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data).
+> When using the provided docker based environment (`./mage env:start && ./mage`), the dataset is automatically ingested in Druid, the datasource and dashboard are automatically provisionned in Grafana.
