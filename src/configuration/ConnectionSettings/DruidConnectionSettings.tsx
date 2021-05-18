@@ -1,8 +1,8 @@
-import React, { FC } from 'react';
+import React from 'react';
 import { DruidHttpSettings, DruidAuthSettings } from './';
 import { ConnectionSettingsProps } from './types';
 
-export const DruidConnectionSettings: FC<ConnectionSettingsProps> = (props: ConnectionSettingsProps) => {
+export const DruidConnectionSettings = (props: ConnectionSettingsProps) => {
   return (
     <>
       <DruidHttpSettings {...props} />

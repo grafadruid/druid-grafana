@@ -1,13 +1,13 @@
-import React, { FC, ChangeEvent } from 'react';
-import { LegacyForms, FieldSet } from '@grafana/ui';
+import React, { ChangeEvent } from 'react';
+import { LegacyForms, FieldSet, Field, Switch } from '@grafana/ui';
+import { css } from 'emotion';
 import { ConnectionSettingsProps } from './types';
 
 const { FormField } = LegacyForms;
 
-export const DruidHttpSettings: FC<ConnectionSettingsProps> = (props: ConnectionSettingsProps) => {
+export const DruidHttpSettings = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
   const { settings } = options;
-
   const onSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     switch (event.target.name) {
@@ -27,10 +27,14 @@ export const DruidHttpSettings: FC<ConnectionSettingsProps> = (props: Connection
         settings.retryableRetryWaitMax = +value;
         break;
       }
+      case 'skipTls': {
+        settings.skipTls = event!.currentTarget.checked;
+        break;
+      }
     }
     onOptionsChange({ ...options, settings: settings });
   };
-
+  const isHttps = settings.url !== undefined && settings.url.indexOf('https') !== -1;
   return (
     <FieldSet label="HTTP">
       <FormField
@@ -73,6 +77,19 @@ export const DruidHttpSettings: FC<ConnectionSettingsProps> = (props: Connection
         value={settings.retryableRetryWaitMax}
         onChange={onSettingChange}
       />
+      {isHttps && (
+        <Field
+          horizontal
+          label="Skip TLS Verify"
+          description="Skip TLS Verification"
+          className={css`
+            width: 215px;
+            margin-top: 5px;
+          `}
+        >
+          <Switch value={settings.skipTls} name="skipTls" onChange={onSettingChange} />
+        </Field>
+      )}
     </FieldSet>
   );
 };

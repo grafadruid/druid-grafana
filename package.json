@@ -12,10 +12,10 @@
   "author": "Grafadruid",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@grafana/data": "7.4.3",
-    "@grafana/runtime": "7.4.3",
-    "@grafana/toolkit": "7.4.3",
-    "@grafana/ui": "7.4.3",
+    "@grafana/data": "7.5.6",
+    "@grafana/runtime": "7.5.6",
+    "@grafana/toolkit": "7.5.6",
+    "@grafana/ui": "7.5.6",
     "@types/lodash": "latest"
   },
   "resolutions": {
