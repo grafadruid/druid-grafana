@@ -28,7 +28,8 @@ type druidQuery struct {
 }
 
 type druidResponse struct {
-	Columns []struct {
+	Reference string
+	Columns   []struct {
 		Name string
 		Type string
 	}
@@ -169,7 +170,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 		return response, err
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "_________________________DRUID QUERY___________________________", q)
-	r, err := ds.executeQuery(q, s, stg)
+	r, err := ds.executeQuery("variable", q, s, stg)
 	if err != nil {
 		return response, err
 	}
@@ -297,7 +298,7 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		return response
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID QUERY___________________________", q)
-	r, err := ds.executeQuery(q, s, stg)
+	r, err := ds.executeQuery(qry.RefID, q, s, stg)
 	if err != nil {
 		response.Error = err
 		return response
@@ -348,9 +349,9 @@ func (ds *druidDatasource) prepareQueryContext(parameters []interface{}) map[str
 	return ctx
 }
 
-func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]interface{}) (*druidResponse, error) {
+func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]interface{}) (*druidResponse, error) {
 	// refactor: probably need to extract per-query preprocessor and postprocessor into a per-query file. load those "plugins" (ak. QueryProcessor ?) into a register and then do something like plugins[q.Type()].preprocess(q) and plugins[q.Type()].postprocess(r)
-	r := &druidResponse{}
+	r := &druidResponse{Reference: queryRef}
 	qtyp := q.Type()
 	switch qtyp {
 	case "sql":
@@ -740,7 +741,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]interface{}) (backend.DataResponse, error) {
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
-	frame := data.NewFrame("response")
+	frame := data.NewFrame(resp.Reference)
 	// fetch settings
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
 	responseLimit, _ := settings["responseLimit"].(float64)
