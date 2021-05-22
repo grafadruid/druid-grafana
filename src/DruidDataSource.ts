@@ -8,6 +8,9 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   constructor(instanceSettings: DataSourceInstanceSettings<DruidSettings>) {
     super(instanceSettings);
   }
+  filterQuery(query: DruidQuery) {
+    return !query.hide;
+  }
   applyTemplateVariables(templatedQuery: DruidQuery) {
     const templateSrv = getTemplateSrv();
     let template = JSON.stringify({ ...templatedQuery, expr: undefined }).replace(
