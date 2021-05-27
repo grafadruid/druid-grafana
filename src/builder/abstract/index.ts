@@ -5,6 +5,7 @@ export {
   ScopeType,
   onBuilderChange,
   useQueryBuilderAutoSubmit,
+  debounceChange,
 } from './QueryBuilderComponent';
 export { Input } from './Input';
 export { Multiple } from './Multiple';

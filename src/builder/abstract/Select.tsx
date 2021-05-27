@@ -2,7 +2,7 @@ import React from 'react';
 import { InlineField, Select as SelectField } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
-import { onBuilderChange } from '.';
+import { onBuilderChange, debounceChange } from '.';
 
 interface Props extends QueryBuilderFieldProps {
   entries: Record<string | number, string>;
@@ -26,7 +26,7 @@ export const Select = (props: Props) => {
       <SelectField
         options={entries}
         value={props.options.builder}
-        onChange={onChange}
+        onChange={debounceChange(onChange, props)}
         placeholder={props.description}
         onCreateOption={(v) => {
           onChange({ value: v, label: v });

@@ -2,7 +2,7 @@ import React, { ChangeEvent } from 'react';
 import { Checkbox as CheckboxField } from '@grafana/ui';
 import { css, cx } from 'emotion';
 import { QueryBuilderFieldProps } from './types';
-import { onBuilderChange } from '.';
+import { onBuilderChange, debounceChange } from '.';
 
 export const Checkbox = (props: QueryBuilderFieldProps) => {
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -14,7 +14,7 @@ export const Checkbox = (props: QueryBuilderFieldProps) => {
       label={props.label}
       description={props.description}
       value={props.options.builder}
-      onChange={onChange}
+      onChange={debounceChange(onChange, props)}
       className={cx(styles.checkbox)}
     />
   );

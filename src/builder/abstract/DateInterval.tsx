@@ -2,7 +2,7 @@ import React, { ChangeEvent } from 'react';
 import { InlineLabel, stylesFactory, useTheme } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
-import { onBuilderChange } from '.';
+import { onBuilderChange, debounceChange } from '.';
 import { css, cx } from 'emotion';
 import { Global, css as globalCss } from '@emotion/core';
 import DatePicker from 'react-datepicker';
@@ -74,8 +74,8 @@ export const DateInterval = (props: Props) => {
         startDate={startDate}
         endDate={stopDate}
         placeholderText={startDatePlaceholder}
-        onChangeRaw={onStartDateChangeRaw}
-        onChange={onStartDateChange}
+        onChangeRaw={debounceChange(onStartDateChangeRaw, props)}
+        onChange={debounceChange(onStartDateChange, props)}
         showTimeSelect={time}
         dateFormat={format}
         wrapperClassName={cx(styles.picker)}
@@ -87,8 +87,8 @@ export const DateInterval = (props: Props) => {
         startDate={startDate}
         endDate={stopDate}
         placeholderText={stopDatePlaceholder}
-        onChangeRaw={onStopDateChangeRaw}
-        onChange={onStopDateChange}
+        onChangeRaw={debounceChange(onStopDateChangeRaw, props)}
+        onChange={debounceChange(onStopDateChange, props)}
         showTimeSelect={time}
         dateFormat={format}
         wrapperClassName={cx(styles.picker)}

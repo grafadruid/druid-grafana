@@ -28,6 +28,9 @@ export const DruidQueryResponseSettings = (props: QuerySettingsProps) => {
   const onResponseLimitChange = (event: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({ ...options, settings: { ...settings, responseLimit: Number(event.target.value) } });
   };
+  const onDebounceTimeChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onOptionsChange({ ...options, settings: { ...settings, debounceTime: Number(event.target.value) } });
+  };
   return (
     <>
       <InlineFieldRow>
@@ -46,6 +49,16 @@ export const DruidQueryResponseSettings = (props: QuerySettingsProps) => {
             placeholder="Rows limit number. e.g: 1000"
             value={settings.responseLimit}
             onChange={onResponseLimitChange}
+          />
+        </InlineField>
+      </InlineFieldRow>
+      <InlineFieldRow>
+        <InlineField label="Debounce Time" tooltip="Milliseconds to wait before autosubmitting query">
+          <Input
+            type="number"
+            placeholder="Debounce time in milliseconds. e.g: 250"
+            value={settings.debounceTime}
+            onChange={onDebounceTimeChange}
           />
         </InlineField>
       </InlineFieldRow>

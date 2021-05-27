@@ -1,7 +1,7 @@
 import React, { ChangeEvent } from 'react';
 import { Input as InputField, InlineField } from '@grafana/ui';
 import { QueryBuilderFieldProps } from './types';
-import { onBuilderChange } from '.';
+import { onBuilderChange, debounceChange } from '.';
 
 interface Props extends QueryBuilderFieldProps {
   type: string;
@@ -24,7 +24,12 @@ export const Input = (props: Props) => {
   };
   return (
     <InlineField label={props.label} grow>
-      <InputField name={props.name} placeholder={props.description} value={props.options.builder} onChange={onChange} />
+      <InputField
+        name={props.name}
+        placeholder={props.description}
+        value={props.options.builder}
+        onChange={debounceChange(onChange, props)}
+      />
     </InlineField>
   );
 };

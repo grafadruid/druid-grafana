@@ -2,7 +2,7 @@ import React from 'react';
 import { InlineField, MultiSelect as MultiSelectField } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
-import { onBuilderChange } from '.';
+import { onBuilderChange, debounceChange } from '.';
 
 interface Props extends QueryBuilderFieldProps {
   entries: Record<string | number, string>;
@@ -25,7 +25,7 @@ export const MultiSelect = (props: Props) => {
       <MultiSelectField
         options={entries}
         value={props.options.builder}
-        onChange={onChange}
+        onChange={debounceChange(onChange, props)}
         isClearable={true}
         placeholder={props.description}
       />
