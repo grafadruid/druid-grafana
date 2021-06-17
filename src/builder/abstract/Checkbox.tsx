@@ -1,6 +1,6 @@
 import React, { ChangeEvent } from 'react';
 import { Checkbox as CheckboxField } from '@grafana/ui';
-import { css, cx } from 'emotion';
+import { css, cx } from '@emotion/css';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
 

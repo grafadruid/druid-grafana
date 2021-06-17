@@ -3,8 +3,8 @@ import { InlineLabel, stylesFactory, useTheme } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
-import { css, cx } from 'emotion';
-import { Global, css as globalCss } from '@emotion/core';
+import { css, cx } from '@emotion/css';
+import { Global, css as globalCss } from '@emotion/react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
