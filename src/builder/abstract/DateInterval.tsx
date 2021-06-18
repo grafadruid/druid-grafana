@@ -4,7 +4,7 @@ import { GrafanaTheme } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
 import { css, cx } from '@emotion/css';
-import { Global, css as globalCss } from '@emotion/react';
+import { Global } from '@emotion/core';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -107,7 +107,7 @@ const getStyles = stylesFactory((theme: GrafanaTheme) => {
         margin-right: 4px;
       }
     `,
-    popper: globalCss`
+    popper: css`
       .react-datepicker-popper {
         z-index: 1000 !important;
       }

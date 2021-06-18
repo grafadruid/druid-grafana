@@ -6,7 +6,6 @@ import { DruidConnectionSettings } from './configuration/ConnectionSettings';
 import { ConnectionSettingsOptions } from './configuration/ConnectionSettings/types';
 import { DruidQueryDefaultSettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
-import '@emotion/react';
 
 enum Tabs {
   Connection,
