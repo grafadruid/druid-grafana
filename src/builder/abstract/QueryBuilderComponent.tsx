@@ -1,6 +1,6 @@
 import { QueryBuilderProps, QueryBuilderOptions } from '../types';
 import { QueryBuilderFieldProps, QueryBuilderComponent, QueryComponent, Component } from './types';
-import { cloneDeep, debounce } from 'lodash';
+import { cloneDeep } from 'lodash';
 
 export const enum ScopeType {
   Builder,
@@ -75,10 +75,6 @@ export const useScopedQueryBuilderFieldProps = (
     };
     return scopedProps;
   };
-};
-
-export const debounceChange = (fn: any, props: QueryBuilderProps) => {
-  return debounce(fn, props.options.settings.debounceTime || 250);
 };
 
 export const onBuilderChange = (props: QueryBuilderProps | QueryBuilderFieldProps | undefined, builder: any) => {

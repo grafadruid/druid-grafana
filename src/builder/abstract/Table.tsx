@@ -1,7 +1,7 @@
 import React from 'react';
 import { InlineField } from '@grafana/ui';
 import { QueryBuilderFieldProps } from './types';
-import { onBuilderChange, debounceChange } from '.';
+import { onBuilderChange } from '.';
 import uniqueId from 'lodash/uniqueId';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-javascript';
@@ -64,7 +64,7 @@ export const Table = (props: Props) => {
         placeholder={props.description}
         mode="text"
         theme="twilight"
-        onChange={debounceChange(onChange, props)}
+        onChange={onChange}
         width="100%"
         fontSize={14}
         showPrintMargin={true}
