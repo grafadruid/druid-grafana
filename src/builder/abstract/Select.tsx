@@ -17,6 +17,10 @@ export const Select = (props: Props) => {
   const entries = Object.entries(props.entries).map((entry) => {
     return { value: entry[0], label: String(entry[1]) };
   });
+  const hasCustomValue = entries.filter((entry) => entry.value === props.options.builder).length === 0;
+  if (hasCustomValue) {
+    entries.push({ value: props.options.builder, label: props.options.builder });
+  }
   return (
     <InlineField label={props.label} tooltip={props.description} grow>
       <SelectField
@@ -24,6 +28,10 @@ export const Select = (props: Props) => {
         value={props.options.builder}
         onChange={onChange}
         placeholder={props.description}
+        onCreateOption={(v) => {
+          onChange({ value: v, label: v });
+        }}
+        allowCustomValue
         isClearable
       />
     </InlineField>
