@@ -28,10 +28,17 @@
       }
     ],
     "screenshots": [
-      { "name": "datasource", "path": "img/screenshot-datasource.png" },
+      { "name": "datasource - connection", "path": "img/screenshot-datasource-connection.png" },
+      { "name": "datasource - default settings", "path": "img/screenshot-datasource-default-settings.png" },
       { "name": "panels", "path": "img/screenshot-panels.png" },
-      { "name": "query builder", "path": "img/screenshot-querybuilder.png" },
-      { "name": "variables", "path": "img/screenshot-variables.png" }
+      { "name": "query builder - json", "path": "img/screenshot-querybuilder-json.png" },
+      { "name": "query builder - sql", "path": "img/screenshot-querybuilder-sql.png" },
+      { "name": "query builder - timeseries", "path": "img/screenshot-querybuilder-timeseries.png" },
+      { "name": "query builder - settings", "path": "img/screenshot-querybuilder-settings.png" },
+      { "name": "variables", "path": "img/screenshot-variables.png" },
+      { "name": "variables - formatter - druid:json", "path": "img/screenshot-querybuilder-formatter-druidjson.png" },
+      { "name": "explore - logs", "path": "img/screenshot-explore-logs.png" },
+      { "name": "query builder - settings - logs", "path": "img/screenshot-querybuilder-settings-logs.png" }
     ],
     "version": "%VERSION%",
     "updated": "%TODAY%"

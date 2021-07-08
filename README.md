@@ -41,56 +41,56 @@ At the time of writing, the plugin supports all Grafana features and all Druid q
 
 ### Datasource - Connection
 
-![Datasource - connection](src/img/screenshot-datasource-connection.png)
+![Datasource - connection](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-datasource-connection.png)
 
 ### Datasource - Default settings
 
-![Datasource - default settings](src/img/screenshot-datasource-default-settings.png)
+![Datasource - default settings](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-datasource-default-settings.png)
 
 ### Panels
 
-![Panels](src/img/screenshot-panels.png)
+![Panels](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-panels.png)
 
 ### Query builder - JSON
 
-![Query builder - JSON](src/img/screenshot-querybuilder-json.png)
+![Query builder - JSON](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-querybuilder-json.png)
 
 ### Query builder - SQL
 
-![Query builder - SQL](src/img/screenshot-querybuilder-sql.png)
+![Query builder - SQL](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-querybuilder-sql.png)
 
 ### Query builder - Timeseries
 
-![Query builder - timeseries](src/img/screenshot-querybuilder-timeseries.png)
+![Query builder - timeseries](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-querybuilder-timeseries.png)
 
 ### Query builder - Settings
 
-![Query builder - settings](src/img/screenshot-querybuilder-settings.png)
+![Query builder - settings](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-querybuilder-settings.png)
 
 ### Variables
 
-![Variables](src/img/screenshot-variables.png)
+![Variables](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-variables.png)
 
 ### Variables - Formatter - druid:json
 
-![Variables - formatter - druid:json](src/img/screenshot-querybuilder-formatter-druidjson.png)
+![Variables - formatter - druid:json](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-querybuilder-formatter-druidjson.png)
 
 ### Explore - Logs
 
-![Explore - logs](src/img/screenshot-explore-logs.png)
+![Explore - logs](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-explore-logs.png)
 
 ### Query builder - Settings - Logs
 
-![Query builder - settings - logs](src/img/screenshot-querybuilder-settings-logs.png)
+![Query builder - settings - logs](https://raw.githubusercontent.com/grafadruid/druid-grafana/master/src/img/screenshot-querybuilder-settings-logs.png)
 
 ## Contribute
 
 Any contribution is welcome! Feel free to join on Slack to discuss :)
-To go further, see [Contribute](CONTRIBUTE.md)
+To go further, see [Contribute](https://github.com/grafadruid/druid-grafana/blob/master/CONTRIBUTE.md)
 
 ## Install
 
-- From Grafana.com (soon, process in progress):
+- From Grafana.com:
   `grafana-cli plugins install grafadruid-druid-datasource $VERSION`
   - If `$VERSION` is not specified latest version will be installed
 - From remote archive:
@@ -104,5 +104,5 @@ Where `$VERSION` is for instance `1.0.0` and `$YOUR_PLUGIN_DIR` is for instance 
 
 ## Examples
 
-You can try out various advanced features of the plugin by importing the [demo dashboard](docker/grafana/dashboards/dashboard.json) and running it against the Wikipedia dataset used in the [Druid quickstart tutorial](https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data).
+You can try out various advanced features of the plugin by importing the [demo dashboard](https://github.com/grafadruid/druid-grafana/blob/master/docker/grafana/dashboards/dashboard.json) and running it against the Wikipedia dataset used in the [Druid quickstart tutorial](https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data).
 > When using the provided docker based environment (`./mage env:start && ./mage`), the dataset is automatically ingested in Druid, the datasource and dashboard are automatically provisionned in Grafana.
