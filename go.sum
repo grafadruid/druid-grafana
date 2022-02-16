@@ -53,8 +53,8 @@ github.com/google/go-querystring v1.0.0 h1:Xkwi/a1rcvNg1PPYe5vI8GbeBY/jrVuDX5ASu
 github.com/google/go-querystring v1.0.0/go.mod h1:odCYkC5MyYFN7vkCjXpyrEuKhc/BUO6wN/zVPAxq5ck=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/grafadruid/go-druid v0.0.3 h1:ezAC0IhepxwaFJDxaEKz0yuUmJssQPEZu5vbZvMXk18=
-github.com/grafadruid/go-druid v0.0.3/go.mod h1:KY3a6MrVMKkXgMTwBS9Nrhm1E8OWyR4gd0WzUi8d/zM=
+github.com/grafadruid/go-druid v0.0.5-0.20211224091918-d91fa9d1674a h1:RaYDSlmbA2cK+/bgE4ArNAw8Ma+IAaU865yv6rMSQW8=
+github.com/grafadruid/go-druid v0.0.5-0.20211224091918-d91fa9d1674a/go.mod h1:KY3a6MrVMKkXgMTwBS9Nrhm1E8OWyR4gd0WzUi8d/zM=
 github.com/grafana/grafana-plugin-sdk-go v0.80.0 h1:BwCpXec5pR5dF4fSIc4Q14hKxT0PVX8k5pbsaif9tzU=
 github.com/grafana/grafana-plugin-sdk-go v0.80.0/go.mod h1:exQQHhClzHs2gOwjPSO4FOKwjjZ8VrnzbbABHX8LB6U=
 github.com/grpc-ecosystem/go-grpc-middleware v1.2.0 h1:0IKlLyQ3Hs9nDaiK5cSHAGmcQEIC8l2Ts1u6x5Dfrqg=
