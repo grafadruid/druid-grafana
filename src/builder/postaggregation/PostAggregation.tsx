@@ -12,6 +12,7 @@ import {
   Javascript,
   LongGreatest,
   LongLeast,
+  QuantilesDoublesSketchToQuantile,
 } from './';
 
 export const PostAggregation = (props: QueryBuilderProps) => (
@@ -29,6 +30,7 @@ export const PostAggregation = (props: QueryBuilderProps) => (
       Javascript: Javascript,
       LongGreatest: LongGreatest,
       LongLeast: LongLeast,
+      QuantilesDoublesSketchToQuantile: QuantilesDoublesSketchToQuantile,
     }}
   />
 );
