@@ -9,3 +9,4 @@ export { Javascript } from './Javascript';
 export { LongGreatest } from './LongGreatest';
 export { LongLeast } from './LongLeast';
 export { PostAggregation } from './PostAggregation';
+export { QuantilesDoublesSketchToQuantile } from './QuantilesDoublesSketchToQuantile';

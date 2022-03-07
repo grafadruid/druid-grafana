@@ -24,6 +24,7 @@ export { LongLast } from './LongLast';
 export { LongMax } from './LongMax';
 export { LongMin } from './LongMin';
 export { LongSum } from './LongSum';
+export { QuantilesDoublesSketch } from './QuantilesDoublesSketch';
 export { StringAny } from './StringAny';
 export { StringFirstFolding } from './StringFirstFolding';
 export { StringFirst } from './StringFirst';
