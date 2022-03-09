@@ -12,19 +12,17 @@
   "author": "Grafadruid",
   "license": "Apache-2.0",
   "devDependencies": {
-    "tslib": "^2.1.0",
-    "@grafana/data": "7.5.8",
-    "@grafana/runtime": "7.5.8",
-    "@grafana/toolkit": "7.5.8",
-    "@grafana/ui": "7.5.8",
+    "@emotion/css": "^11.7.1",
+    "@grafana/data": "8.4.3",
+    "@grafana/runtime": "8.4.3",
+    "@grafana/toolkit": "8.4.3",
+    "@grafana/ui": "8.4.3",
     "@types/lodash": "latest",
-    "@types/react-datepicker": "^3.1.2",
-    "react-datepicker": "^3.7.0",
-    "ace-builds": "^1.4.12",
-    "react-ace": "^9.3.0"
-  },
-  "resolutions": {
-    "rxjs": "6.6.3"
+    "@types/react-datepicker": "^4.3.4",
+    "ace-builds": "^1.4.14",
+    "react-ace": "^9.5.0",
+    "react-datepicker": "^4.7.0",
+    "tslib": "^2.1.0"
   },
   "engines": {
     "node": ">=14"

@@ -3,10 +3,18 @@ import { InlineLabel, stylesFactory, useTheme } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
-import { css, cx } from 'emotion';
-import { Global, css as globalCss } from '@emotion/core';
+import { css, cx, injectGlobal } from '@emotion/css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+
+injectGlobal(`
+  .react-datepicker__triangle {
+    display: none;
+  }
+  .react-datepicker-popper {
+    z-index: 1000 !important;
+  }
+`);
 
 interface Props extends QueryBuilderFieldProps {
   format: string;
@@ -64,7 +72,6 @@ export const DateInterval = (props: Props) => {
   const styles = getStyles(theme);
   return (
     <>
-      <Global styles={styles.popper} />
       <InlineLabel tooltip={description} width="auto">
         {label}
       </InlineLabel>
@@ -105,11 +112,6 @@ const getStyles = stylesFactory((theme: GrafanaTheme) => {
         border: 1px solid ${theme.colors.border2};
         height: 32px;
         margin-right: 4px;
-      }
-    `,
-    popper: globalCss`
-      .react-datepicker-popper {
-        z-index: 1000 !important;
       }
     `,
   };

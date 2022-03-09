@@ -1,7 +1,7 @@
 import React, { ChangeEvent } from 'react';
 import { InlineLabel, InlineFieldRow, InlineField, Input, useTheme, stylesFactory } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
-import { css, cx } from 'emotion';
+import { css, cx } from '@emotion/css';
 import { QuerySettingsProps } from './types';
 
 export const DruidQueryLogSettings = (props: QuerySettingsProps) => {

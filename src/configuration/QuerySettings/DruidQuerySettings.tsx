@@ -1,6 +1,6 @@
 import React from 'react';
 import { FieldSet } from '@grafana/ui';
-import { css, cx } from 'emotion';
+import { css, cx } from '@emotion/css';
 import { DruidQueryRequestSettings, DruidQueryResponseSettings } from './';
 import { QuerySettingsProps } from './types';
 

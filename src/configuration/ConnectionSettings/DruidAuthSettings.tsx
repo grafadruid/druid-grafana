@@ -1,5 +1,5 @@
 import React, { ChangeEvent } from 'react';
-import { css } from 'emotion';
+import { css } from '@emotion/css';
 import { FieldSet, Field, Switch } from '@grafana/ui';
 import { ConnectionSettingsProps } from './types';
 import { DruidBasicAuthSettings } from './';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
-import { css, cx } from 'emotion';
+import { css, cx } from '@emotion/css';
 import { DruidQuery } from './types';
 import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';

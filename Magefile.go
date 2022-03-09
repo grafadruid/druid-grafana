@@ -1,4 +1,5 @@
-//+build mage
+//go:build mage
+// +build mage
 
 package main
 
@@ -20,7 +21,7 @@ const (
 	defaultCoordinatorURL string = "http://coordinator:8081"
 	defaultBrokerURL      string = "http://broker:8082"
 	taskEndpoint          string = "/druid/indexer/v1/task"
-	grafanaVersion        string = "7.5.8"
+	grafanaVersion        string = "8.4.3"
 )
 
 var (
