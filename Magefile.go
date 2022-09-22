@@ -25,8 +25,8 @@ const (
 )
 
 var (
-	useDocker           bool = os.Getenv("GRAFADRUID_USE_DOCKER") != "0"
-	useDockerComposeV2  bool = os.Getenv("GRAFADRUID_USE_DOCKER_COMPOSE_V2") != "0"
+	useDocker          bool = os.Getenv("GRAFADRUID_USE_DOCKER") != "0"
+	useDockerComposeV2 bool = os.Getenv("GRAFADRUID_USE_DOCKER_COMPOSE_V2") != "0"
 )
 
 func getDockerComposeCmdPrefix() []string {
@@ -37,7 +37,7 @@ func getDockerComposeCmdPrefix() []string {
 }
 
 func runDockerComposeCmd(cmd ...string) error {
-	var finalCmd = append(getDockerComposeCmdPrefix(), cmd...)
+	finalCmd := append(getDockerComposeCmdPrefix(), cmd...)
 	return sh.RunV(finalCmd[0], finalCmd[1:]...)
 }
 
@@ -66,7 +66,6 @@ func (e Env) Fmt() error {
 	); err != nil {
 		return err
 	}
-
 	return sh.RunV("yarn", "fmt")
 }
 
@@ -137,7 +136,7 @@ func (Frontend) Build() error {
 		return err
 	}
 	return runToolboxCmd("npx", "@grafana/toolkit@"+grafanaVersion, "plugin:build")
-	//return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build", "--preserveConsole")
+	// return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build", "--preserveConsole")
 }
 
 // Test runs frontend tests
