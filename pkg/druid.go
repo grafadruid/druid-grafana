@@ -367,7 +367,8 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	detectColumnType := func(c *struct {
 		Name string
 		Type string
-	}, pos int, rr [][]interface{}) {
+	}, pos int, rr [][]interface{},
+	) {
 		t := map[string]int{"nil": 0}
 		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
 			r := rr[i]

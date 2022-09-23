@@ -25,13 +25,25 @@ const (
 )
 
 var (
-	useDocker        bool     = os.Getenv("GRAFADRUID_USE_DOCKER") != "0"
-	dockerToolboxCmd []string = []string{"docker-compose", "exec", "toolbox"}
+	useDocker          bool = os.Getenv("GRAFADRUID_USE_DOCKER") != "0"
+	useDockerComposeV2 bool = os.Getenv("GRAFADRUID_USE_DOCKER_COMPOSE_V2") == "1"
 )
+
+func getDockerComposeCmdPrefix() []string {
+	if useDockerComposeV2 {
+		return []string{"docker", "compose"}
+	}
+	return []string{"docker-compose"}
+}
+
+func runDockerComposeCmd(cmd ...string) error {
+	finalCmd := append(getDockerComposeCmdPrefix(), cmd...)
+	return sh.RunV(finalCmd[0], finalCmd[1:]...)
+}
 
 func runToolboxCmd(cmd ...string) error {
 	if useDocker {
-		cmd = append(dockerToolboxCmd, cmd...)
+		cmd = append(append(getDockerComposeCmdPrefix(), "exec", "toolbox"), cmd...)
 	}
 
 	return sh.RunV(cmd[0], cmd[1:]...)
@@ -54,13 +66,12 @@ func (e Env) Fmt() error {
 	); err != nil {
 		return err
 	}
-
 	return sh.RunV("yarn", "fmt")
 }
 
 // Start starts the development environment
 func (e Env) Start() error {
-	if err := sh.RunV("docker-compose", "up", "-d"); err != nil {
+	if err := runDockerComposeCmd("up", "-d"); err != nil {
 		return err
 	}
 
@@ -76,17 +87,17 @@ func (e Env) Start() error {
 
 // Stop stops the development environment
 func (e Env) Stop(removeVolumes bool) error {
-	cmd := []string{"docker-compose", "down"}
+	cmd := []string{"down"}
 
 	if removeVolumes {
 		cmd = append(cmd, "-v")
 	}
 
-	return sh.RunV(cmd[0], cmd[1:]...)
+	return runDockerComposeCmd(cmd...)
 }
 
 // Rebuild rebuilds container images from Dockerfiles
-func (e Env) Rebuild() error { return sh.RunV("docker-compose", "build") }
+func (e Env) Rebuild() error { return runDockerComposeCmd("build") }
 
 // Provision provisions example data in Druid
 func (e Env) Provision() error {
@@ -125,7 +136,7 @@ func (Frontend) Build() error {
 		return err
 	}
 	return runToolboxCmd("npx", "@grafana/toolkit@"+grafanaVersion, "plugin:build")
-	//return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build", "--preserveConsole")
+	// return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build", "--preserveConsole")
 }
 
 // Test runs frontend tests
@@ -177,7 +188,7 @@ func (Backend) Lint() error { return runToolboxCmd("./mage", "sdk:lint") }
 
 // ReloadPlugin kills any running instances and wait for Grafana to reload the plugin
 func (Backend) ReloadPlugin() error {
-	return sh.RunV("docker-compose", "restart", "grafana")
+	return runDockerComposeCmd("restart", "grafana")
 }
 
 // Test runs backend tests
