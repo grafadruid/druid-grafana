@@ -26,7 +26,7 @@ const (
 
 var (
 	useDocker          bool = os.Getenv("GRAFADRUID_USE_DOCKER") != "0"
-	useDockerComposeV2 bool = os.Getenv("GRAFADRUID_USE_DOCKER_COMPOSE_V2") != "0"
+	useDockerComposeV2 bool = os.Getenv("GRAFADRUID_USE_DOCKER_COMPOSE_V2") == "1"
 )
 
 func getDockerComposeCmdPrefix() []string {
