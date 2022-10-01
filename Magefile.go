@@ -21,7 +21,7 @@ const (
 	defaultCoordinatorURL string = "http://coordinator:8081"
 	defaultBrokerURL      string = "http://broker:8082"
 	taskEndpoint          string = "/druid/indexer/v1/task"
-	grafanaVersion        string = "8.4.3"
+	grafanaVersion        string = "9.1.6"
 )
 
 var (
@@ -135,23 +135,23 @@ func (Frontend) Build() error {
 	if err != nil {
 		return err
 	}
-	return runToolboxCmd("npx", "@grafana/toolkit@"+grafanaVersion, "plugin:build")
-	// return runToolboxCmd("npx", "@grafana/toolkit", "plugin:build", "--preserveConsole")
+	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:build")
+	// return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:build", "--preserveConsole")
 }
 
 // Test runs frontend tests
 func (Frontend) Test() error {
-	return runToolboxCmd("npx", "@grafana/toolkit@"+grafanaVersion, "plugin:test")
+	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:test")
 }
 
 // Dev runs frontend in development mode
 func (Frontend) Dev() error {
-	return runToolboxCmd("npx", "@grafana/toolkit@"+grafanaVersion, "plugin:dev")
+	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:dev")
 }
 
 // Watch runs frontend in development mode + autoreload on changes
 func (Frontend) Watch() error {
-	return runToolboxCmd("npx", "@grafana/toolkit@"+grafanaVersion, "plugin:dev", "--watch")
+	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:dev", "--watch")
 }
 
 type Backend mg.Namespace
