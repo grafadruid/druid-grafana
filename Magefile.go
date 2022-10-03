@@ -195,7 +195,7 @@ func (Backend) ReloadPlugin() error {
 func (Backend) Test() error { return runToolboxCmd("./mage", "sdk:test") }
 
 // BuildAll builds the plugin (both frontend and backend)
-func BuildAll() { mg.Deps(Backend{}.BuildAll, Frontend{}.Build) }
+func BuildAll() { mg.SerialDeps(Frontend{}.Build, Backend{}.BuildAll) }
 
 // Default configures the default target (build all plugin components)
 var Default = BuildAll
