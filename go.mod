@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/bitly/go-simplejson v0.5.0
-	github.com/grafadruid/go-druid v0.0.5-0.20211224091918-d91fa9d1674a
+	github.com/grafadruid/go-druid v0.0.6
 	github.com/grafana/grafana-plugin-sdk-go v0.140.0
 	github.com/magefile/mage v1.13.0
 )

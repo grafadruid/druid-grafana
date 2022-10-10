@@ -183,8 +183,8 @@ github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
 github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
 github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
-github.com/grafadruid/go-druid v0.0.5-0.20211224091918-d91fa9d1674a h1:RaYDSlmbA2cK+/bgE4ArNAw8Ma+IAaU865yv6rMSQW8=
-github.com/grafadruid/go-druid v0.0.5-0.20211224091918-d91fa9d1674a/go.mod h1:KY3a6MrVMKkXgMTwBS9Nrhm1E8OWyR4gd0WzUi8d/zM=
+github.com/grafadruid/go-druid v0.0.6 h1:Nt9jQrhrtHi1BJICN9aDJgYDmBmc10pJYpQiuwAsxa4=
+github.com/grafadruid/go-druid v0.0.6/go.mod h1:KY3a6MrVMKkXgMTwBS9Nrhm1E8OWyR4gd0WzUi8d/zM=
 github.com/grafana/grafana-plugin-sdk-go v0.140.0 h1:cxU8M99Z/V4FJNyseJrR8x509fSttJAoV+GWVL6ZdRY=
 github.com/grafana/grafana-plugin-sdk-go v0.140.0/go.mod h1:srvRQ+de4C5h7FqA5lSFUkFCs5pJolWT+PGV2AyBOFk=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 h1:+9834+KizmvFV7pXQGSXQTsaWhq2GjuNUt0aUU0YBYw=
