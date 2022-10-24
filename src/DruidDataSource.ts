@@ -1,4 +1,4 @@
-import { DataSourceInstanceSettings, MetricFindValue } from '@grafana/data';
+import { DataSourceInstanceSettings, MetricFindValue, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { DruidSettings, DruidQuery } from './types';
 
@@ -11,7 +11,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   filterQuery(query: DruidQuery) {
     return !query.hide;
   }
-  applyTemplateVariables(templatedQuery: DruidQuery) {
+  applyTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
     const templateSrv = getTemplateSrv();
     let template = JSON.stringify({ ...templatedQuery, expr: undefined }).replace(
       druidVariableRegex,
@@ -22,7 +22,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         return match;
       }
     );
-    return { ...JSON.parse(templateSrv.replace(template)), expr: templatedQuery.expr };
+    return { ...JSON.parse(templateSrv.replace(template, scopedVars)), expr: templatedQuery.expr };
   }
   async metricFindQuery(query: DruidQuery, options?: any): Promise<MetricFindValue[]> {
     return this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
