@@ -1,6 +1,6 @@
 {
   "name": "druid-grafana",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Connects Grafana to Druid",
   "scripts": {
     "fmt": "prettier -uw '**/*'",
