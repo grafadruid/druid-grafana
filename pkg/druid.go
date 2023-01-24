@@ -392,6 +392,13 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	if err != nil {
 		return nil, nil, err
 	}
+	if q.Builder == nil || q.Settings == nil {
+		// Don't return an error here, as this isn't a user error
+		// Grafana seems to invoke this even before the user has entered any query
+		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
+		return nil, nil, nil
+	}
+
 	var defaultQueryContext map[string]interface{}
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
 		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]interface{}))
