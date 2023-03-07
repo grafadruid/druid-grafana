@@ -554,7 +554,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	case "topN":
 		var tn []map[string]interface{}
 		err := json.Unmarshal(result, &tn)
-		if err == nil && len(tn) > 0 {
+		if err == nil && len(tn) > 0 && len(tn[0]["result"].([]interface{})) > 0 {
 			columns := []string{"timestamp"}
 			for c := range tn[0]["result"].([]interface{})[0].(map[string]interface{}) {
 				columns = append(columns, c)
