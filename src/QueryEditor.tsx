@@ -4,6 +4,7 @@ import { QueryEditorProps } from '@grafana/data';
 import { css, cx } from '@emotion/css';
 import { DruidDataSource } from './DruidDataSource';
 import { DruidSettings, DruidQuery } from './types';
+import { normalizeData } from './configuration/settings';
 import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
@@ -14,7 +15,11 @@ interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSetti
 export const QueryEditor = (props: Props) => {
   const { builder, settings } = props.query;
   const builderOptions = { builder: builder || {}, settings: settings || {} };
-  const settingsOptions = { settings: settings || {} };
+  const datasourceQuerySettings = normalizeData(props.datasource.settingsData, false, 'query');
+  /*TODO merging settings that way is not good: things like query context won't get merged
+  the query settings context will replace the datasource query settings context instead of merging
+  backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
+  const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} || {} };
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules

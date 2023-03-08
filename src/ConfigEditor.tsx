@@ -3,6 +3,7 @@ import React, { PureComponent } from 'react';
 import { TabsBar, Tab, TabContent, IconName } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps, SelectableValue, KeyValue } from '@grafana/data';
 import { DruidSettings, DruidSecureSettings } from './types';
+import { normalizeData } from './configuration/settings';
 import { DruidConnectionSettings } from './configuration/ConnectionSettings';
 import { ConnectionSettingsOptions } from './configuration/ConnectionSettings/types';
 import { DruidQueryDefaultSettings } from './configuration/QuerySettings';
@@ -24,31 +25,6 @@ export class ConfigEditor extends PureComponent<Props, State> {
     activeTab: Tabs.Connection,
   };
 
-  normalizeData = (data: Record<string, any>, namespaced: boolean, namespace: string): object => {
-    const keyPrefix = namespace + '.';
-    const keys = Object.keys(data).filter((key) => {
-      if (namespaced) {
-        return !key.includes('.');
-      } else {
-        return key.startsWith(keyPrefix);
-      }
-    });
-    if (keys.length === 0) {
-      return {};
-    }
-    return keys
-      .map((key, index) => {
-        let newKey: string = keyPrefix + key;
-        if (!namespaced) {
-          newKey = key.replace(keyPrefix, '');
-        }
-        return { [newKey]: data[key] };
-      })
-      .reduce((acc, item) => {
-        return { ...acc, ...item };
-      });
-  };
-
   onSelectTab = (item: SelectableValue<Tabs>) => {
     this.setState({ activeTab: item.value! });
   };
@@ -56,11 +32,11 @@ export class ConfigEditor extends PureComponent<Props, State> {
   onConnectionOptionsChange = (connectionSettingsOptions: ConnectionSettingsOptions) => {
     const { options, onOptionsChange } = this.props;
     const { settings, secretSettings, secretSettingsFields } = connectionSettingsOptions;
-    const connectionSettings = this.normalizeData(settings, true, 'connection');
+    const connectionSettings = normalizeData(settings, true, 'connection');
     const jsonData = { ...options.jsonData, ...connectionSettings };
-    const connectionSecretSettings = this.normalizeData(secretSettings, true, 'connection');
+    const connectionSecretSettings = normalizeData(secretSettings, true, 'connection');
     const secureJsonData = { ...options.secureJsonData, ...connectionSecretSettings };
-    const connectionSecretSettingsFields = this.normalizeData(
+    const connectionSecretSettingsFields = normalizeData(
       secretSettingsFields,
       true,
       'connection'
@@ -72,7 +48,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
   onQueryOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { onOptionsChange, options } = this.props;
     const { settings } = querySettingsOptions;
-    const querySettings = this.normalizeData(settings, true, 'query');
+    const querySettings = normalizeData(settings, true, 'query');
     const jsonData = { ...options.jsonData, ...querySettings };
     onOptionsChange({ ...options, jsonData });
   };
@@ -80,16 +56,16 @@ export class ConfigEditor extends PureComponent<Props, State> {
   connectionOptions = (): ConnectionSettingsOptions => {
     const { jsonData, secureJsonData, secureJsonFields } = this.props.options;
     return {
-      settings: this.normalizeData(jsonData, false, 'connection'),
-      secretSettings: this.normalizeData(secureJsonData || {}, false, 'connection'),
-      secretSettingsFields: this.normalizeData(secureJsonFields || {}, false, 'connection') as KeyValue<boolean>,
+      settings: normalizeData(jsonData, false, 'connection'),
+      secretSettings: normalizeData(secureJsonData || {}, false, 'connection'),
+      secretSettingsFields: normalizeData(secureJsonFields || {}, false, 'connection') as KeyValue<boolean>,
     };
   };
 
   queryOptions = (): QuerySettingsOptions => {
     const { jsonData } = this.props.options;
     return {
-      settings: this.normalizeData(jsonData, false, 'query'),
+      settings: normalizeData(jsonData, false, 'query'),
     };
   };
 
