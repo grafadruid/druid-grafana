@@ -5,8 +5,10 @@ import { DruidSettings, DruidQuery } from './types';
 const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::druid:(\w+))?}\"/g;
 
 export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSettings> {
+  settingsData: DruidSettings;
   constructor(instanceSettings: DataSourceInstanceSettings<DruidSettings>) {
     super(instanceSettings);
+    this.settingsData = instanceSettings.jsonData;
   }
   filterQuery(query: DruidQuery) {
     return !query.hide;
