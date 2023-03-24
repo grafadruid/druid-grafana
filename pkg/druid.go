@@ -520,8 +520,8 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 				// len of sqlr > 1, we can infer string and number types from the data row (string is in "quotes") also, time is also in string format
 				switch sqlr[1].([]interface{})[i].(type) {
 				case string:
-					if col.Type != "time" {
-						// if the data type is string and not detected as time, keep it as string
+					if col.Type != "time" && col.Type != "bool" {
+						// if the data type is string and not detected as time or bool, keep it as string
 						col.Type = "string"
 					}
 				}
