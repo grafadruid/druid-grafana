@@ -31,7 +31,15 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
               adhocVariables
                 .reduce((acc, it) => [
                   ...acc,
-                  ...it.filters.map(it => `${it.key} ${it.operator} '${it.value}'`)
+                  ...it.filters
+                    .map(it => it.operator === '=~' ? ({
+                      ...it,
+                      operator: 'LIKE',
+                    }) : it.operator === '!~' ? ({
+                      ...it,
+                      operator: 'NOT LIKE',
+                    }) : it)
+                    .map(it => `${it.key} ${it.operator} '${it.value}'`)
                 ], [/* adds leading " AND "*/''] as string[])
                 .join(' AND ')
             }`,
@@ -74,7 +82,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
                 value: 'BB'
             }
         ],
-        format: 'wide'
+        format: 'long'
       },
       expr: '',
       refId: '',
