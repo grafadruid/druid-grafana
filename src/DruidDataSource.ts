@@ -58,8 +58,30 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   }
 
   async metricFindQuery(query: DruidQuery, options?: any): Promise<MetricFindValue[]> {
-    return this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
-      return response;
+    return this.postResource('query-variable', this.applyTemplateVariables(query));
+  }
+
+  async _postSqlQuery(queryString: string): Promise<{ value: string; text: string; }[]> {
+    const query: DruidQuery = {
+      builder: {
+        queryType: 'sql',
+        query: queryString
+      },
+      settings: {
+        contextParameters: [
+            {
+                name: 'AA',
+                value: 'BB'
+            }
+        ],
+        format: 'wide'
+      },
+      expr: '',
+      refId: '',
+    };
+    return this.postResource('query-variable', {
+      ...query,
+      expr: JSON.stringify(query),
     });
   }
 
@@ -67,25 +89,21 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
    * Provides autocompletion for adhoc filter keys
    */
   async getTagKeys(): Promise<MetricFindValue[]> {
-    return [
-      {
-        text: 'channel',
-      }
-    ]
+    return this._postSqlQuery(`SELECT "COLUMN_NAME" FROM INFORMATION_SCHEMA.COLUMNS WHERE "TABLE_SCHEMA" = 'druid'`);
   }
 
   /**
    * Provides autocompletion for adhoc filter values given the chosen key
    */
   async getTagValues(options: { key: string }): Promise<MetricFindValue[]> {
-    console.log('getTagValues', options);
-    return [
-      {
-        text: '#en.wikipedia'
-      },
-      {
-        text: '#pl.wikipedia'
-      }
-    ]
+    const tableNames = (await this._postSqlQuery(`SELECT "TABLE_NAME" FROM INFORMATION_SCHEMA.COLUMNS WHERE "TABLE_SCHEMA" = 'druid' AND "COLUMN_NAME" = '${options.key}'`))
+      .map((it) => it.value);
+
+    return (
+      await Promise.all(tableNames.map(async (tableName) => this._postSqlQuery(`SELECT DISTINCT "${options.key}" FROM ${tableName}`)))
+    ).reduce((acc, it) => [
+      ...acc,
+      ...it
+    ], []);
   }
 }
