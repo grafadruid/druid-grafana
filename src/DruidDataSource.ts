@@ -1,5 +1,5 @@
 import { DataSourceInstanceSettings, MetricFindValue, ScopedVars } from '@grafana/data';
-import { DataSourceWithBackend, getTemplateSrv, logDebug } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv, logWarning } from '@grafana/runtime';
 import { DruidSettings, DruidQuery, AdhocVariableModel } from './types';
 
 const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::druid:(\w+))?}\"/g;
@@ -18,7 +18,8 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
 
   _applyAdhocTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
     const adhocVariables = getTemplateSrv().getVariables()
-      .filter((it): it is AdhocVariableModel => it.type === 'adhoc');
+      .filter((it): it is AdhocVariableModel => it.type === 'adhoc')
+      .filter(it => it.datasource.uid === this.uid);
     if (adhocVariables.length === 0) return templatedQuery;
 
     switch (templatedQuery.builder.queryType) {
@@ -27,27 +28,102 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
           ...templatedQuery,
           builder: {
             ...templatedQuery.builder,
-            query: `${templatedQuery.builder.query}${
+            query: `${templatedQuery.builder.query} AND ${
               adhocVariables
                 .reduce((acc, it) => [
                   ...acc,
                   ...it.filters
-                    .map(it => it.operator === '=~' ? ({
-                      ...it,
-                      operator: 'LIKE',
-                    }) : it.operator === '!~' ? ({
-                      ...it,
-                      operator: 'NOT LIKE',
-                    }) : it)
-                    .map(it => `${it.key} ${it.operator} '${it.value}'`)
-                ], [/* adds leading " AND "*/''] as string[])
+                    .map(it => {
+                      switch (it.operator) {
+                        case '=':
+                        case '!=':
+                        case '<':
+                        case '>':
+                          return `${it.key} ${it.operator} '${it.value}'`;
+                        
+                        case '=~':
+                          return `${it.key} LIKE '${it.value}'`;
+                        case '!~':
+                          return `${it.key} NOT LIKE '${it.value}'`;
+                        default:
+                          logWarning(`Skipping unexpected filter operator: ${it.operator}`);
+                          return '';
+                      }
+                    })
+                    .filter(Boolean),
+                ], [] as string[])
                 .join(' AND ')
             }`,
           }
         });
       default:
-        logDebug(`Adhoc variables aren't supported for queries of type "${templatedQuery.builder.queryType}"`);
-        return templatedQuery;
+        return ({
+          ...templatedQuery,
+          builder: {
+            ...templatedQuery.builder,
+            filter: { 
+              type: 'and', 
+              fields: [
+                templatedQuery.builder.filter,
+                adhocVariables
+                  .reduce((acc, it) => [...acc, ...it.filters], [] as AdhocVariableModel['filters'])
+                  .map(it => {
+                    switch (it.operator) {
+                      case '=':
+                        return ({
+                          type: 'selector', 
+                          dimension: it.key, 
+                          value: it.value,
+                        });
+                      case '!=':
+                        return ({
+                          type: 'not',
+                          field: {
+                            type: 'selector', 
+                            dimension: it.key, 
+                            value: it.value,
+                          },
+                        });
+                      case '<':
+                        return ({
+                          type: 'bound',
+                          ordering: 'numeric',
+                          dimension: it.key,
+                          upper: it.value ,
+                        });
+                      case '>':
+                        return ({
+                          type: 'bound',
+                          ordering: 'numeric',
+                          dimension: it.key,
+                          lower: it.value ,
+                        });
+                      case '=~':
+                        return ({
+                          type: 'like',
+                          dimension: it.key,
+                          pattern: it.value,
+                        });
+                      case '!~':
+                        return ({
+                          type: 'not',
+                          field: {
+                            type: 'like', 
+                            dimension: it.key, 
+                            value: it.value,
+                          },
+                        });
+                      default:
+                        logWarning(`Skipping unexpected filter operator: ${it.operator}`);
+                        return ({
+                          type: 'true',
+                        });
+                    }
+                })
+              ]
+            }
+          }
+        });
     }
   }
 
