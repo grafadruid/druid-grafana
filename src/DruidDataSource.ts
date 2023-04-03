@@ -25,7 +25,9 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         ...it.filters
       ], [] as AdhocFilter[]);
     
-    if (adhocFilters.length === 0) return templatedQuery;
+    if (adhocFilters.length === 0) {
+      return templatedQuery;
+    }
 
     switch (templatedQuery.builder.queryType) {
       case 'sql':
@@ -152,7 +154,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     return this.postResource('query-variable', this.applyTemplateVariables(query));
   }
 
-  async _postSqlQuery(queryString: string): Promise<{ value: string; text: string; }[]> {
+  async _postSqlQuery(queryString: string): Promise<Array<{ value: string; text: string; }>> {
     const query: DruidQuery = {
       builder: {
         queryType: 'sql',
