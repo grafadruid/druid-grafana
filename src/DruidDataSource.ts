@@ -1,6 +1,6 @@
 import { DataSourceInstanceSettings, MetricFindValue, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv, logWarning } from '@grafana/runtime';
-import { DruidSettings, DruidQuery, AdhocVariableModel } from './types';
+import { DruidSettings, DruidQuery, AdhocVariableModel, AdhocFilter } from './types';
 
 const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::druid:(\w+))?}\"/g;
 
@@ -17,10 +17,15 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   }
 
   _applyAdhocTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
-    const adhocVariables = getTemplateSrv().getVariables()
+    const adhocFilters = getTemplateSrv().getVariables()
       .filter((it): it is AdhocVariableModel => it.type === 'adhoc')
-      .filter(it => it.datasource.uid === this.uid);
-    if (adhocVariables.length === 0) return templatedQuery;
+      .filter(it => it.datasource.uid === this.uid)
+      .reduce((acc, it) => [
+        ...acc,
+        ...it.filters
+      ], [] as AdhocFilter[]);
+    
+    if (adhocFilters.length === 0) return templatedQuery;
 
     switch (templatedQuery.builder.queryType) {
       case 'sql':
@@ -29,34 +34,35 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
           builder: {
             ...templatedQuery.builder,
             query: `${templatedQuery.builder.query} AND ${
-              adhocVariables
-                .reduce((acc, it) => [
-                  ...acc,
-                  ...it.filters
-                    .map(it => {
-                      switch (it.operator) {
-                        case '=':
-                        case '!=':
-                        case '<':
-                        case '>':
-                          return `${it.key} ${it.operator} '${it.value}'`;
-                        
-                        case '=~':
-                          return `${it.key} LIKE '${it.value}'`;
-                        case '!~':
-                          return `${it.key} NOT LIKE '${it.value}'`;
-                        default:
-                          logWarning(`Skipping unexpected filter operator: ${it.operator}`);
-                          return '';
-                      }
-                    })
-                    .filter(Boolean),
-                ], [] as string[])
+              adhocFilters
+                .map(it => {
+                  switch (it.operator) {
+                    case '=':
+                    case '!=':
+                    case '<':
+                    case '>':
+                      return `${it.key} ${it.operator} '${it.value}'`;
+                    
+                    case '=~':
+                      return `${it.key} LIKE '${it.value}'`;
+                    case '!~':
+                      return `${it.key} NOT LIKE '${it.value}'`;
+                    default:
+                      logWarning(`Skipping unexpected filter operator: ${it.operator}`);
+                      return '';
+                  }
+                })
+                .filter(Boolean)
                 .join(' AND ')
             }`,
           }
         });
-      default:
+      case 'timeseries':
+      case 'topN':
+      case 'groupBy':
+      case 'scan':
+      case 'search':
+      case 'timeBoundary':
         return ({
           ...templatedQuery,
           builder: {
@@ -65,8 +71,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
               type: 'and', 
               fields: [
                 templatedQuery.builder.filter,
-                adhocVariables
-                  .reduce((acc, it) => [...acc, ...it.filters], [] as AdhocVariableModel['filters'])
+                ...adhocFilters
                   .map(it => {
                     switch (it.operator) {
                       case '=':
@@ -124,6 +129,8 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
             }
           }
         });
+      default:
+        return templatedQuery;
     }
   }
 
