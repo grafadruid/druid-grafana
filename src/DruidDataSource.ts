@@ -20,7 +20,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     const adhocFilters = getTemplateSrv()
       .getVariables()
       .filter((it): it is AdhocVariableModel => it.type === 'adhoc')
-      .filter((it) => it.datasource.uid === this.uid)
+      .filter((it) => it.datasource && it.datasource.uid === this.uid)
       .reduce((acc, it) => [...acc, ...it.filters], [] as AdhocFilter[]);
 
     if (adhocFilters.length === 0) {
@@ -33,7 +33,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
           ...templatedQuery,
           builder: {
             ...templatedQuery.builder,
-            query: `${templatedQuery.builder.query} AND ${adhocFilters
+            query: `${templatedQuery.builder.query} ${templatedQuery.builder.query.indexOf('WHERE') >= 0 ? 'AND' : 'WHERE'} ${adhocFilters
               .map((it) => {
                 switch (it.operator) {
                   case '=':
@@ -48,10 +48,10 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
                     return `${it.key} NOT LIKE '${it.value}'`;
                   default:
                     logWarning(`Skipping unexpected filter operator: ${it.operator}`);
-                    return '';
+                    return null;
                 }
               })
-              .filter(Boolean)
+              .filter(it => it !== null)
               .join(' AND ')}`,
           },
         };
@@ -117,12 +117,10 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
                       };
                     default:
                       logWarning(`Skipping unexpected filter operator: ${it.operator}`);
-                      return {
-                        type: 'true',
-                      };
+                      return null;
                   }
                 }),
-              ],
+              ].filter(it => it !== null),
             },
           },
         };
