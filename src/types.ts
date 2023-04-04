@@ -19,18 +19,18 @@ export interface DruidSecureSettings {}
 export interface AdhocFilter {
   key: string;
   operator: '=' | '!=' | '<' | '>' | '=~' | '!~';
-  value: MetricFindValue['value'],
+  value: MetricFindValue['value'];
   condition: unknown;
 }
 
 export interface AdhocVariableModel extends VariableModel {
-  type: "adhoc";
+  type: 'adhoc';
   id: string;
   datasource: {
     type: string;
     uid: string;
   };
-  filters: AdhocFilter[],
+  filters: AdhocFilter[];
   hide: number;
   skipUrlSync: boolean;
   rootStateKey: string;
