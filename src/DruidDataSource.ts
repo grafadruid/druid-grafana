@@ -110,10 +110,12 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       return {
         type: 'binary_expr',
         operator: 'AND',
-        left: expression,
-        right: acc,
+        left: acc,
+        right: expression,
       };
     }, initialWhere);
+
+    console.log(SQL.stringify(query));
 
     return {
       ...templatedQuery,
