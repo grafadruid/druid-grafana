@@ -64,20 +64,16 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
           };
         } else if (filter.operator === '!~') {
           return {
-            type: 'unary_expr',
-            operator: 'NOT',
-            expr: {
-              type: 'binary_expr',
-              operator: 'LIKE',
-              left: {
-                type: 'column_ref',
-                table: null,
-                column: filter.key,
-              },
-              right: {
-                type: 'single_quote_string',
-                value: String(filter.value),
-              },
+            type: 'binary_expr',
+            operator: 'NOT LIKE',
+            left: {
+              type: 'column_ref',
+              table: null,
+              column: filter.key,
+            },
+            right: {
+              type: 'single_quote_string',
+              value: String(filter.value),
             },
           };
         } else if (filter.operator === '=~') {
@@ -184,12 +180,9 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
                       value: it.value,
                     },
                   };
-                default:
-                  logWarning(`Skipping unexpected filter operator: ${it.operator}`);
-                  return null;
               }
             }),
-          ].filter((it) => it !== null),
+          ],
         },
       },
     };
@@ -200,8 +193,15 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       .getVariables()
       .filter((it): it is AdhocVariableModel => it.type === 'adhoc')
       .filter((it) => it.datasource && it.datasource.uid === this.uid)
-      .reduce((acc, it) => [...acc, ...it.filters], [] as AdhocFilter[])
-      .filter((it) => it.value !== undefined);
+      .reduce<AdhocFilter[]>((acc, it) => [...acc, ...it.filters], [])
+      .filter((it) => it.value !== undefined)
+      .filter((it) => {
+        if (['<', '>', '=', '!=', '=~', '!~'].includes(it.operator)) {
+          return true;
+        }
+        logWarning(`Skipping unexpected filter operator: ${it.operator}`);
+        return false;
+      });
 
     if (adhocFilters.length === 0) {
       return templatedQuery;
