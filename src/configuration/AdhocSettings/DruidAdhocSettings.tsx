@@ -15,7 +15,7 @@ export const DruidAdhocSettings = (props: AdhocSettingsProps) => {
       settings.shouldLimitAutocompleteValue = true;
     }
     onOptionsChange({ ...options, settings: settings });
-  }, []);
+  }, [settings, options, onOptionsChange]);
 
   const onSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
     switch (event.target.name as keyof AdhocSettings) {
