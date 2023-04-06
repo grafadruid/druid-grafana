@@ -27,7 +27,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
    * Provides autocompletion for adhoc filter values given the chosen key
    */
   async getTagValues(options: { key: string }): Promise<MetricFindValue[]> {
-    if (!this.settingsData.adhoc?.shouldAutocompleteValue) {
+    if (this.settingsData.adhoc?.shouldNotAutocompleteValue) {
       return [];
     }
 
@@ -41,9 +41,9 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       await Promise.all(
         tableNames.map(async (tableName) =>
           this._postSqlQuery(
-            this.settingsData.adhoc?.shouldLimitAutocompleteValue
-              ? `SELECT "${options.key}" FROM ${tableName} GROUP BY "${options.key}" ORDER BY COUNT("${options.key}") DESC LIMIT 1000`
-              : `SELECT DISTINCT "${options.key}" FROM ${tableName}`
+            this.settingsData.adhoc?.shouldNotLimitAutocompleteValue
+              ? `SELECT DISTINCT "${options.key}" FROM ${tableName}`
+              : `SELECT "${options.key}" FROM ${tableName} GROUP BY "${options.key}" ORDER BY COUNT("${options.key}") DESC LIMIT 1000`
           )
         )
       )

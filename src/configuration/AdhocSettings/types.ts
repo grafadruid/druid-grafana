@@ -1,6 +1,6 @@
 export interface AdhocSettings {
-  shouldAutocompleteValue?: boolean;
-  shouldLimitAutocompleteValue?: boolean;
+  shouldNotAutocompleteValue?: boolean;
+  shouldNotLimitAutocompleteValue?: boolean;
 }
 
 export interface AdhocSettingsOptions {

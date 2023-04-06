@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useEffect } from 'react';
+import React, { ChangeEvent } from 'react';
 import { FieldSet, Field, Switch } from '@grafana/ui';
 import { css } from '@emotion/css';
 import { AdhocSettings, AdhocSettingsProps } from './types';
@@ -7,23 +7,13 @@ export const DruidAdhocSettings = (props: AdhocSettingsProps) => {
   const { options, onOptionsChange } = props;
   const { settings } = options;
 
-  useEffect(() => {
-    if (!('shouldAutocompleteValue' in settings)) {
-      settings.shouldAutocompleteValue = true;
-    }
-    if (!('shouldLimitAutocompleteValue' in settings)) {
-      settings.shouldLimitAutocompleteValue = true;
-    }
-    onOptionsChange({ ...options, settings: settings });
-  }, [settings, options, onOptionsChange]);
-
   const onSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
     switch (event.target.name as keyof AdhocSettings) {
-      case 'shouldAutocompleteValue':
-        settings.shouldAutocompleteValue = event.currentTarget.checked;
+      case 'shouldNotAutocompleteValue':
+        settings.shouldNotAutocompleteValue = !event.currentTarget.checked;
         break;
-      case 'shouldLimitAutocompleteValue':
-        settings.shouldLimitAutocompleteValue = event.currentTarget.checked;
+      case 'shouldNotLimitAutocompleteValue':
+        settings.shouldNotLimitAutocompleteValue = !event.currentTarget.checked;
         break;
     }
     onOptionsChange({ ...options, settings: settings });
@@ -42,9 +32,9 @@ export const DruidAdhocSettings = (props: AdhocSettingsProps) => {
           label="Autocomplete values"
           description="Enable autocompletion for adhoc variable values. This can severely impact performance on columns with many distinct values."
         >
-          <Switch value={settings.shouldAutocompleteValue} name="shouldAutocompleteValue" onChange={onSettingChange} />
+          <Switch value={!settings.shouldNotAutocompleteValue} name="shouldNotAutocompleteValue" onChange={onSettingChange} />
         </Field>
-        {settings.shouldAutocompleteValue && (
+        {!settings.shouldNotAutocompleteValue && (
           <>
             <Field
               horizontal
@@ -52,8 +42,8 @@ export const DruidAdhocSettings = (props: AdhocSettingsProps) => {
               description="Limit autocompletion for adhoc variable values to the 1000 most common values. This will decrease the performance loss from autocompleting columns with many distinct values, but will as an effect not autocomplete all values in these columns."
             >
               <Switch
-                value={settings.shouldLimitAutocompleteValue}
-                name="shouldLimitAutocompleteValue"
+                value={!settings.shouldNotLimitAutocompleteValue}
+                name="shouldNotLimitAutocompleteValue"
                 onChange={onSettingChange}
               />
             </Field>
