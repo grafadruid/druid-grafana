@@ -11,7 +11,10 @@ export const SQL = (() => {
     parseSelectQuery: (queryString: string) => {
       const query = api.parse(queryString);
       if (Array.isArray(query)) {
-        throw Error('Unexpected mutiple sql query');
+        if (query.some((it) => it.type !== 'select')) {
+          throw Error('Unexpected non-select query type');
+        }
+        return query as SqlSelectQuery[];
       }
       if (query.type !== 'select') {
         throw Error('Unexpected non-select query type');

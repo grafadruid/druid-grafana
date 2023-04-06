@@ -10,7 +10,53 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
 
   constructor(instanceSettings: DataSourceInstanceSettings<DruidSettings>) {
     super(instanceSettings);
-    this.settingsData = instanceSettings.jsonData;
+
+    // This proxy is needed for the JS to actually adheer to the current TS type
+    this.settingsData = new Proxy(instanceSettings.jsonData, {
+      get(_, key: string) {
+        return Object.fromEntries(
+          Object.entries(instanceSettings.jsonData)
+            .filter((it) => it[0].startsWith(key))
+            .map((it) => [it[0].substring(`${key}.`.length), it[1]])
+        );
+      },
+    });
+  }
+
+  /**
+   * Provides autocompletion for adhoc filter values given the chosen key
+   */
+  async getTagValues(options: { key: string }): Promise<MetricFindValue[]> {
+    if (!this.settingsData.adhoc?.shouldAutocompleteValue) {
+      return [];
+    }
+
+    const tableNames = (
+      await this._postSqlQuery(
+        `SELECT "TABLE_NAME" FROM INFORMATION_SCHEMA.COLUMNS WHERE "TABLE_SCHEMA" = 'druid' AND "COLUMN_NAME" = '${options.key}'`
+      )
+    ).map((it) => it.value);
+
+    const completions = (
+      await Promise.all(
+        tableNames.map(async (tableName) =>
+          this._postSqlQuery(
+            this.settingsData.adhoc?.shouldLimitAutocompleteValue
+              ? `SELECT "${options.key}" FROM ${tableName} GROUP BY "${options.key}" ORDER BY COUNT("${options.key}") DESC LIMIT 1000`
+              : `SELECT DISTINCT "${options.key}" FROM ${tableName}`
+          )
+        )
+      )
+    ).reduce((acc, it) => [...acc, ...it], []);
+
+    return completions;
+  }
+
+  /**
+   * Provides autocompletion for adhoc filter keys
+   */
+  async getTagKeys() {
+    return this._postSqlQuery(`SELECT "COLUMN_NAME" FROM INFORMATION_SCHEMA.COLUMNS WHERE "TABLE_SCHEMA" = 'druid'`);
   }
 
   filterQuery(query: DruidQuery) {
@@ -19,6 +65,23 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
 
   _applyAdhocTemplateVariablesToSQL(templatedQuery: DruidQuery, adhocFilters: AdhocFilter[]) {
     const query = SQL.parseSelectQuery(templatedQuery.builder.query);
+
+    if (Array.isArray(query)) {
+      /*
+       * Maybe implement multi-query as syntactic sugar for UNION-ALL?
+       * UNION-ALL: <https://druid.apache.org/docs/latest/querying/sql.html#union-all>
+       *
+       * Ex multi-query input:
+       * SELECT foo FROM bar,
+       * SELECT biz FROM boz
+       *
+       * Ex UNION-ALL result:
+       * SELECT foo FROM bar
+       * UNION ALL
+       * SELECT biz FROM boz
+       */
+      throw new Error('Multi-query not yet supported');
+    }
 
     const initialWhere = (() => {
       if (query.where) {
@@ -73,7 +136,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
             },
             right: {
               type: 'single_quote_string',
-              value: String(filter.value),
+              value: `%${filter.value}%`,
             },
           };
         } else if (filter.operator === '=~') {
@@ -87,7 +150,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
             },
             right: {
               type: 'single_quote_string',
-              value: String(filter.value),
+              value: `%${filter.value}%`,
             },
           };
         }
@@ -113,8 +176,6 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         right: expression,
       };
     }, initialWhere);
-
-    console.log(SQL.stringify(query));
 
     return {
       ...templatedQuery,
@@ -169,7 +230,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
                   return {
                     type: 'like',
                     dimension: it.key,
-                    pattern: it.value,
+                    pattern: `%${it.value}%`,
                   };
                 case '!~':
                   return {
@@ -177,7 +238,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
                     field: {
                       type: 'like',
                       dimension: it.key,
-                      value: it.value,
+                      value: `%${it.value}%`,
                     },
                   };
               }
@@ -264,29 +325,5 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       ...query,
       expr: JSON.stringify(query),
     });
-  }
-
-  /**
-   * Provides autocompletion for adhoc filter keys
-   */
-  async getTagKeys(): Promise<MetricFindValue[]> {
-    return this._postSqlQuery(`SELECT "COLUMN_NAME" FROM INFORMATION_SCHEMA.COLUMNS WHERE "TABLE_SCHEMA" = 'druid'`);
-  }
-
-  /**
-   * Provides autocompletion for adhoc filter values given the chosen key
-   */
-  async getTagValues(options: { key: string }): Promise<MetricFindValue[]> {
-    const tableNames = (
-      await this._postSqlQuery(
-        `SELECT "TABLE_NAME" FROM INFORMATION_SCHEMA.COLUMNS WHERE "TABLE_SCHEMA" = 'druid' AND "COLUMN_NAME" = '${options.key}'`
-      )
-    ).map((it) => it.value);
-
-    return (
-      await Promise.all(
-        tableNames.map(async (tableName) => this._postSqlQuery(`SELECT DISTINCT "${options.key}" FROM ${tableName}`))
-      )
-    ).reduce((acc, it) => [...acc, ...it], []);
   }
 }
