@@ -29,20 +29,20 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         type: 'binary_expr',
         operator: firstAdhoc?.operator,
         left: {
-            type: 'column_ref',
-            table: null,
-            column: firstAdhoc?.key
+          type: 'column_ref',
+          table: null,
+          column: firstAdhoc?.key,
         },
         right: {
-            type: 'single_quote_string',
-            value: firstAdhoc?.value
-        }
+          type: 'single_quote_string',
+          value: firstAdhoc?.value,
+        },
       } as SqlExpression;
     })();
 
     query.where = adhocFilters.reduce<SqlExpression>((acc, filter) => {
       const expression = ((): SqlExpression => {
-        if ((filter.operator === '<' || filter.operator === '>')) {
+        if (filter.operator === '<' || filter.operator === '>') {
           return {
             type: 'binary_expr',
             operator: filter.operator,
@@ -51,13 +51,16 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
               table: null,
               column: filter.key,
             },
-            right: typeof filter.value === 'number' ? {
-              type: 'number',
-              value: filter.value
-            } : {
-              type: 'single_quote_string',
-              value: String(filter.value),
-            },
+            right:
+              typeof filter.value === 'number'
+                ? {
+                    type: 'number',
+                    value: filter.value,
+                  }
+                : {
+                    type: 'single_quote_string',
+                    value: String(filter.value),
+                  },
           };
         } else if (filter.operator === '!~') {
           return {
@@ -105,7 +108,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
             value: String(filter.value),
           },
         };
-      })() ;
+      })();
 
       return {
         type: 'binary_expr',
@@ -186,7 +189,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
                   return null;
               }
             }),
-          ].filter(it => it !== null),
+          ].filter((it) => it !== null),
         },
       },
     };

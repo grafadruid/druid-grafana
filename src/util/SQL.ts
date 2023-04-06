@@ -18,7 +18,7 @@ export const SQL = (() => {
       }
       return query as SqlSelectQuery;
     },
-    stringify: (query: NodeSqlParser.AST) => parser.sqlify(query, options)
+    stringify: (query: NodeSqlParser.AST) => parser.sqlify(query, options),
   };
   return api;
 })();
@@ -45,24 +45,24 @@ interface SqlNumberValue {
 }
 
 interface SqlUnaryExpression {
-  type: 'unary_expr',
-  operator: string,
+  type: 'unary_expr';
+  operator: string;
   expr: SqlExpression;
 }
 
 type SqlBinaryExpression =
   | {
-    type: 'binary_expr';
-    operator: string;
-    left: SqlExpression;
-    right: SqlExpression;
-  }
+      type: 'binary_expr';
+      operator: string;
+      left: SqlExpression;
+      right: SqlExpression;
+    }
   | {
-    type: 'binary_expr';
-    operator: string;
-    left: SqlColumnRef;
-    right: SqlValue;
-  };
+      type: 'binary_expr';
+      operator: string;
+      left: SqlColumnRef;
+      right: SqlValue;
+    };
 
 export type SqlValue = SqlStringValue | SqlNullValue | SqlNumberValue;
 
