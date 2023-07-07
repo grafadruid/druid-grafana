@@ -6,6 +6,7 @@ export interface ConnectionSettings {
   retryableRetryWaitMin?: number;
   retryableRetryWaitMax?: number;
   basicAuth?: boolean;
+  polarisAuth?: boolean;
   basicAuthUser?: string;
   skipTls?: boolean;
 }

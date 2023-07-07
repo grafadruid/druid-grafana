@@ -42,6 +42,7 @@ export class ConfigEditor extends PureComponent<Props, State> {
       'connection'
     ) as KeyValue<boolean>;
     const secureJsonFields = { ...options.secureJsonFields, ...connectionSecretSettingsFields };
+    console.log('Connection settings updated', { options, jsonData, secureJsonData, secureJsonFields });
     onOptionsChange({ ...options, jsonData, secureJsonData, secureJsonFields });
   };
 
