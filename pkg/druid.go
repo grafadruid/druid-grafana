@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/bitly/go-simplejson"
-	"github.com/grafadruid/go-druid"
 	druidquerybuilder "github.com/grafadruid/go-druid/builder"
 	druidquery "github.com/grafadruid/go-druid/builder/query"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -20,6 +19,7 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
+	"github.com/jonah-rankin/go-druid"
 )
 
 // Internal interval and range variables
@@ -86,6 +86,10 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	}
 	if skipTLS := data.Get("connection.skipTls").MustBool(); skipTLS {
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
+	}
+	if polarisConnection := data.Get("connection.polarisAuth").MustBool(); polarisConnection {
+		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
+		druidOpts = append(druidOpts, druid.WithPolarisConnection(polarisConnection))
 	}
 
 	c, err := druid.NewClient(data.Get("connection.url").MustString(), druidOpts...)

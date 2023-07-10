@@ -6,6 +6,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/grafadruid/go-druid v0.0.6
 	github.com/grafana/grafana-plugin-sdk-go v0.140.0
+	github.com/jonah-rankin/go-druid v0.1.3
 	github.com/magefile/mage v1.13.0
 )
 

@@ -36,13 +36,8 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const jsonData = { ...options.jsonData, ...connectionSettings };
     const connectionSecretSettings = normalizeData(secretSettings, true, 'connection');
     const secureJsonData = { ...options.secureJsonData, ...connectionSecretSettings };
-    const connectionSecretSettingsFields = normalizeData(
-      secretSettingsFields,
-      true,
-      'connection'
-    ) as KeyValue<boolean>;
+    const connectionSecretSettingsFields = normalizeData(secretSettingsFields, true, 'connection') as KeyValue<boolean>;
     const secureJsonFields = { ...options.secureJsonFields, ...connectionSecretSettingsFields };
-    console.log('Connection settings updated', { options, jsonData, secureJsonData, secureJsonFields });
     onOptionsChange({ ...options, jsonData, secureJsonData, secureJsonFields });
   };
 
