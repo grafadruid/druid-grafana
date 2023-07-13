@@ -3,25 +3,23 @@
 Table of Contents
 =================
 
-- [Druid as a Data Source for Grafana](#druid-as-a-data-source-for-grafana)
-- [Table of Contents](#table-of-contents)
-  - [What is this Druid-Grafana plugin?](#what-is-this-druid-grafana-plugin)
-  - [Features](#features)
-  - [Screenshots](#screenshots)
-    - [Datasource - Connection](#datasource---connection)
-    - [Datasource - Default settings](#datasource---default-settings)
-    - [Panels](#panels)
-    - [Query builder - JSON](#query-builder---json)
-    - [Query builder - SQL](#query-builder---sql)
-    - [Query builder - Timeseries](#query-builder---timeseries)
-    - [Query builder - Settings](#query-builder---settings)
-    - [Variables](#variables)
-    - [Variables - Formatter - druid:json](#variables---formatter---druidjson)
-    - [Explore - Logs](#explore---logs)
-    - [Query builder - Settings - Logs](#query-builder---settings---logs)
-  - [Contribute](#contribute)
-  - [Install](#install)
-  - [Examples](#examples)
+* [What is this Druid-Grafana plugin ?](#what-is-this-druid-grafana-plugin)
+* [Features](#features)
+* [Screenshots](#screenshots)
+  * [Datasource - connection](#datasource---connection)
+  * [Datasource - default settings](#datasource---default-settings)
+  * [Panels](#panels)
+  * [Query builder - JSON](#query-builder---json)
+  * [Query builder - SQL](#query-builder---sql)
+  * [Query builder - timeseries](#query-builder---timeseries)
+  * [Query builder - settings](#query-builder---settings)
+  * [Variables](#variables)
+  * [Variables - formatter - druid:json](#variables---formatter---druidjson)
+  * [Explore - logs](#explore---logs)
+  * [Query builder - settings - logs](#query-builder---settings---logs)
+* [Contribute](#contribute)
+* [Install](#install)
+* [Examples](#examples)
 
 ## What is this Druid-Grafana plugin?
 
@@ -107,5 +105,4 @@ Where `$VERSION` is for instance `1.0.0` and `$YOUR_PLUGIN_DIR` is for instance 
 ## Examples
 
 You can try out various advanced features of the plugin by importing the [demo dashboard](https://github.com/grafadruid/druid-grafana/blob/master/docker/grafana/dashboards/dashboard.json) and running it against the Wikipedia dataset used in the [Druid quickstart tutorial](https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data).
-
 > When using the provided docker based environment (`./mage env:start && ./mage`), the dataset is automatically ingested in Druid, the datasource and dashboard are automatically provisionned in Grafana.

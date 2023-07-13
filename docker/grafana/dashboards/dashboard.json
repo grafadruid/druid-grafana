@@ -154,7 +154,9 @@
             },
             "granularity": "minute",
             "intervals": {
-              "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
               "type": "intervals"
             },
             "limit": 0,
@@ -248,7 +250,9 @@
         "displayMode": "lcd",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["mean"],
+          "calcs": [
+            "mean"
+          ],
           "fields": "",
           "values": true
         },
@@ -284,7 +288,9 @@
             },
             "granularity": "all",
             "intervals": {
-              "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
               "type": "intervals"
             },
             "metric": {
@@ -400,7 +406,9 @@
             },
             "granularity": "minute",
             "intervals": {
-              "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
               "type": "intervals"
             },
             "postAggregations": [],
@@ -543,7 +551,9 @@
               "value": "France"
             },
             "intervals": {
-              "intervals": ["${__from:date:iso}/P5D"],
+              "intervals": [
+                "${__from:date:iso}/P5D"
+              ],
               "type": "intervals"
             },
             "limit": 0,
@@ -656,7 +666,9 @@
               "value": "France"
             },
             "intervals": {
-              "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
               "type": "intervals"
             },
             "limit": 0,
@@ -737,7 +749,9 @@
               "type": "table"
             },
             "intervals": {
-              "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
               "type": "intervals"
             },
             "queryType": "timeBoundary"
@@ -877,7 +891,9 @@
               "type": "table"
             },
             "intervals": {
-              "intervals": ["${__from:date:iso}/${__to:date:iso}"],
+              "intervals": [
+                "${__from:date:iso}/${__to:date:iso}"
+              ],
               "type": "intervals"
             },
             "lenientAggregatorMerge": false,
