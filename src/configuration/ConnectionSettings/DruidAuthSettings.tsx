@@ -2,7 +2,7 @@ import React, { ChangeEvent } from 'react';
 import { css } from '@emotion/css';
 import { FieldSet, Field, Switch } from '@grafana/ui';
 import { ConnectionSettingsProps } from './types';
-import { DruidBasicAuthSettings, DruidPolarisAuthSettings } from './';
+import { DruidBasicAuthSettings } from './';
 
 export const DruidAuthSettings = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
@@ -12,10 +12,6 @@ export const DruidAuthSettings = (props: ConnectionSettingsProps) => {
     switch (event.target.name) {
       case 'basicAuth': {
         settings.basicAuth = event!.currentTarget.checked;
-        break;
-      }
-      case 'polarisAuth': {
-        settings.polarisAuth = event!.currentTarget.checked;
         break;
       }
     }
@@ -33,13 +29,8 @@ export const DruidAuthSettings = (props: ConnectionSettingsProps) => {
         <Field horizontal label="With basic authentication" description="Enable HTTP Basic authentication">
           <Switch value={settings.basicAuth} name="basicAuth" onChange={onSettingChange} />
         </Field>
-        <Field horizontal label="With Polaris authentication" description="Authenticate with a Polaris API key">
-          <Switch value={settings.polarisAuth} name="polarisAuth" onChange={onSettingChange} />
-        </Field>
       </FieldSet>
       {settings.basicAuth && <DruidBasicAuthSettings {...props} />}
-
-      {settings.polarisAuth && <DruidPolarisAuthSettings {...props} />}
     </>
   );
 };

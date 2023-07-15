@@ -6,7 +6,7 @@ export interface ConnectionSettings {
   retryableRetryWaitMin?: number;
   retryableRetryWaitMax?: number;
   basicAuth?: boolean;
-  polarisAuth?: boolean;
+  connectionMethod?: 'druid' | 'imply-polaris';
   basicAuthUser?: string;
   skipTls?: boolean;
 }
