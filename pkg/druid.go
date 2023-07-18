@@ -87,9 +87,9 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	if skipTLS := data.Get("connection.skipTls").MustBool(); skipTLS {
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}
-	if polarisConnection := data.Get("connection.polarisAuth").MustBool(); polarisConnection {
+	if polarisConnection := data.Get("connection.connectionMethod").MustString(); polarisConnection == "imply-polaris" {
 		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
-		druidOpts = append(druidOpts, druid.WithPolarisConnection(polarisConnection))
+		druidOpts = append(druidOpts, druid.WithPolarisConnection(true))
 	}
 
 	c, err := druid.NewClient(data.Get("connection.url").MustString(), druidOpts...)

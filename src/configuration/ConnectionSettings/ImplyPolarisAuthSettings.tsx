@@ -4,7 +4,7 @@ import { ConnectionSettingsProps } from './types';
 
 const { SecretFormField, FormField } = LegacyForms;
 
-export const DruidPolarisAuthSettings = (props: ConnectionSettingsProps) => {
+export const ImplyPolarisAuthSettings = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
   const { settings, secretSettings, secretSettingsFields } = options;
 
@@ -59,12 +59,12 @@ export const DruidPolarisAuthSettings = (props: ConnectionSettingsProps) => {
     });
   };
   return (
-    <FieldSet label="API settings">
+    <FieldSet label="Imply Polaris API">
       <FormField
         label="URL"
         name="url"
         type="url"
-        placeholder="https://ORGANIZATION_NAME.api.imply.io"
+        placeholder="https://ORGANIZATION.REGION.aws.api.imply.io"
         labelWidth={11}
         inputWidth={20}
         value={settings.url}
