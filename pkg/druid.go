@@ -554,12 +554,15 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	case "topN":
 		var tn []map[string]interface{}
 		err := json.Unmarshal(result, &tn)
-		if err == nil && len(tn) > 0 && len(tn[0]["result"].([]interface{})) > 0 {
-			columns := []string{"timestamp"}
-			for c := range tn[0]["result"].([]interface{})[0].(map[string]interface{}) {
-				columns = append(columns, c)
-			}
+		if err == nil && len(tn) > 0 {
+			var columns []string
 			for _, result := range tn {
+				if columns == nil && len(result["result"].([]interface{})) > 0 {
+					columns = append(columns, "timestamp")
+					for c := range result["result"].([]interface{})[0].(map[string]interface{}) {
+						columns = append(columns, c)
+					}
+				}
 				for _, record := range result["result"].([]interface{}) {
 					var row []interface{}
 					row = append(row, result["timestamp"])
