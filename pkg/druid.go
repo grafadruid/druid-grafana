@@ -566,11 +566,13 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 				for _, record := range result["result"].([]interface{}) {
 					var row []interface{}
 					row = append(row, result["timestamp"])
-					o := record.(map[string]interface{})
-					for _, c := range columns[1:] {
-						row = append(row, o[c])
+					o, ok := record.(map[string]interface{})
+					if ok {
+						for _, c := range columns[1:] {
+							row = append(row, o[c])
+						}
+						r.Rows = append(r.Rows, row)
 					}
-					r.Rows = append(r.Rows, row)
 				}
 			}
 			for i, c := range columns {
