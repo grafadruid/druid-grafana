@@ -1,3 +1,5 @@
+import { isArray, map, replace } from 'lodash';
+
 import { DataSourceInstanceSettings, MetricFindValue, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { DruidSettings, DruidQuery } from './types';
@@ -24,7 +26,20 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         return match;
       }
     );
-    return { ...JSON.parse(templateSrv.replace(template, scopedVars)), expr: templatedQuery.expr };
+    const renderedValues = templateSrv.replace(template, scopedVars, (value: any) => {
+      // escape single quotes by pairing them
+      const regExp = new RegExp(`'|"`, 'g');
+      const replacements = new Map([
+        ["'", "''"],
+        ['"', '\\"'],
+      ]);
+      if (isArray(value)) {
+        return map(value, (v: string) => `'${replace(v, regExp, function(matched) {return replacements.get(matched) ?? '';})}'`).join(',');
+      }
+
+      return typeof value === 'string' ? `'${replace(value, regExp, "''")}'` : value;
+    });
+    return { ...JSON.parse(renderedValues), expr: templatedQuery.expr };
   }
   async metricFindQuery(query: DruidQuery, options?: any): Promise<MetricFindValue[]> {
     return this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
