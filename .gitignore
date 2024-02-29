@@ -43,3 +43,6 @@ e2e-results/
 
 #API key
 .api.key
+
+# Mac OS
+.DS_Store
