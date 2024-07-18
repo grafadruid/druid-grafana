@@ -1,5 +1,5 @@
 {
-  "name": "druid-grafana",
+  "name": "lolo-druid-grafana",
   "version": "1.4.1",
   "description": "Connects Grafana to Druid",
   "scripts": {
@@ -9,7 +9,7 @@
     "dev": "grafana-toolkit plugin:dev",
     "watch": "grafana-toolkit plugin:dev --watch"
   },
-  "author": "Grafadruid",
+  "author": "Lolo Grafadruid",
   "license": "Apache-2.0",
   "devDependencies": {
     "@emotion/css": "^11.10.0",

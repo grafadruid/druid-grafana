@@ -102,6 +102,32 @@ Where `$VERSION` is for instance `1.0.0` and `$YOUR_PLUGIN_DIR` is for instance 
 
 (Source: https://grafana.com/docs/grafana/latest/plugins/installation/)
 
+### Build lolo-druid plugin on Mac and Install it via Kubernetes manually
+#### Build lolo-druid plugin
+
+Tested on Mac Pro M1 - Monterey v12.6:
+
+* Launch Desktop Docker
+* Build
+```sh
+./mage-macos buildAll
+```
+
+#### Copy the plugin into a Grafana Pod in Kubernetes
+
+* Make sure you have set a proper Kubernetes context
+* Rename the `dist` folder into like `lolo-grafadruid-druid-datasource`
+* Copy the plugin into a Grafana Pod in Kubernetes (e.g.,)
+```sh
+$ kubectl get pod -n <yourNamespace>
+NAME                       READY   STATUS    RESTARTS   AGE
+grafana-7c549965bc-47trw   1/1     Running   0          1d
+
+$ kubectl cp -n <yourNamespace> ./dist grafana-7c549965bc-47trw:/var/lib/grafana/plugins/lolo-grafadruid-druid-datasource
+```
+* Make sure your Grafana pod has the env variable: `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS : lolo-grafadruid-druid-datasource`
+* Restart the pod and check if lolo-druid is installed :)
+
 ## Examples
 
 You can try out various advanced features of the plugin by importing the [demo dashboard](https://github.com/grafadruid/druid-grafana/blob/master/docker/grafana/dashboards/dashboard.json) and running it against the Wikipedia dataset used in the [Druid quickstart tutorial](https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data).
