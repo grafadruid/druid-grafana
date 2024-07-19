@@ -1,16 +1,16 @@
 {
   "type": "datasource",
   "name": "Lolo Druid",
-  "id": "lolo-grafadruid-druid-datasource",
+  "id": "loloco-grafadruid-druid-datasource",
   "metrics": true,
   "backend": true,
   "alerting": true,
   "logs": true,
-  "executable": "lolo-grafadruid-druid-datasource",
+  "executable": "loloco-grafadruid-druid-datasource",
   "info": {
     "description": "Connects Grafana to Druid",
     "author": {
-      "name": "Lolo Grafadruid"
+      "name": "Loloco Grafadruid"
     },
     "keywords": ["druid"],
     "logos": {
