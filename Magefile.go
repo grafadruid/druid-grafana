@@ -135,23 +135,24 @@ func (Frontend) Build() error {
 	if err != nil {
 		return err
 	}
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:build")
+	return runToolboxCmd("yarn", "build")
 	// return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:build", "--preserveConsole")
 }
 
 // Test runs frontend tests
 func (Frontend) Test() error {
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:test")
+	return runToolboxCmd("yarn", "test")
 }
 
 // Dev runs frontend in development mode
 func (Frontend) Dev() error {
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:dev")
+	return runToolboxCmd("yarn", "dev")
 }
 
-// Watch runs frontend in development mode + autoreload on changes
+// Watch runs frontend in development mode + autoreload on changes.
+// Same as dev. Probably remove it?
 func (Frontend) Watch() error {
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:dev", "--watch")
+	return runToolboxCmd("yarn", "dev")
 }
 
 type Backend mg.Namespace
