@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InfoBox } from '@grafana/ui';
+import { Alert } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
@@ -11,10 +11,10 @@ export const Extraction = (props: QueryBuilderProps) => {
     <>
       {showInfo && (
         <Row>
-          <InfoBox
+          <Alert
             title="Deprecated"
-            url={'https://druid.apache.org/docs/latest/querying/filters.html#extraction-filter'}
-            onDismiss={() => {
+            severity="info"
+            onRemove={() => {
               setShowInfo(false);
             }}
           >
@@ -22,7 +22,8 @@ export const Extraction = (props: QueryBuilderProps) => {
               The extraction filter is now deprecated. The selector filter with an extraction function specified
               provides identical functionality and should be used instead.
             </p>
-          </InfoBox>
+            <a href="https://druid.apache.org/docs/latest/querying/filters.html#extraction-filter">https://druid.apache.org/docs/latest/querying/filters.html#extraction-filter</a>
+          </Alert>
         </Row>
       )}
       <Row>

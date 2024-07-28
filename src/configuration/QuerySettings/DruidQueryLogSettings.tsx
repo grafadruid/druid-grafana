@@ -1,12 +1,11 @@
 import React, { ChangeEvent } from 'react';
-import { InlineLabel, InlineFieldRow, InlineField, Input, useTheme, stylesFactory } from '@grafana/ui';
+import { InlineLabel, InlineFieldRow, InlineField, Input, useStyles } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
 import { css, cx } from '@emotion/css';
 import { QuerySettingsProps } from './types';
 
 export const DruidQueryLogSettings = (props: QuerySettingsProps) => {
-  const theme = useTheme();
-  const styles = getStyles(theme);
+  const styles = useStyles(getStyles);
   const { options, onOptionsChange } = props;
   const { settings } = options;
   const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -56,14 +55,12 @@ export const DruidQueryLogSettings = (props: QuerySettingsProps) => {
   );
 };
 
-const getStyles = stylesFactory((theme: GrafanaTheme) => {
-  return {
-    row: css`
-      width: 100%;
-      & > & {
-        border-left: 1px solid ${theme.colors.border2};
-        padding: 5px 0px 0px 10px;
-      }
-    `,
-  };
+const getStyles = (theme: GrafanaTheme) => ({
+  row: css`
+    width: 100%;
+    & > & {
+      border-left: 1px solid ${theme.colors.border2};
+      padding: 5px 0px 0px 10px;
+    }
+  `,
 });

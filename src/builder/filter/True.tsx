@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InfoBox } from '@grafana/ui';
+import { Alert } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
 import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
@@ -10,17 +10,16 @@ export const True = (props: QueryBuilderProps) => {
     <>
       {showInfo && (
         <Row>
-          <InfoBox
+          <Alert
             title="True"
-            onDismiss={() => {
+            severity="info"
+            onRemove={() => {
               setShowInfo(false);
             }}
           >
-            <p>
               The true filter is a filter which matches all values. It can be used to temporarily disable other filters
               without removing the filter.
-            </p>
-          </InfoBox>
+          </Alert>
         </Row>
       )}
     </>

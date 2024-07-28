@@ -1,5 +1,5 @@
 import React, { ChangeEvent } from 'react';
-import { InlineLabel, InlineField, InlineFieldRow, Input, Button, Icon, useTheme, stylesFactory } from '@grafana/ui';
+import { InlineLabel, InlineField, InlineFieldRow, Input, Button, Icon, useStyles } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
 import { css, cx } from '@emotion/css';
 import { QuerySettingsProps } from './types';
@@ -26,8 +26,7 @@ const useParameters = (props: QuerySettingsProps): any => {
 };
 
 export const DruidQueryContextSettings = (props: QuerySettingsProps) => {
-  const theme = useTheme();
-  const styles = getStyles(theme);
+  const styles = useStyles(getStyles);
   const [parameters, setParameters] = useParameters(props);
   const onParameterChange = (name: string, parameter: Parameter) => {
     setParameters({ ...parameters, [name]: parameter });
@@ -75,16 +74,14 @@ export const DruidQueryContextSettings = (props: QuerySettingsProps) => {
   );
 };
 
-const getStyles = stylesFactory((theme: GrafanaTheme) => {
-  return {
-    row: css`
-      width: 100%;
-      & > & {
-        border-left: 1px solid ${theme.colors.border2};
-        padding: 5px 0px 0px 10px;
-      }
-    `,
-  };
+const getStyles = (theme: GrafanaTheme) => ({
+  row: css`
+    width: 100%;
+    & > & {
+      border-left: 1px solid ${theme.colors.border2};
+      padding: 5px 0px 0px 10px;
+    }
+  `,
 });
 
 interface Parameter {
