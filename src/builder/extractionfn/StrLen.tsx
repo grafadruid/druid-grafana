@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InfoBox } from '@grafana/ui';
+import { Alert } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
 import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
@@ -10,14 +10,15 @@ export const StrLen = (props: QueryBuilderProps) => {
     <>
       {showInfo && (
         <Row>
-          <InfoBox
+          <Alert
             title="StrLen"
-            onDismiss={() => {
+            severity="info"
+            onRemove={() => {
               setShowInfo(false);
             }}
           >
-            <p>Returns the length of dimension values (as if they were encoded in UTF-16)</p>
-          </InfoBox>
+            Returns the length of dimension values (as if they were encoded in UTF-16)
+          </Alert>
         </Row>
       )}
     </>

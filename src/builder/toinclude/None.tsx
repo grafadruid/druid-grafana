@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InfoBox } from '@grafana/ui';
+import { Alert } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
 import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
@@ -10,14 +10,15 @@ export const None = (props: QueryBuilderProps) => {
     <>
       {showInfo && (
         <Row>
-          <InfoBox
+          <Alert
             title="None"
-            onDismiss={() => {
+            severity="info"
+            onRemove={() => {
               setShowInfo(false);
             }}
           >
-            <p>No column should be included in the result.</p>
-          </InfoBox>
+            No column should be included in the result.
+          </Alert>
         </Row>
       )}
     </>

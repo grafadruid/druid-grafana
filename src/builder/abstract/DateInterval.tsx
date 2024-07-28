@@ -1,5 +1,5 @@
 import React, { ChangeEvent } from 'react';
-import { InlineLabel, stylesFactory, useTheme } from '@grafana/ui';
+import { InlineLabel, useStyles } from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
@@ -28,8 +28,8 @@ const ISO8601DURATIONPATTERN = new RegExp(
 
 const useInterval = (interval = ''): any => {
   const intervalPartToDate = (part: string): any => {
-    var date: Date | undefined = undefined;
-    var datePlaceholder: string | undefined = undefined;
+    let date: Date | undefined = undefined;
+    let datePlaceholder: string | undefined = undefined;
     const d = new Date(part);
     if (d instanceof Date && !isNaN(d.getFullYear())) {
       date = d;
@@ -68,8 +68,7 @@ export const DateInterval = (props: Props) => {
     onBuilderChange(props, intervalStart + '/' + value);
   };
   const { label, description, format, time } = props;
-  const theme = useTheme();
-  const styles = getStyles(theme);
+  const styles = useStyles(getStyles);
   return (
     <>
       <InlineLabel tooltip={description} width="auto">
@@ -105,14 +104,12 @@ export const DateInterval = (props: Props) => {
   );
 };
 
-const getStyles = stylesFactory((theme: GrafanaTheme) => {
-  return {
-    picker: css`
-      & input {
-        border: 1px solid ${theme.colors.border2};
-        height: 32px;
-        margin-right: 4px;
-      }
-    `,
-  };
+const getStyles = (theme: GrafanaTheme) => ({
+  picker: css`
+    & input {
+      border: 1px solid ${theme.colors.border2};
+      height: 32px;
+      margin-right: 4px;
+    }
+  `,
 });

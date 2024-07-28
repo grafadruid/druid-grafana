@@ -8,4 +8,8 @@ import { DruidQuery, DruidSettings } from './types';
 export const plugin = new DataSourcePlugin<DruidDataSource, DruidQuery, DruidSettings>(DruidDataSource)
   .setConfigEditor(ConfigEditor)
   .setQueryEditor(QueryEditor)
+  // TODO: Research @deprecated prefer using
+  // StandardVariableSupport or CustomVariableSupport or
+  // DataSourceVariableSupport in data source instead
+  // eslint-disable-next-line deprecation/deprecation
   .setVariableQueryEditor(VariableQueryEditor);
