@@ -52,6 +52,9 @@ druid_processing_buffer_sizeBytes=17500000
 druid_processing_numThreads=1
 druid_processing_numMergeBuffers=1
 
+# Uncomment to enable timestamps with timezones
+# druid_sql_planner_sqlTimeZone="America/Los_Angeles"
+
 #Uncomment if authentication is required
 #druid_extensions_loadList=["druid-histogram", "druid-datasketches", "druid-lookups-cached-global", "postgresql-metadata-storage", "druid-basic-security"]
 #druid_auth_authenticatorChain=["MyBasicAuthenticator"]

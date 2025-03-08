@@ -246,7 +246,7 @@ func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings
 				}
 				switch r[ic].(type) {
 				case string:
-					t, err = time.Parse("2006-01-02T15:04:05.000Z", r[ic].(string))
+					t, err = parseTime(r[ic].(string))
 					if err != nil {
 						t = time.Now()
 					}
@@ -459,7 +459,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 				if err != nil {
 					_, err := strconv.ParseBool(v)
 					if err != nil {
-						_, err := time.Parse("2006-01-02T15:04:05.000Z", v)
+						_, err := parseTime(v)
 						if err != nil {
 							t["string"]++
 							continue
@@ -902,7 +902,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 				}
 				switch r[ic].(type) {
 				case string:
-					t, err := time.Parse("2006-01-02T15:04:05.000Z", r[ic].(string))
+					t, err := parseTime(r[ic].(string))
 					if err != nil {
 						t = time.Now()
 					}
@@ -975,4 +975,13 @@ func longToLog(longFrame *data.Frame, settings map[string]interface{}) (*data.Fr
 		logFrame.Fields = append(logFrame.Fields, f)
 	}
 	return logFrame, nil
+}
+
+// Parses timestamps of format ISO 8601 with and without timezone offset
+func parseTime(timeStr string) (time.Time, error) {
+	t, err := time.Parse("2006-01-02T15:04:05.000Z", timeStr)
+	if err == nil {
+		return t, nil
+	}
+	return time.Parse("2006-01-02T15:04:05.000-07:00", timeStr)
 }
