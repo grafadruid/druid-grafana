@@ -1,7 +1,7 @@
 # Getting started
 
 A data source backend plugin consists of both frontend (TypeScript) and backend (Golang) components. A TypeScript development environment and a Golang one are needed in order to work over that plugin.
-For more technical information about backend plugins, refer to the documentation on [Backend plugins](https://grafana.com/docs/grafana/latest/developers/plugins/backend/).
+For more technical information about backend plugins, refer to the documentation on [Backend plugins](https://grafana.com/developers/plugin-tools/key-concepts/backend-plugins/).
 
 ## Development environment
 
