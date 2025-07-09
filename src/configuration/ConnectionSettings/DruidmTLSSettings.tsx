@@ -1,8 +1,6 @@
 import React, { ChangeEvent } from 'react';
-import { LegacyForms, FieldSet } from '@grafana/ui';
+import {SecretTextArea, FieldSet, Field} from '@grafana/ui';
 import { ConnectionSettingsProps } from './types';
-
-const { SecretFormField } = LegacyForms;
 
 export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
@@ -64,43 +62,49 @@ export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
     });
   };
   return (
-    <FieldSet label="mTLS Authentication">
-      <SecretFormField
-        label="Client Certificate"
-        name="cert"
-        type="password"
-        placeholder="the client certificate"
-        labelWidth={11}
-        inputWidth={20}
-        isConfigured={(secretSettingsFields && secretSettingsFields.mTLSCert) as boolean}
-        value={secretSettings.mTLSCert || ''}
-        onChange={onSecretSettingChange}
-        onReset={onCertReset}
-      />
-      <SecretFormField
-        label="Client Key"
-        name="key"
-        type="password"
-        placeholder="the client key"
-        labelWidth={11}
-        inputWidth={20}
-        isConfigured={(secretSettingsFields && secretSettingsFields.mTLSKey) as boolean}
-        value={secretSettings.mTLSKey || ''}
-        onChange={onSecretSettingChange}
-        onReset={onKeyReset}
-      />
-      <SecretFormField
-        label="CA Certificate"
-        name="ca"
-        type="password"
-        placeholder="the CA certificate"
-        labelWidth={11}
-        inputWidth={20}
-        isConfigured={(secretSettingsFields && secretSettingsFields.mTLSCa) as boolean}
-        value={secretSettings.mTLSCa || ''}
-        onChange={onSecretSettingChange}
-        onReset={onCaReset}
-      />
-    </FieldSet>
+        <FieldSet label="mTLS Settings">
+          <Field
+            label="Client Certificate"
+          >
+            <SecretTextArea
+              name="cert"
+              type="password"
+              placeholder="the client certificate"
+              cols={100}
+              isConfigured={(secretSettingsFields && secretSettingsFields.mTLSCert) as boolean}
+              // @ts-ignore
+              onChange={onSecretSettingChange}
+              onReset={onCertReset}
+            />
+          </Field>
+          <Field
+            label="Client Key"
+          >
+            <SecretTextArea
+              name="key"
+              type="password"
+              placeholder="the client key"
+              cols={100}
+              isConfigured={(secretSettingsFields && secretSettingsFields.mTLSKey) as boolean}
+              // @ts-ignore
+              onChange={onSecretSettingChange}
+              onReset={onKeyReset}
+            />
+          </Field>
+          <Field
+            label="CA Certificate"
+          >
+            <SecretTextArea
+              name="ca"
+              type="password"
+              placeholder="the CA certificate"
+              cols={100}
+              isConfigured={(secretSettingsFields && secretSettingsFields.mTLSCa) as boolean}
+              // @ts-ignore
+              onChange={onSecretSettingChange}
+              onReset={onCaReset}
+            />
+          </Field>
+        </FieldSet>
   );
 };
