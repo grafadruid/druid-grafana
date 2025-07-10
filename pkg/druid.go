@@ -74,11 +74,11 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	}
 	secureData := settings.DecryptedSecureJSONData
 
-  httpClient := http.Client{}
+	httpClient := http.Client{}
 
-  druidOpts := []druid.ClientOption{
-    druid.WithHTTPClient(&httpClient),
-  }
+	druidOpts := []druid.ClientOption{
+		druid.WithHTTPClient(&httpClient),
+	}
 	if retryMax := data.Get("connection.retryableRetryMax").MustInt(-1); retryMax != -1 {
 		druidOpts = append(druidOpts, druid.WithRetryMax(retryMax))
 	}
@@ -91,51 +91,48 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	if basicAuth := data.Get("connection.basicAuth").MustBool(); basicAuth {
 		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
 	}
-  if mTLS := data.Get("connection.mTLS").MustBool(); mTLS {
+	if mTLS := data.Get("connection.mTLS").MustBool(); mTLS {
+		log.DefaultLogger.Info("mTLS enabled for Druid connection")
 
-    log.DefaultLogger.Info("mTLS enabled for Druid connection")
+		cert, ok := secureData["connection.mTLSCert"]
+		if !ok || cert == "" {
+			return &druidInstanceSettings{}, fmt.Errorf("mTLS certificate is required but not provided")
+		}
+		key, ok := secureData["connection.mTLSKey"]
+		if !ok || key == "" {
+			return &druidInstanceSettings{}, fmt.Errorf("mTLS key is required but not provided")
+		}
+		ca, ok := secureData["connection.mTLSCa"]
+		if !ok || ca == "" {
+			return &druidInstanceSettings{}, fmt.Errorf("mTLS CA certificate is required but not provided")
+		}
 
-    cert, ok := secureData["connection.mTLSCert"]
-    if !ok || cert == "" {
-      return &druidInstanceSettings{}, fmt.Errorf("mTLS certificate is required but not provided")
-    }
-    key, ok := secureData["connection.mTLSKey"]
-    if !ok || key == "" {
-      return &druidInstanceSettings{}, fmt.Errorf("mTLS key is required but not provided")
-    }
-    ca, ok := secureData["connection.mTLSCa"]
-    if !ok || ca == "" {
-      return &druidInstanceSettings{}, fmt.Errorf("mTLS CA certificate is required but not provided")
-    }
+		clientCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
+		if err != nil {
+			return &druidInstanceSettings{}, fmt.Errorf("failed to load client certificate and key: %w\n", err)
+		}
 
-    clientCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
-    if err != nil {
-      return &druidInstanceSettings{}, fmt.Errorf("failed to load client certificate and key: %w\n"+
-        "cert: %s\n"+
-        "key: %s", err, cert, key)
-    }
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM([]byte(ca)) {
+			return &druidInstanceSettings{}, fmt.Errorf("failed to append CA certificate: %s", ca)
+		}
 
-    caCertPool := x509.NewCertPool()
-    if !caCertPool.AppendCertsFromPEM([]byte(ca)) {
-      return &druidInstanceSettings{}, fmt.Errorf("failed to append CA certificate: %s", ca)
-    }
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{clientCert},
+			RootCAs:      caCertPool,
+		}
 
-    tlsConfig := &tls.Config{
-      Certificates: []tls.Certificate{clientCert},
-      RootCAs:      caCertPool,
-    }
+		if httpClient.Transport == nil {
+			httpClient.Transport = &http.Transport{}
+		}
 
-    if httpClient.Transport == nil {
-      httpClient.Transport = &http.Transport{}
-    }
+		transport, ok := httpClient.Transport.(*http.Transport)
+		if !ok {
+			return &druidInstanceSettings{}, fmt.Errorf("http transport is not of type *http.Transport")
+		}
 
-    transport, ok := httpClient.Transport.(*http.Transport)
-    if !ok {
-      return &druidInstanceSettings{}, fmt.Errorf("http transport is not of type *http.Transport")
-    }
-
-    transport.TLSClientConfig = tlsConfig
-  }
+		transport.TLSClientConfig = tlsConfig
+	}
 	if skipTLS := data.Get("connection.skipTls").MustBool(); skipTLS {
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}
