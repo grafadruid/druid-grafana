@@ -318,13 +318,13 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 
 	i, err := ds.im.Get(req.PluginContext)
 	if err != nil {
-		result.Message = "Can't get Druid instance"
+		result.Message = "Can't get Druid instance: " + err.Error()
 		return result, nil
 	}
 
 	status, _, err := i.(*druidInstanceSettings).client.Common().Status()
 	if err != nil {
-		result.Message = "Can't fetch Druid status"
+		result.Message = "Can't fetch Druid status: " + err.Error()
 		return result, nil
 	}
 
