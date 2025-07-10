@@ -31,6 +31,7 @@ export const DruidBasicAuthSettings = (props: ConnectionSettingsProps) => {
     onOptionsChange({
       ...options,
       secretSettingsFields: {
+        ...secretSettingsFields,
         basicAuthPassword: false,
       },
       secretSettings: {

@@ -27,6 +27,7 @@ export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
     onOptionsChange({
       ...options,
       secretSettingsFields: {
+        ...secretSettingsFields,
         mTLSCert: false,
       },
       secretSettings: {
