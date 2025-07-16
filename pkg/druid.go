@@ -74,11 +74,7 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	}
 	secureData := settings.DecryptedSecureJSONData
 
-	httpClient := http.Client{}
-
-	druidOpts := []druid.ClientOption{
-		druid.WithHTTPClient(&httpClient),
-	}
+	var druidOpts []druid.ClientOption
 	if retryMax := data.Get("connection.retryableRetryMax").MustInt(-1); retryMax != -1 {
 		druidOpts = append(druidOpts, druid.WithRetryMax(retryMax))
 	}
@@ -106,13 +102,21 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 		if !ok || ca == "" {
 			return &druidInstanceSettings{}, fmt.Errorf("mTLS CA certificate is required but not provided")
 		}
+		useSystemCAPool := data.Get("connection.mTLSUseSystemCaPool").MustBool()
 
 		clientCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
 		if err != nil {
-			return &druidInstanceSettings{}, fmt.Errorf("failed to load client certificate and key: %w\n", err)
+			return &druidInstanceSettings{}, fmt.Errorf("failed to load client certificate and key: %w", err)
 		}
 
 		caCertPool := x509.NewCertPool()
+		if useSystemCAPool {
+			caCertPool, err = x509.SystemCertPool()
+			if err != nil {
+				return &druidInstanceSettings{}, fmt.Errorf("failed to load system CA pool: %w", err)
+			}
+		}
+
 		if !caCertPool.AppendCertsFromPEM([]byte(ca)) {
 			return &druidInstanceSettings{}, fmt.Errorf("failed to append CA certificate: %s", ca)
 		}
@@ -121,6 +125,8 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 			Certificates: []tls.Certificate{clientCert},
 			RootCAs:      caCertPool,
 		}
+
+		httpClient := http.Client{}
 
 		if httpClient.Transport == nil {
 			httpClient.Transport = &http.Transport{}
@@ -132,7 +138,9 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 		}
 
 		transport.TLSClientConfig = tlsConfig
+		druidOpts = append(druidOpts, druid.WithHTTPClient(&httpClient))
 	}
+
 	if skipTLS := data.Get("connection.skipTls").MustBool(); skipTLS {
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}

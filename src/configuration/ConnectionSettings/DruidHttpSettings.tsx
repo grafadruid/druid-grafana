@@ -35,6 +35,11 @@ export const DruidHttpSettings = (props: ConnectionSettingsProps) => {
     onOptionsChange({ ...options, settings: settings });
   };
   const isHttps = settings.url !== undefined && settings.url.indexOf('https') !== -1;
+  if (!isHttps) {
+      // Disable mTLS if not using HTTPS
+      settings.mTLS = false;
+      // Intentionally do not clear the cert settings, if an endpoint changes on accident, we don't want to lose the certs.
+  }
   return (
     <FieldSet label="HTTP">
       <FormField

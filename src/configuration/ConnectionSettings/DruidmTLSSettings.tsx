@@ -1,11 +1,11 @@
 import React, { ChangeEvent } from 'react';
-import {SecretTextArea, FieldSet, Field} from '@grafana/ui';
+import {SecretTextArea, FieldSet, Field, Switch} from '@grafana/ui';
 import { ConnectionSettingsProps } from './types';
 
 export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
   const { options, onOptionsChange } = props;
-  const { secretSettings, secretSettingsFields } = options;
-  const onSecretSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const { settings, secretSettings, secretSettingsFields } = options;
+  const onSettingChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     switch (event.target.name) {
       case 'cert': {
@@ -18,6 +18,10 @@ export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
       }
       case 'ca': {
         secretSettings.mTLSCa = value;
+        break;
+      }
+      case 'use_system_ca_pool': {
+        settings.mTLSUseSystemCaPool = event!.currentTarget.checked;
         break;
       }
     }
@@ -74,7 +78,7 @@ export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
               cols={100}
               isConfigured={(secretSettingsFields && secretSettingsFields.mTLSCert) as boolean}
               // @ts-ignore
-              onChange={onSecretSettingChange}
+              onChange={onSettingChange}
               onReset={onCertReset}
             />
           </Field>
@@ -88,7 +92,7 @@ export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
               cols={100}
               isConfigured={(secretSettingsFields && secretSettingsFields.mTLSKey) as boolean}
               // @ts-ignore
-              onChange={onSecretSettingChange}
+              onChange={onSettingChange}
               onReset={onKeyReset}
             />
           </Field>
@@ -102,10 +106,16 @@ export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
               cols={100}
               isConfigured={(secretSettingsFields && secretSettingsFields.mTLSCa) as boolean}
               // @ts-ignore
-              onChange={onSecretSettingChange}
+              onChange={onSettingChange}
               onReset={onCaReset}
             />
           </Field>
+            <Field
+                label="Use System CA Pool"
+                description="Use the system CA pool for TLS verification"
+            >
+              <Switch value={settings.mTLSUseSystemCaPool} name="mTLS" onChange={onSettingChange} />
+            </Field>
         </FieldSet>
   );
 };
