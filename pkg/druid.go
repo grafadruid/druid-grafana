@@ -98,10 +98,8 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 		if !ok || key == "" {
 			return &druidInstanceSettings{}, fmt.Errorf("mTLS key is required but not provided")
 		}
-		ca, ok := secureData["connection.mTLSCa"]
-		if !ok || ca == "" {
-			return &druidInstanceSettings{}, fmt.Errorf("mTLS CA certificate is required but not provided")
-		}
+		ca, hasCA := secureData["connection.mTLSCa"]
+
 		useSystemCAPool := data.Get("connection.mTLSUseSystemCaPool").MustBool()
 
 		clientCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
@@ -117,7 +115,7 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 			}
 		}
 
-		if !caCertPool.AppendCertsFromPEM([]byte(ca)) {
+		if hasCA && !caCertPool.AppendCertsFromPEM([]byte(ca)) {
 			return &druidInstanceSettings{}, fmt.Errorf("failed to append CA certificate: %s", ca)
 		}
 
