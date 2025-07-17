@@ -101,6 +101,11 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 		ca, hasCA := secureData["connection.mTLSCa"]
 
 		useSystemCAPool := data.Get("connection.mTLSUseSystemCaPool").MustBool()
+		if useSystemCAPool {
+			log.DefaultLogger.Info("Using system CA pool for Druid mTLS connection")
+		} else {
+			log.DefaultLogger.Info("Using custom CA for Druid mTLS connection")
+		}
 
 		clientCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
 		if err != nil {

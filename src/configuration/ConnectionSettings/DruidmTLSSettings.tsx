@@ -114,7 +114,7 @@ export const DruidmTLSSettings = (props: ConnectionSettingsProps) => {
                 label="Use System CA Pool"
                 description="Use the system CA pool for TLS verification"
             >
-              <Switch value={settings.mTLSUseSystemCaPool} name="mTLS" onChange={onSettingChange} />
+              <Switch value={settings.mTLSUseSystemCaPool} name="use_system_ca_pool" onChange={onSettingChange} />
             </Field>
         </FieldSet>
   );
