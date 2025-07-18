@@ -8,9 +8,14 @@ export interface ConnectionSettings {
   basicAuth?: boolean;
   basicAuthUser?: string;
   skipTls?: boolean;
+  mTLS?: boolean;
+  mTLSUseSystemCaPool?: boolean;
 }
 export interface ConnectionSecretSettings {
   basicAuthPassword?: string;
+  mTLSCert?: string;
+  mTLSKey?: string;
+  mTLSCa?: string;
 }
 export interface ConnectionSettingsOptions {
   settings: ConnectionSettings;

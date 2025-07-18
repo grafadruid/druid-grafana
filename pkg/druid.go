@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -84,6 +87,63 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	if basicAuth := data.Get("connection.basicAuth").MustBool(); basicAuth {
 		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
 	}
+	if mTLS := data.Get("connection.mTLS").MustBool(); mTLS {
+		log.DefaultLogger.Info("mTLS enabled for Druid connection")
+
+		cert, ok := secureData["connection.mTLSCert"]
+		if !ok || cert == "" {
+			return &druidInstanceSettings{}, fmt.Errorf("mTLS certificate is required but not provided")
+		}
+		key, ok := secureData["connection.mTLSKey"]
+		if !ok || key == "" {
+			return &druidInstanceSettings{}, fmt.Errorf("mTLS key is required but not provided")
+		}
+		ca, hasCA := secureData["connection.mTLSCa"]
+
+		useSystemCAPool := data.Get("connection.mTLSUseSystemCaPool").MustBool()
+		if useSystemCAPool {
+			log.DefaultLogger.Info("Using system CA pool for Druid mTLS connection")
+		} else {
+			log.DefaultLogger.Info("Using custom CA for Druid mTLS connection")
+		}
+
+		clientCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
+		if err != nil {
+			return &druidInstanceSettings{}, fmt.Errorf("failed to load client certificate and key: %w", err)
+		}
+
+		caCertPool := x509.NewCertPool()
+		if useSystemCAPool {
+			caCertPool, err = x509.SystemCertPool()
+			if err != nil {
+				return &druidInstanceSettings{}, fmt.Errorf("failed to load system CA pool: %w", err)
+			}
+		}
+
+		if hasCA && !caCertPool.AppendCertsFromPEM([]byte(ca)) {
+			return &druidInstanceSettings{}, fmt.Errorf("failed to append CA certificate: %s", ca)
+		}
+
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{clientCert},
+			RootCAs:      caCertPool,
+		}
+
+		httpClient := http.Client{}
+
+		if httpClient.Transport == nil {
+			httpClient.Transport = &http.Transport{}
+		}
+
+		transport, ok := httpClient.Transport.(*http.Transport)
+		if !ok {
+			return &druidInstanceSettings{}, fmt.Errorf("http transport is not of type *http.Transport")
+		}
+
+		transport.TLSClientConfig = tlsConfig
+		druidOpts = append(druidOpts, druid.WithHTTPClient(&httpClient))
+	}
+
 	if skipTLS := data.Get("connection.skipTls").MustBool(); skipTLS {
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}
@@ -269,13 +329,13 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 
 	i, err := ds.im.Get(req.PluginContext)
 	if err != nil {
-		result.Message = "Can't get Druid instance"
+		result.Message = "Can't get Druid instance: " + err.Error()
 		return result, nil
 	}
 
 	status, _, err := i.(*druidInstanceSettings).client.Common().Status()
 	if err != nil {
-		result.Message = "Can't fetch Druid status"
+		result.Message = "Can't fetch Druid status: " + err.Error()
 		return result, nil
 	}
 
