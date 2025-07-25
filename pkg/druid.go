@@ -67,7 +67,7 @@ func (s *druidInstanceSettings) Dispose() {
 	s.client.Close()
 }
 
-func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
+func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 	data, err := simplejson.NewJson(settings.JSONData)
 	if err != nil {
 		return &druidInstanceSettings{}, err
@@ -327,7 +327,7 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 		Message: "Can't connect to Druid",
 	}
 
-	i, err := ds.im.Get(req.PluginContext)
+	i, err := ds.im.Get(ctx, req.PluginContext)
 	if err != nil {
 		result.Message = "Can't get Druid instance: " + err.Error()
 		return result, nil
@@ -360,7 +360,7 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 }
 
 func (ds *druidDatasource) settings(ctx backend.PluginContext) (*druidInstanceSettings, error) {
-	s, err := ds.im.Get(ctx)
+	s, err := ds.im.Get(context.Background(), ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1036,3 +1036,4 @@ func longToLog(longFrame *data.Frame, settings map[string]interface{}) (*data.Fr
 	}
 	return logFrame, nil
 }
+
