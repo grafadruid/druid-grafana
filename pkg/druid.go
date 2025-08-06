@@ -32,6 +32,10 @@ var (
 	varRangeS       = variableVariants("__range_s")
 	varRangeMs      = variableVariants("__range_ms")
 	varRateInterval = variableVariants("__rate_interval")
+	varFrom         = variableVariants("__from")
+	varTo           = variableVariants("__to")
+	varFromDateISO  = variableVariants("__from:date:iso")
+	varToDateISO    = variableVariants("__to:date:iso")
 )
 
 func variableVariants(base string) []string {
@@ -348,7 +352,7 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
-	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange.Duration())
+	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange)
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
@@ -373,9 +377,17 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 	return response
 }
 
-func interpolateVariables(expr string, interval time.Duration, timeRange time.Duration) string {
-	rangeMs := timeRange.Milliseconds()
+func interpolateVariables(expr string, interval time.Duration, timeRange backend.TimeRange) string {
+	duration := timeRange.Duration()
+	rangeMs := duration.Milliseconds()
 	rangeSRounded := int64(math.Round(float64(rangeMs) / 1000.0))
+
+	fromMs := timeRange.From.UnixMilli()
+	toMs := timeRange.To.UnixMilli()
+
+	// Format timestamps for ISO format
+	fromISO := timeRange.From.Format("2006-01-02T15:04:05.000Z")
+	toISO := timeRange.To.Format("2006-01-02T15:04:05.000Z")
 
 	expr = multiReplace(expr, varIntervalMs, strconv.FormatInt(int64(interval/time.Millisecond), 10))
 	expr = multiReplace(expr, varInterval, formatDuration(interval))
@@ -383,6 +395,10 @@ func interpolateVariables(expr string, interval time.Duration, timeRange time.Du
 	expr = multiReplace(expr, varRangeS, strconv.FormatInt(rangeSRounded, 10))
 	expr = multiReplace(expr, varRange, strconv.FormatInt(rangeSRounded, 10)+"s")
 	expr = multiReplace(expr, varRateInterval, interval.String())
+	expr = multiReplace(expr, varFromDateISO, fromISO)
+	expr = multiReplace(expr, varToDateISO, toISO)
+	expr = multiReplace(expr, varFrom, strconv.FormatInt(fromMs, 10))
+	expr = multiReplace(expr, varTo, strconv.FormatInt(toMs, 10))
 
 	return expr
 }
