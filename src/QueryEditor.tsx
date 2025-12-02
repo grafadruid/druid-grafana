@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
 import { QueryEditorProps } from '@grafana/data';
 import { css, cx } from '@emotion/css';
@@ -9,6 +9,7 @@ import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
+import { debounce } from 'lodash';
 
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
@@ -19,7 +20,19 @@ export const QueryEditor = (props: Props) => {
   /*TODO merging settings that way is not good: things like query context won't get merged
   the query settings context will replace the datasource query settings context instead of merging
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
-  const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
+  const settingsOptions = { settings: { ...datasourceQuerySettings, ...settings } };
+
+  const debouncedRunQuery = useMemo(() => {
+    const debounceTime =
+      (settings && (settings as any).debounceTime) != null ? (settings as any).debounceTime : 250;
+    return debounce(props.onRunQuery, debounceTime);
+  }, [props.onRunQuery, settings]);
+
+  useEffect(() => {
+    return () => {
+      debouncedRunQuery.cancel();
+    };
+  }, [debouncedRunQuery]);
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -37,14 +50,14 @@ export const QueryEditor = (props: Props) => {
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify(queryBuilderOptions);
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
-    onRunQuery();
+    debouncedRunQuery();
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify({ builder: query.builder, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
-    onRunQuery();
+    debouncedRunQuery();
   };
   const [showDrawer, setShowDrawer] = useState(false);
   return (

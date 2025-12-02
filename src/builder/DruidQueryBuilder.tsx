@@ -1,10 +1,10 @@
 import React from 'react';
 import { Query } from './query';
 import { QueryBuilderProps } from './types';
-import { debounce } from 'lodash';
 
 export const DruidQueryBuilder = (props: QueryBuilderProps) => {
-  return (
-    <Query {...props} onOptionsChange={debounce(props.onOptionsChange, props.options.settings.debounceTime || 250)} />
-  );
+  // Let the query editor decide when to execute the query (and if it should be debounced).
+  // The builder itself should update immediately on every keystroke so that controlled inputs
+  // stay in sync with the underlying query model.
+  return <Query {...props} />;
 };
