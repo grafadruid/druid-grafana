@@ -26,12 +26,14 @@ export const useScopedQueryBuilderProps = (
   component: QueryBuilderComponent<QueryComponent | Component>
 ) => {
   const builder = initBuilder(props.options.builder || {}, component);
+  const rootBuilder = props.rootBuilder || props.options.builder;
   return (name: string | undefined, scopeType: ScopeType = ScopeType.Builder): QueryBuilderProps => {
     if (name === undefined) {
       name = '';
     }
     let scopedProps = cloneDeep(props);
     scopedProps.options.builder = name in builder ? builder[name] : undefined;
+    scopedProps.rootBuilder = rootBuilder;
     scopedProps.onOptionsChange = (options: QueryBuilderOptions) => {
       let newBuilder: any = {};
       if (name === undefined) {
@@ -54,12 +56,14 @@ export const useScopedQueryBuilderFieldProps = (
   component: QueryBuilderComponent<QueryComponent | Component>
 ) => {
   const builder = initBuilder(props.options.builder || {}, component);
+  const rootBuilder = props.rootBuilder || props.options.builder;
   return (name: string | undefined, scopeType: ScopeType = ScopeType.Builder): QueryBuilderFieldProps => {
     if (name === undefined) {
       name = '';
     }
     let scopedProps: QueryBuilderFieldProps = { name: name, label: '', description: '', ...cloneDeep(props) };
     scopedProps.options.builder = name in builder ? builder[name] : undefined;
+    scopedProps.rootBuilder = rootBuilder;
     scopedProps.onOptionsChange = (options: QueryBuilderOptions) => {
       let newBuilder: any = {};
       if (name === undefined) {

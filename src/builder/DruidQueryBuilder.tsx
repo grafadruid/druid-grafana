@@ -5,6 +5,6 @@ import { debounce } from 'lodash';
 
 export const DruidQueryBuilder = (props: QueryBuilderProps) => {
   return (
-    <Query {...props} onOptionsChange={debounce(props.onOptionsChange, props.options.settings.debounceTime || 250)} />
+    <Query {...props} />
   );
 };

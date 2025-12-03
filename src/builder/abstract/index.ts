@@ -7,6 +7,7 @@ export {
   useQueryBuilderAutoSubmit,
 } from './QueryBuilderComponent';
 export { Input } from './Input';
+export { AutocompleteInput } from './AutocompleteInput';
 export { Multiple } from './Multiple';
 export { Checkbox } from './Checkbox';
 export { Select } from './Select';

@@ -74,7 +74,12 @@ export const QueryEditor = (props: Props) => {
           <DruidQuerySettings options={settingsOptions} onOptionsChange={onSettingsOptionsChange} />
         </Drawer>
       )}
-      <DruidQueryBuilder options={builderOptions} onOptionsChange={onBuilderOptionsChange} />
+      <DruidQueryBuilder 
+        options={builderOptions} 
+        onOptionsChange={onBuilderOptionsChange} 
+        datasource={props.datasource}
+        rootBuilder={builderOptions.builder}
+      />
     </>
   );
 };
