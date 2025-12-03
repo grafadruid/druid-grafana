@@ -14,7 +14,7 @@ interface Props extends QueryBuilderFieldProps {
 
 const getTableName = (builder: any): string | null => {
   if (!builder) return null;
-  
+
   // Check for dataSource in query builder
   if (builder.dataSource) {
     if (typeof builder.dataSource === 'string') {
@@ -27,7 +27,7 @@ const getTableName = (builder: any): string | null => {
       return builder.dataSource.name;
     }
   }
-  
+
   return null;
 };
 
@@ -42,23 +42,25 @@ const fetchDimensionNames = async (
 
   try {
     // Use SQL query to get column names
-    // Escape table name to prevent SQL injection
-    const escapedTableName = tableName.replace(/"/g, '""');
-    
+    // Escape table name for double-quoted identifiers (for SHOW COLUMNS and SELECT * queries)
+    const escapedTableNameForIdentifier = tableName.replace(/"/g, '""');
+    // Escape table name for string literals (for INFORMATION_SCHEMA queries)
+    const escapedTableNameForString = tableName.replace(/'/g, "''");
+
     let columnNames = new Set<string>();
-    
+
     // Approach 1: Try SHOW COLUMNS (if Druid supports it)
     try {
       const showColumnsQuery = {
         builder: {
           queryType: 'sql',
-          query: `SHOW COLUMNS FROM "${escapedTableName}"`,
+          query: `SHOW COLUMNS FROM "${escapedTableNameForIdentifier}"`,
         },
         settings: {},
       };
 
       const showResponse = await datasource.postResource('query-variable', showColumnsQuery);
-      
+
       if (Array.isArray(showResponse) && showResponse.length > 0) {
         // SHOW COLUMNS typically returns column names in the first column
         showResponse.forEach((item: any) => {
@@ -75,18 +77,18 @@ const fetchDimensionNames = async (
       // SHOW COLUMNS might not be supported
       console.debug('SHOW COLUMNS not supported, trying alternative');
     }
-    
+
     // Approach 2: Try INFORMATION_SCHEMA if available and we didn't get results
     if (columnNames.size === 0) {
       try {
         const infoSchemaQuery = {
           builder: {
             queryType: 'sql',
-            query: `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${escapedTableName}' ORDER BY COLUMN_NAME`,
+            query: `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${escapedTableNameForString}' ORDER BY COLUMN_NAME`,
           },
           settings: {},
         };
-        
+
         const infoResponse = await datasource.postResource('query-variable', infoSchemaQuery);
         if (Array.isArray(infoResponse) && infoResponse.length > 0) {
           infoResponse.forEach((item: any) => {
@@ -104,7 +106,7 @@ const fetchDimensionNames = async (
         console.debug('INFORMATION_SCHEMA not available');
       }
     }
-    
+
     // Approach 3: Fallback - query with LIMIT 1 and try to infer column structure
     // This is less reliable but might work if other methods fail
     if (columnNames.size === 0) {
@@ -112,20 +114,20 @@ const fetchDimensionNames = async (
         const sqlQuery = {
           builder: {
             queryType: 'sql',
-            query: `SELECT * FROM "${escapedTableName}" LIMIT 1`,
+            query: `SELECT * FROM "${escapedTableNameForIdentifier}" LIMIT 1`,
           },
           settings: {},
         };
 
         const response = await datasource.postResource('query-variable', sqlQuery);
-        
+
         if (Array.isArray(response) && response.length > 0) {
           // Since prepareVariableResponse processes: for each column, for each row
           // We'll try to identify column names by looking at the response pattern
           // This is heuristic - we'll take unique string values that appear early in the response
           const seenValues = new Set<string>();
           const potentialColumns: string[] = [];
-          
+
           // Take first reasonable number of unique string values
           for (let i = 0; i < Math.min(response.length, 100); i++) {
             const item = response[i];
@@ -133,7 +135,7 @@ const fetchDimensionNames = async (
             if (value && typeof value === 'string' && value.trim() !== '') {
               const lowerValue = value.toLowerCase().trim();
               // Filter out system columns and values that look like data (dates, numbers, etc.)
-              if (lowerValue !== '__time' && 
+              if (lowerValue !== '__time' &&
                   !lowerValue.startsWith('_') &&
                   lowerValue !== 'timestamp' &&
                   !seenValues.has(value) &&
@@ -144,7 +146,7 @@ const fetchDimensionNames = async (
               }
             }
           }
-          
+
           // If we got a reasonable number (between 1 and 50), use them
           if (potentialColumns.length > 0 && potentialColumns.length <= 50) {
             potentialColumns.forEach(col => columnNames.add(col));
@@ -154,17 +156,17 @@ const fetchDimensionNames = async (
         console.debug('Error with fallback column query:', queryError);
       }
     }
-    
+
     // Filter by input value and sort
     const filtered = Array.from(columnNames)
-      .filter((name) => !inputValue || name.toLowerCase().includes(inputValue.toLowerCase()))
+      .filter((name) => !inputValue || name.toLowerCase().startsWith(inputValue.toLowerCase()))
       .map((name) => ({
         value: name,
         label: name,
       }))
       .sort((a, b) => a.label.localeCompare(b.label))
-      .slice(0, 200); // Limit to 200 results
-    
+      .slice(0, 10); // Limit to 10 results
+
     return filtered;
   } catch (error) {
     console.error('Error fetching dimension names:', error);
@@ -187,31 +189,38 @@ const fetchDimensionValues = async (
     // Escape the dimension name and input value to prevent SQL injection
     const escapedTableName = tableName.replace(/"/g, '""');
     const escapedDimensionName = dimensionName.replace(/"/g, '""');
-    const escapedInputValue = (inputValue || '').replace(/'/g, "''");
-    
-    // Build the WHERE clause
+
+    // Build the WHERE clause with prefix matching
     let whereClause = `"${escapedDimensionName}" IS NOT NULL`;
+    let sqlQueryStr = '';
+
     if (inputValue && inputValue.trim() !== '') {
-      // Use LIKE for pattern matching (case-insensitive)
-      whereClause += ` AND LOWER(CAST("${escapedDimensionName}" AS VARCHAR)) LIKE LOWER('%${escapedInputValue}%')`;
+      // Escape special LIKE characters
+      const escapedInputValue = inputValue.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
+      // Use LIKE for prefix matching (case-insensitive) - use 'ver%' instead of '%ver%'
+      whereClause += ` AND LOWER("${escapedDimensionName}") LIKE LOWER('${escapedInputValue}%') ESCAPE '\\'`;
     }
-    
+
+    // Build SQL query - try simple approach first
+    sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE ${whereClause} ORDER BY value LIMIT 10`;
+
     const sqlQuery = {
       builder: {
         queryType: 'sql',
-        query: `SELECT DISTINCT CAST("${escapedDimensionName}" AS VARCHAR) as value FROM "${escapedTableName}" WHERE ${whereClause} ORDER BY value LIMIT 100`,
+        query: sqlQueryStr,
       },
       settings: {},
     };
 
     const response = await datasource.postResource('query-variable', sqlQuery);
-    
+
     if (Array.isArray(response)) {
       // The response from query-variable returns MetricFindValue format
       // Extract unique values from SQL results
       const values = new Set<string>();
       response.forEach((item: any) => {
-        const value = item.value || item.text;
+        // Try both value and text fields
+        const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
         if (value !== null && value !== undefined) {
           const strValue = String(value);
           if (strValue.trim() !== '') {
@@ -219,19 +228,61 @@ const fetchDimensionValues = async (
           }
         }
       });
-      
-      return Array.from(values)
-        .map((val) => ({
-          value: val,
-          label: val,
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .slice(0, 100); // Limit to 100 results
+
+      if (values.size > 0) {
+        return Array.from(values)
+          .map((val) => ({
+            value: val,
+            label: val,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label))
+          .slice(0, 10); // Limit to 10 results
+      }
     }
-    
+
+    // If no results and we have input, try a simpler query without LIKE
+    if (inputValue && inputValue.trim() !== '') {
+      try {
+        const simpleQuery = {
+          builder: {
+            queryType: 'sql',
+            query: `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL ORDER BY value LIMIT 50`,
+          },
+          settings: {},
+        };
+
+        const simpleResponse = await datasource.postResource('query-variable', simpleQuery);
+        if (Array.isArray(simpleResponse) && simpleResponse.length > 0) {
+          const values = new Set<string>();
+          simpleResponse.forEach((item: any) => {
+            const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
+            if (value !== null && value !== undefined) {
+              const strValue = String(value);
+              if (strValue.trim() !== '' && strValue.toLowerCase().startsWith(inputValue.toLowerCase())) {
+                values.add(strValue);
+              }
+            }
+          });
+
+          if (values.size > 0) {
+            return Array.from(values)
+              .map((val) => ({
+                value: val,
+                label: val,
+              }))
+              .sort((a, b) => a.label.localeCompare(b.label))
+              .slice(0, 10);
+          }
+        }
+      } catch (fallbackError) {
+        console.debug('Fallback query also failed:', fallbackError);
+      }
+    }
+
     return [];
   } catch (error) {
     console.error('Error fetching dimension values:', error);
+    console.error('Query details:', { tableName, dimensionName, inputValue });
     return [];
   }
 };
