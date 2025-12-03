@@ -223,6 +223,16 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 		default:
 			body = "Method not supported"
 		}
+	case "autocomplete":
+		switch req.Method {
+		case "POST":
+			body, err = ds.AutocompleteData(ctx, req)
+			if err == nil {
+				code = 200
+			}
+		default:
+			body = "Method not supported"
+		}
 	default:
 		body = "Path not supported"
 	}
@@ -320,6 +330,236 @@ func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings
 			}
 		}
 	}
+	return response, nil
+}
+
+type autocompleteRequest struct {
+	TableName     string `json:"tableName"`
+	Type          string `json:"type"` // "dimension" or "dimensionValue"
+	DimensionName string `json:"dimensionName,omitempty"`
+	InputValue    string `json:"inputValue"`
+}
+
+func (ds *druidDatasource) AutocompleteData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
+	log.DefaultLogger.Debug("AUTOCOMPLETE", "request", string(req.Body))
+
+	var autocompleteReq autocompleteRequest
+	err := json.Unmarshal(req.Body, &autocompleteReq)
+	if err != nil {
+		return []grafanaMetricFindValue{}, err
+	}
+
+	response := []grafanaMetricFindValue{}
+
+	if autocompleteReq.Type == "dimension" {
+		// Fetch dimension names using segmentMetadata query
+		response, err = ds.fetchDimensionNames(autocompleteReq.TableName, autocompleteReq.InputValue)
+	} else if autocompleteReq.Type == "dimensionValue" {
+		// Fetch dimension values using SQL query
+		response, err = ds.fetchDimensionValues(autocompleteReq.TableName, autocompleteReq.DimensionName, autocompleteReq.InputValue)
+	}
+
+	if err != nil {
+		log.DefaultLogger.Error("AUTOCOMPLETE ERROR", "error", err)
+		return []grafanaMetricFindValue{}, err
+	}
+
+	log.DefaultLogger.Debug("AUTOCOMPLETE", "response_count", len(response))
+	return response, nil
+}
+
+func (ds *druidDatasource) fetchDimensionNames(tableName string, inputValue string) ([]grafanaMetricFindValue, error) {
+	response := []grafanaMetricFindValue{}
+
+	// Use segmentMetadata query to get dimension names
+	queryJSON := map[string]any{
+		"queryType": "segmentMetadata",
+		"dataSource": map[string]any{
+			"type": "table",
+			"name": tableName,
+		},
+		"intervals": map[string]any{
+			"type":     "intervals",
+			"intervals": []string{"${__from:date:iso}/${__to:date:iso}"},
+		},
+		"toInclude": map[string]any{
+			"type": "all",
+		},
+		"analysisTypes": []string{"cardinality"},
+		"merge":                  true,
+		"lenientAggregatorMerge": false,
+		"usingDefaultInterval":   false,
+	}
+
+	// Load the query
+	jsonQuery, err := json.Marshal(queryJSON)
+	if err != nil {
+		return response, err
+	}
+
+	q, err := ds.settings.client.Query().Load(jsonQuery)
+	if err != nil {
+		return response, err
+	}
+
+	// Execute the query
+	var result json.RawMessage
+	_, err = ds.settings.client.Query().Execute(q, &result)
+	if err != nil {
+		return response, err
+	}
+
+	// Parse the response
+	var sm []map[string]any
+	err = json.Unmarshal(result, &sm)
+	if err != nil || len(sm) == 0 {
+		return response, err
+	}
+
+	// Extract column names from segmentMetadata response
+	columnNames := make(map[string]bool)
+	for _, result := range sm {
+		if columns, ok := result["columns"].(map[string]any); ok {
+			for columnName := range columns {
+				// Filter by input value (prefix match)
+				if inputValue == "" || strings.HasPrefix(strings.ToLower(columnName), strings.ToLower(inputValue)) {
+					// Filter out system columns
+					lowerName := strings.ToLower(columnName)
+					if lowerName != "__time" && !strings.HasPrefix(lowerName, "_") {
+						columnNames[columnName] = true
+					}
+				}
+			}
+		}
+	}
+
+	// Convert to response format and limit to 10
+	count := 0
+	for colName := range columnNames {
+		if count >= 10 {
+			break
+		}
+		response = append(response, grafanaMetricFindValue{
+			Value: colName,
+			Text:  colName,
+		})
+		count++
+	}
+
+	// Sort by name
+	sort.Slice(response, func(i, j int) bool {
+		return response[i].Text < response[j].Text
+	})
+
+	return response, nil
+}
+
+func (ds *druidDatasource) fetchDimensionValues(tableName string, dimensionName string, inputValue string) ([]grafanaMetricFindValue, error) {
+	response := []grafanaMetricFindValue{}
+
+	if dimensionName == "" {
+		return response, errors.New("dimension name is required")
+	}
+
+	// Use SQL query to get distinct dimension values with prefix matching
+	// Escape identifiers
+	escapedTableName := strings.ReplaceAll(tableName, `"`, `""`)
+	escapedDimensionName := strings.ReplaceAll(dimensionName, `"`, `""`)
+
+	// Build WHERE clause
+	whereClause := fmt.Sprintf(`"%s" IS NOT NULL`, escapedDimensionName)
+	if inputValue != "" {
+		// Escape single quotes for string literal
+		escapedInputValue := strings.ReplaceAll(inputValue, `'`, `''`)
+		// Escape LIKE special characters
+		escapedInputValue = strings.ReplaceAll(escapedInputValue, `%`, `\%`)
+		escapedInputValue = strings.ReplaceAll(escapedInputValue, `_`, `\_`)
+		whereClause += fmt.Sprintf(` AND LOWER("%s") LIKE LOWER('%%s%%') ESCAPE '\\'`, escapedDimensionName, escapedInputValue)
+	}
+
+	sqlQueryStr := fmt.Sprintf(`SELECT DISTINCT "%s" as value FROM "%s" WHERE %s ORDER BY value LIMIT 10`,
+		escapedDimensionName, escapedTableName, whereClause)
+
+	queryJSON := map[string]any{
+		"queryType": "sql",
+		"query":     sqlQueryStr,
+	}
+
+	// Load the query
+	jsonQuery, err := json.Marshal(queryJSON)
+	if err != nil {
+		return response, err
+	}
+
+	q, err := ds.settings.client.Query().Load(jsonQuery)
+	if err != nil {
+		return response, err
+	}
+
+	// Set result format for SQL
+	q.(*druidquery.SQL).SetResultFormat("array").SetHeader(true)
+
+	// Execute the query
+	var result json.RawMessage
+	_, err = ds.settings.client.Query().Execute(q, &result)
+	if err != nil {
+		return response, err
+	}
+
+	// Parse SQL response (array format with header)
+	var sqlr []any
+	err = json.Unmarshal(result, &sqlr)
+	if err != nil || len(sqlr) < 2 {
+		return response, err
+	}
+
+	// sqlr[0] contains column headers, sqlr[1:] contains data rows
+	// Find the "value" column index
+	valueColIndex := -1
+	if headers, ok := sqlr[0].([]any); ok {
+		for i, header := range headers {
+			if headerStr, ok := header.(string); ok && headerStr == "value" {
+				valueColIndex = i
+				break
+			}
+		}
+	}
+
+	if valueColIndex == -1 {
+		return response, errors.New("value column not found in response")
+	}
+
+	// Extract unique values
+	values := make(map[string]bool)
+	for _, row := range sqlr[1:] {
+		if rowArray, ok := row.([]any); ok && len(rowArray) > valueColIndex {
+			if rowArray[valueColIndex] != nil {
+				valueStr := fmt.Sprintf("%v", rowArray[valueColIndex])
+				if valueStr != "" {
+					values[valueStr] = true
+				}
+			}
+		}
+	}
+
+	// Convert to response format and limit to 10
+	count := 0
+	for val := range values {
+		if count >= 10 {
+			break
+		}
+		response = append(response, grafanaMetricFindValue{
+			Value: val,
+			Text:  val,
+		})
+		count++
+	}
+
+	// Sort by value
+	sort.Slice(response, func(i, j int) bool {
+		return response[i].Text < response[j].Text
+	})
+
 	return response, nil
 }
 
