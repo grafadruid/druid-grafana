@@ -186,14 +186,14 @@ const fetchDimensionValues = async (
   }
 
   try {
-    // Use SQL query to get distinct dimension values
+    // Use SQL query to get dimension values
     // Escape the dimension name to prevent SQL injection
     const escapedTableName = tableName.replace(/"/g, '""');
     const escapedDimensionName = dimensionName.replace(/"/g, '""');
 
-    // Use a simple query without LIKE to avoid SQL syntax issues
-    // We'll filter by substring match client-side
-    const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL LIMIT 10`;
+    // Use the simplest possible query - just select the column
+    // We'll handle DISTINCT, filtering, and limiting in JavaScript
+    const sqlQueryStr = `SELECT "${escapedDimensionName}" FROM "${escapedTableName}" LIMIT 100`;
 
     const sqlQuery = {
       builder: {
