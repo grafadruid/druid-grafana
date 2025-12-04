@@ -181,6 +181,7 @@ const fetchDimensionValues = async (
   inputValue: string
 ): Promise<SelectableValue[]> => {
   if (!tableName || !dimensionName) {
+    console.debug('fetchDimensionValues: Missing tableName or dimensionName', { tableName, dimensionName });
     return [];
   }
 
@@ -241,44 +242,48 @@ const fetchDimensionValues = async (
         .slice(0, 10); // Limit to 10 results
     }
 
-    // If no results and we have input, try a simpler query without LIKE and filter client-side
-    if (inputValue && inputValue.trim() !== '') {
-      try {
-        const simpleQuery = {
-          builder: {
-            queryType: 'sql',
-            query: `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL ORDER BY value LIMIT 10`,
-          },
-          settings: {},
-        };
+    // Log if first query returned no results
+    console.debug('First query returned no results, trying fallback', { tableName, dimensionName, inputValue, responseLength: response?.length });
 
-        const simpleResponse = await datasource.postResource('query-variable', simpleQuery);
-        if (Array.isArray(simpleResponse) && simpleResponse.length > 0) {
-          const filteredValues = new Set<string>();
-          simpleResponse.forEach((item: any) => {
-            const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
-            if (value !== null && value !== undefined) {
-              const strValue = String(value);
-              // Filter by substring match client-side
-              if (strValue.trim() !== '' && strValue.toLowerCase().includes(inputValue.toLowerCase())) {
+    // If no results, try a simpler query without LIKE and filter client-side
+    // This handles both empty input (to show default options) and when LIKE query fails
+    try {
+      const simpleQuery = {
+        builder: {
+          queryType: 'sql',
+          query: `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL ORDER BY value LIMIT 100`,
+        },
+        settings: {},
+      };
+
+      const simpleResponse = await datasource.postResource('query-variable', simpleQuery);
+      if (Array.isArray(simpleResponse) && simpleResponse.length > 0) {
+        const filteredValues = new Set<string>();
+        simpleResponse.forEach((item: any) => {
+          const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
+          if (value !== null && value !== undefined) {
+            const strValue = String(value);
+            // If no input value, show all results (up to limit). Otherwise filter by substring match
+            if (strValue.trim() !== '') {
+              if (!inputValue || inputValue.trim() === '' || strValue.toLowerCase().includes(inputValue.toLowerCase())) {
                 filteredValues.add(strValue);
               }
             }
-          });
-
-          if (filteredValues.size > 0) {
-            return Array.from(filteredValues)
-              .map((val) => ({
-                value: val,
-                label: val,
-              }))
-              .sort((a, b) => a.label.localeCompare(b.label))
-              .slice(0, 10);
           }
+        });
+
+        if (filteredValues.size > 0) {
+          return Array.from(filteredValues)
+            .map((val) => ({
+              value: val,
+              label: val,
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .slice(0, 10);
         }
-      } catch (fallbackError) {
-        console.debug('Fallback query also failed:', fallbackError);
       }
+    } catch (fallbackError) {
+      console.debug('Fallback query also failed:', fallbackError);
     }
 
     return [];
@@ -322,12 +327,17 @@ export const AutocompleteInput = (props: Props) => {
       return [];
     }
 
+    // For dimension values, we need a dimension name
+    if (type === 'dimensionValue' && !dimensionName) {
+      return [];
+    }
+
     setIsLoading(true);
     try {
       if (type === 'dimension') {
-        return await fetchDimensionNames(datasource, tableName, inputValue);
+        return await fetchDimensionNames(datasource, tableName, inputValue || '');
       } else {
-        return await fetchDimensionValues(datasource, tableName, dimensionName, inputValue);
+        return await fetchDimensionValues(datasource, tableName, dimensionName, inputValue || '');
       }
     } finally {
       setIsLoading(false);
@@ -358,7 +368,13 @@ export const AutocompleteInput = (props: Props) => {
         isClearable={true}
         isLoading={isLoading}
         cacheOptions={true}
-        noOptionsMessage={datasource && tableName ? 'No options found' : 'Please select a table first'}
+        noOptionsMessage={
+          !datasource || !tableName
+            ? 'Please select a table first'
+            : type === 'dimensionValue' && !dimensionName
+            ? 'Please select a dimension first'
+            : 'No options found'
+        }
       />
     </InlineField>
   );
