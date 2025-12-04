@@ -194,7 +194,7 @@ const fetchDimensionValues = async (
     // Use the simplest possible query - just select the column
     // We'll handle DISTINCT, filtering, and limiting in JavaScript
     const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL LIMIT 100`;
-    //console.debug('debug SQL Query for dimension values:', { escapedTableName, escapedDimensionName, sqlQueryStr });
+
     const sqlQuery = {
       builder: {
         queryType: 'sql',
@@ -240,7 +240,6 @@ const fetchDimensionValues = async (
   } catch (error) {
     console.error('Error fetching dimension values:', error);
     console.error('Query details:', { tableName, dimensionName, inputValue });
-    //console.debug('SQL Query for dimension values:', { escapedTableName, escapedDimensionName, sqlQueryStr });
     return [];
   }
 };
