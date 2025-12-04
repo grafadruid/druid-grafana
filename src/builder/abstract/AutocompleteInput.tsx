@@ -187,22 +187,13 @@ const fetchDimensionValues = async (
 
   try {
     // Use SQL query to get distinct dimension values
-    // Escape the dimension name and input value to prevent SQL injection
+    // Escape the dimension name to prevent SQL injection
     const escapedTableName = tableName.replace(/"/g, '""');
     const escapedDimensionName = dimensionName.replace(/"/g, '""');
 
-    // Build the WHERE clause with substring matching
-    let whereClause = `"${escapedDimensionName}" IS NOT NULL`;
-
-    if (inputValue && inputValue.trim() !== '') {
-      // Escape special LIKE characters
-      const escapedInputValue = inputValue.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
-      // Use LIKE for substring matching (case-insensitive) - use '%ver%' to match anywhere
-      whereClause += ` AND LOWER("${escapedDimensionName}") LIKE LOWER('%${escapedInputValue}%') ESCAPE '\\'`;
-    }
-
-    // Build SQL query - try simple approach first
-    const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE ${whereClause} LIMIT 10`;
+    // Use a simple query without LIKE to avoid SQL syntax issues
+    // We'll filter by substring match client-side
+    const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL LIMIT 10`;
 
     const sqlQuery = {
       builder: {
@@ -215,7 +206,7 @@ const fetchDimensionValues = async (
     const response = await datasource.postResource('query-variable', sqlQuery);
 
     // The response from query-variable returns MetricFindValue format
-    // Extract unique values from SQL results
+    // Extract unique values from SQL results and filter by substring match
     const values = new Set<string>();
 
     if (Array.isArray(response) && response.length > 0) {
@@ -224,14 +215,17 @@ const fetchDimensionValues = async (
         const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
         if (value !== null && value !== undefined) {
           const strValue = String(value);
+          // If no input value, show all results. Otherwise filter by substring match
           if (strValue.trim() !== '') {
-            values.add(strValue);
+            if (!inputValue || inputValue.trim() === '' || strValue.toLowerCase().includes(inputValue.toLowerCase())) {
+              values.add(strValue);
+            }
           }
         }
       });
     }
 
-    // If we got results, return them
+    // Return filtered results
     if (values.size > 0) {
       return Array.from(values)
         .map((val) => ({
@@ -240,50 +234,6 @@ const fetchDimensionValues = async (
         }))
         .sort((a, b) => a.label.localeCompare(b.label))
         .slice(0, 10); // Limit to 10 results
-    }
-
-    // Log if first query returned no results
-    console.debug('First query returned no results, trying fallback', { tableName, dimensionName, inputValue, responseLength: response?.length });
-
-    // If no results, try a simpler query without LIKE and filter client-side
-    // This handles both empty input (to show default options) and when LIKE query fails
-    try {
-      const simpleQuery = {
-        builder: {
-          queryType: 'sql',
-          query: `SELECT DISTINCT "${escapedDimensionName}" as value FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL ORDER BY value LIMIT 100`,
-        },
-        settings: {},
-      };
-
-      const simpleResponse = await datasource.postResource('query-variable', simpleQuery);
-      if (Array.isArray(simpleResponse) && simpleResponse.length > 0) {
-        const filteredValues = new Set<string>();
-        simpleResponse.forEach((item: any) => {
-          const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
-          if (value !== null && value !== undefined) {
-            const strValue = String(value);
-            // If no input value, show all results (up to limit). Otherwise filter by substring match
-            if (strValue.trim() !== '') {
-              if (!inputValue || inputValue.trim() === '' || strValue.toLowerCase().includes(inputValue.toLowerCase())) {
-                filteredValues.add(strValue);
-              }
-            }
-          }
-        });
-
-        if (filteredValues.size > 0) {
-          return Array.from(filteredValues)
-            .map((val) => ({
-              value: val,
-              label: val,
-            }))
-            .sort((a, b) => a.label.localeCompare(b.label))
-            .slice(0, 10);
-        }
-      }
-    } catch (fallbackError) {
-      console.debug('Fallback query also failed:', fallbackError);
     }
 
     return [];
