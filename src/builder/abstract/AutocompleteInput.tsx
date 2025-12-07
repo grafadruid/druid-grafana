@@ -6,7 +6,7 @@ import { onBuilderChange } from '.';
 import { DruidDataSource } from '../../DruidDataSource';
 
 interface Props extends QueryBuilderFieldProps {
-  type: 'dimension' | 'dimensionValue';
+  type: 'dimension' | 'dimensionValue' | 'metric';
   datasource?: DruidDataSource;
   debounceTime?: number;
   dimensionName?: string | null;
@@ -41,135 +41,74 @@ const fetchDimensionNames = async (
   }
 
   try {
-    // Use SQL query to get column names
-    // Escape table name for double-quoted identifiers (for SHOW COLUMNS and SELECT * queries)
-    const escapedTableNameForIdentifier = tableName.replace(/"/g, '""');
-    // Escape table name for string literals (for INFORMATION_SCHEMA queries)
-    const escapedTableNameForString = tableName.replace(/'/g, "''");
-
-    let columnNames = new Set<string>();
-
-    // Approach 1: Try SHOW COLUMNS (if Druid supports it)
-    try {
-      const showColumnsQuery = {
-        builder: {
-          queryType: 'sql',
-          query: `SHOW COLUMNS FROM "${escapedTableNameForIdentifier}"`,
-        },
-        settings: {},
-      };
-
-      const showResponse = await datasource.postResource('query-variable', showColumnsQuery);
-
-      if (Array.isArray(showResponse) && showResponse.length > 0) {
-        // SHOW COLUMNS typically returns column names in the first column
-        showResponse.forEach((item: any) => {
-          const value = item.value || item.text;
-          if (value && typeof value === 'string' && value.trim() !== '') {
-            const lowerValue = value.toLowerCase().trim();
-            if (lowerValue !== '__time' && !lowerValue.startsWith('_')) {
-              columnNames.add(value);
-            }
-          }
-        });
-      }
-    } catch (showError) {
-      // SHOW COLUMNS might not be supported
-      console.debug('SHOW COLUMNS not supported, trying alternative');
+    // Use Druid metadata API to get dimensions
+    const metadata = await datasource.getDatasourceMetadata(tableName);
+    
+    if (!metadata || !metadata.dimensions) {
+      console.debug('No dimensions found in metadata or metadata not available');
+      return [];
     }
 
-    // Approach 2: Try INFORMATION_SCHEMA if available and we didn't get results
-    if (columnNames.size === 0) {
-      try {
-        const infoSchemaQuery = {
-          builder: {
-            queryType: 'sql',
-            query: `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${escapedTableNameForString}'`,
-          },
-          settings: {},
-        };
-
-        const infoResponse = await datasource.postResource('query-variable', infoSchemaQuery);
-        if (Array.isArray(infoResponse) && infoResponse.length > 0) {
-          infoResponse.forEach((item: any) => {
-            const value = item.value || item.text;
-            if (value && typeof value === 'string' && value.trim() !== '') {
-              const lowerValue = value.toLowerCase().trim();
-              if (lowerValue !== '__time' && !lowerValue.startsWith('_')) {
-                columnNames.add(value);
-              }
-            }
-          });
-        }
-      } catch (infoError) {
-        // INFORMATION_SCHEMA might not be available
-        console.debug('INFORMATION_SCHEMA not available');
-      }
-    }
-
-    // Approach 3: Fallback - query with LIMIT 1 and try to infer column structure
-    // This is less reliable but might work if other methods fail
-    if (columnNames.size === 0) {
-      try {
-        const sqlQuery = {
-          builder: {
-            queryType: 'sql',
-            query: `SELECT * FROM "${escapedTableNameForIdentifier}" LIMIT 1`,
-          },
-          settings: {},
-        };
-
-        const response = await datasource.postResource('query-variable', sqlQuery);
-
-        if (Array.isArray(response) && response.length > 0) {
-          // Since prepareVariableResponse processes: for each column, for each row
-          // We'll try to identify column names by looking at the response pattern
-          // This is heuristic - we'll take unique string values that appear early in the response
-          const seenValues = new Set<string>();
-          const potentialColumns: string[] = [];
-
-          // Take first reasonable number of unique string values
-          for (let i = 0; i < Math.min(response.length, 100); i++) {
-            const item = response[i];
-            const value = item.value || item.text;
-            if (value && typeof value === 'string' && value.trim() !== '') {
-              const lowerValue = value.toLowerCase().trim();
-              // Filter out system columns and values that look like data (dates, numbers, etc.)
-              if (lowerValue !== '__time' &&
-                  !lowerValue.startsWith('_') &&
-                  lowerValue !== 'timestamp' &&
-                  !seenValues.has(value) &&
-                  !/^\d{4}-\d{2}-\d{2}/.test(value) && // Not a date
-                  !/^\d+(\.\d+)?$/.test(value)) { // Not a number
-                seenValues.add(value);
-                potentialColumns.push(value);
-              }
-            }
-          }
-
-          // If we got a reasonable number (between 1 and 50), use them
-          if (potentialColumns.length > 0 && potentialColumns.length <= 50) {
-            potentialColumns.forEach(col => columnNames.add(col));
-          }
-        }
-      } catch (queryError) {
-        console.debug('Error with fallback column query:', queryError);
-      }
-    }
+    // Extract dimension names from metadata
+    const dimensions = Array.isArray(metadata.dimensions) 
+      ? metadata.dimensions 
+      : [];
 
     // Filter by input value (substring match) and sort
-    const filtered = Array.from(columnNames)
-      .filter((name) => !inputValue || name.toLowerCase().includes(inputValue.toLowerCase()))
-      .map((name) => ({
-        value: name,
-        label: name,
+    const filtered = dimensions
+      .filter((dim: string) => typeof dim === 'string' && dim.trim() !== '')
+      .filter((dim: string) => !inputValue || dim.toLowerCase().includes(inputValue.toLowerCase()))
+      .map((dim: string) => ({
+        value: dim,
+        label: dim,
       }))
       .sort((a, b) => a.label.localeCompare(b.label))
       .slice(0, 10); // Limit to 10 results
 
     return filtered;
   } catch (error) {
-    console.error('Error fetching dimension names:', error);
+    console.error('Error fetching dimension names from metadata API:', error);
+    return [];
+  }
+};
+
+const fetchMetrics = async (
+  datasource: DruidDataSource,
+  tableName: string | null,
+  inputValue: string
+): Promise<SelectableValue[]> => {
+  if (!tableName) {
+    return [];
+  }
+
+  try {
+    // Use Druid metadata API to get metrics
+    const metadata = await datasource.getDatasourceMetadata(tableName);
+    
+    if (!metadata || !metadata.metrics) {
+      console.debug('No metrics found in metadata or metadata not available');
+      return [];
+    }
+
+    // Extract metric names from metadata
+    const metrics = Array.isArray(metadata.metrics) 
+      ? metadata.metrics 
+      : [];
+
+    // Filter by input value (substring match) and sort
+    const filtered = metrics
+      .filter((metric: string) => typeof metric === 'string' && metric.trim() !== '')
+      .filter((metric: string) => !inputValue || metric.toLowerCase().includes(inputValue.toLowerCase()))
+      .map((metric: string) => ({
+        value: metric,
+        label: metric,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .slice(0, 10); // Limit to 10 results
+
+    return filtered;
+  } catch (error) {
+    console.error('Error fetching metrics from metadata API:', error);
     return [];
   }
 };
@@ -286,6 +225,8 @@ export const AutocompleteInput = (props: Props) => {
     try {
       if (type === 'dimension') {
         return await fetchDimensionNames(datasource, tableName, inputValue || '');
+      } else if (type === 'metric') {
+        return await fetchMetrics(datasource, tableName, inputValue || '');
       } else {
         return await fetchDimensionValues(datasource, tableName, dimensionName, inputValue || '');
       }

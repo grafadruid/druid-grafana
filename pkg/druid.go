@@ -64,6 +64,10 @@ type druidResponse struct {
 type druidInstanceSettings struct {
 	client               *druid.Client
 	defaultQuerySettings map[string]any
+	druidURL             string
+	basicAuthUser        string
+	basicAuthPassword    string
+	hasBasicAuth         bool
 }
 
 func (s *druidInstanceSettings) Dispose() {
@@ -87,8 +91,14 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	if retryWaitMax := data.Get("connection.retryableRetryWaitMax").MustInt(-1); retryWaitMax != -1 {
 		druidOpts = append(druidOpts, druid.WithRetryWaitMax(time.Duration(retryWaitMax)*time.Millisecond))
 	}
+	var basicAuthUser string
+	var basicAuthPassword string
+	var hasBasicAuth bool
 	if basicAuth := data.Get("connection.basicAuth").MustBool(); basicAuth {
-		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
+		basicAuthUser = data.Get("connection.basicAuthUser").MustString()
+		basicAuthPassword = secureData["connection.basicAuthPassword"]
+		hasBasicAuth = true
+		druidOpts = append(druidOpts, druid.WithBasicAuth(basicAuthUser, basicAuthPassword))
 	}
 	if mTLS := data.Get("connection.mTLS").MustBool(); mTLS {
 		log.DefaultLogger.Info("mTLS enabled for Druid connection")
@@ -151,7 +161,8 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}
 
-	c, err := druid.NewClient(data.Get("connection.url").MustString(), druidOpts...)
+	druidURL := data.Get("connection.url").MustString()
+	c, err := druid.NewClient(druidURL, druidOpts...)
 	if err != nil {
 		return &druidInstanceSettings{}, err
 	}
@@ -159,6 +170,10 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	return &druidInstanceSettings{
 		client:               c,
 		defaultQuerySettings: prepareQuerySettings(settings.JSONData),
+		druidURL:             druidURL,
+		basicAuthUser:        basicAuthUser,
+		basicAuthPassword:    basicAuthPassword,
+		hasBasicAuth:         hasBasicAuth,
 	}, nil
 }
 
@@ -223,6 +238,19 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 		default:
 			body = "Method not supported"
 		}
+	case "datasource-metadata":
+		switch req.Method {
+		case "GET":
+			body, err = ds.GetDatasourceMetadata(ctx, req)
+			if err == nil {
+				code = 200
+			} else {
+				code = 500
+				body = map[string]string{"error": err.Error()}
+			}
+		default:
+			body = "Method not supported"
+		}
 	default:
 		body = "Path not supported"
 	}
@@ -235,6 +263,52 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 type grafanaMetricFindValue struct {
 	Value any    `json:"value"`
 	Text  string `json:"text"`
+}
+
+func (ds *druidDatasource) GetDatasourceMetadata(ctx context.Context, req *backend.CallResourceRequest) (map[string]any, error) {
+	// Parse datasource name from query parameters
+	datasourceName := req.URL.Query().Get("datasource")
+	if datasourceName == "" {
+		return nil, fmt.Errorf("datasource parameter is required")
+	}
+
+	// Construct the URL for the Druid metadata API
+	url := strings.TrimSuffix(ds.settings.druidURL, "/") + "/druid/v2/datasources/" + datasourceName
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Create HTTP client with authentication if configured
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Add basic auth if configured
+	if ds.settings.hasBasicAuth {
+		httpReq.SetBasicAuth(ds.settings.basicAuthUser, ds.settings.basicAuthPassword)
+	}
+
+	// Make the request
+	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch datasource metadata: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Druid API returned status %d", resp.StatusCode)
+	}
+
+	// Parse the response
+	var metadata map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
+		return nil, fmt.Errorf("failed to parse metadata response: %w", err)
+	}
+
+	return metadata, nil
 }
 
 func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {

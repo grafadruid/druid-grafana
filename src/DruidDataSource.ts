@@ -31,4 +31,10 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       return response as MetricFindValue[];
     });
   }
+
+  async getDatasourceMetadata(datasourceName: string): Promise<any> {
+    return this.getResource('datasource-metadata', { datasource: datasourceName }).then((response) => {
+      return response as any;
+    });
+  }
 }
