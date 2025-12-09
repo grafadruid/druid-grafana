@@ -43,15 +43,15 @@ const fetchDimensionNames = async (
   try {
     // Use Druid metadata API to get dimensions
     const metadata = await datasource.getDatasourceMetadata(tableName);
-    
+
     if (!metadata || !metadata.dimensions) {
       console.debug('No dimensions found in metadata or metadata not available');
       return [];
     }
 
     // Extract dimension names from metadata
-    const dimensions = Array.isArray(metadata.dimensions) 
-      ? metadata.dimensions 
+    const dimensions = Array.isArray(metadata.dimensions)
+      ? metadata.dimensions
       : [];
 
     // Filter by input value (substring match) and sort
@@ -84,15 +84,15 @@ const fetchMetrics = async (
   try {
     // Use Druid metadata API to get metrics
     const metadata = await datasource.getDatasourceMetadata(tableName);
-    
+
     if (!metadata || !metadata.metrics) {
       console.debug('No metrics found in metadata or metadata not available');
       return [];
     }
 
     // Extract metric names from metadata
-    const metrics = Array.isArray(metadata.metrics) 
-      ? metadata.metrics 
+    const metrics = Array.isArray(metadata.metrics)
+      ? metadata.metrics
       : [];
 
     // Filter by input value (substring match) and sort
@@ -120,7 +120,7 @@ const fetchTableNames = async (
   try {
     // Use Druid metadata API to get all datasource names
     const datasources = await datasource.listDatasources();
-    
+
     if (!datasources || !Array.isArray(datasources)) {
       console.debug('No datasources found or invalid response');
       return [];
@@ -160,14 +160,33 @@ const fetchDimensionValues = async (
     // dimension names and metrics, not dimension values. To get actual dimension values,
     // we need to query the data using SQL. This is the standard approach for fetching
     // distinct values from a column.
-    // Use SQL query to get dimension values
+    // Use SQL query to get dimension values with server-side filtering
     // Escape the dimension name to prevent SQL injection
     const escapedTableName = tableName.replace(/"/g, '""');
     const escapedDimensionName = dimensionName.replace(/"/g, '""');
 
-    // Use the simplest possible query - just select the column
-    // We'll handle DISTINCT, filtering, and limiting in JavaScript
-    const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" FROM "${escapedTableName}" WHERE "${escapedDimensionName}" IS NOT NULL LIMIT 100`;
+    // Build WHERE clause with filtering
+    let whereClause = `"${escapedDimensionName}" IS NOT NULL`;
+
+    // If there's an input value, add LIKE filter for substring matching
+    // Escape SQL LIKE special characters: %, _, and \
+    if (inputValue && inputValue.trim() !== '') {
+      // Escape special characters for LIKE: % -> \% , _ -> \_ , \ -> \\
+      // Also escape single quotes to prevent SQL injection
+      const escapedInput = inputValue
+        .replace(/\\/g, '\\\\')  // Escape backslashes first
+        .replace(/'/g, "''")     // Escape single quotes (SQL standard)
+        .replace(/%/g, '\\%')    // Escape %
+        .replace(/_/g, '\\_');   // Escape _
+
+      // Use LOWER() for case-insensitive matching and LIKE for substring search
+      whereClause += ` AND LOWER("${escapedDimensionName}") LIKE LOWER('%${escapedInput}%')`;
+    }
+
+    // Build SQL query with filtering, ordering, and appropriate limit
+    // Use a higher limit when filtering (50) vs when showing all (20)
+    const limit = inputValue && inputValue.trim() !== '' ? 50 : 20;
+    const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" FROM "${escapedTableName}" WHERE ${whereClause} ORDER BY "${escapedDimensionName}" LIMIT ${limit}`;
 
     const sqlQuery = {
       builder: {
@@ -180,7 +199,7 @@ const fetchDimensionValues = async (
     const response = await datasource.postResource('query-variable', sqlQuery);
 
     // The response from query-variable returns MetricFindValue format
-    // Extract unique values from SQL results and filter by substring match
+    // Extract unique values from SQL results
     const values = new Set<string>();
 
     if (Array.isArray(response) && response.length > 0) {
@@ -189,25 +208,21 @@ const fetchDimensionValues = async (
         const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
         if (value !== null && value !== undefined) {
           const strValue = String(value);
-          // If no input value, show all results. Otherwise filter by substring match
           if (strValue.trim() !== '') {
-            if (!inputValue || inputValue.trim() === '' || strValue.toLowerCase().includes(inputValue.toLowerCase())) {
-              values.add(strValue);
-            }
+            values.add(strValue);
           }
         }
       });
     }
 
-    // Return filtered results
+    // Return results (already filtered and sorted by SQL)
     if (values.size > 0) {
       return Array.from(values)
         .map((val) => ({
           value: val,
           label: val,
         }))
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .slice(0, 10); // Limit to 10 results
+        .slice(0, 10); // Limit to 10 results for display
     }
 
     return [];
