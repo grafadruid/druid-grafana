@@ -37,4 +37,10 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       return response as any;
     });
   }
+
+  async listDatasources(): Promise<string[]> {
+    return this.getResource('datasources', {}).then((response) => {
+      return response as string[];
+    });
+  }
 }

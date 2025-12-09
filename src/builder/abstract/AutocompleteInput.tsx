@@ -6,7 +6,7 @@ import { onBuilderChange } from '.';
 import { DruidDataSource } from '../../DruidDataSource';
 
 interface Props extends QueryBuilderFieldProps {
-  type: 'dimension' | 'dimensionValue' | 'metric';
+  type: 'dimension' | 'dimensionValue' | 'metric' | 'table';
   datasource?: DruidDataSource;
   debounceTime?: number;
   dimensionName?: string | null;
@@ -113,6 +113,37 @@ const fetchMetrics = async (
   }
 };
 
+const fetchTableNames = async (
+  datasource: DruidDataSource,
+  inputValue: string
+): Promise<SelectableValue[]> => {
+  try {
+    // Use Druid metadata API to get all datasource names
+    const datasources = await datasource.listDatasources();
+    
+    if (!datasources || !Array.isArray(datasources)) {
+      console.debug('No datasources found or invalid response');
+      return [];
+    }
+
+    // Filter by input value (substring match) and sort
+    const filtered = datasources
+      .filter((name: string) => typeof name === 'string' && name.trim() !== '')
+      .filter((name: string) => !inputValue || name.toLowerCase().includes(inputValue.toLowerCase()))
+      .map((name: string) => ({
+        value: name,
+        label: name,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .slice(0, 50); // Limit to 50 results (more than dimensions/metrics since there are usually fewer tables)
+
+    return filtered;
+  } catch (error) {
+    console.error('Error fetching table names from metadata API:', error);
+    return [];
+  }
+};
+
 const fetchDimensionValues = async (
   datasource: DruidDataSource,
   tableName: string | null,
@@ -125,6 +156,10 @@ const fetchDimensionValues = async (
   }
 
   try {
+    // Note: The Druid metadata API (/druid/v2/datasources/{datasourceName}) only returns
+    // dimension names and metrics, not dimension values. To get actual dimension values,
+    // we need to query the data using SQL. This is the standard approach for fetching
+    // distinct values from a column.
     // Use SQL query to get dimension values
     // Escape the dimension name to prevent SQL injection
     const escapedTableName = tableName.replace(/"/g, '""');
@@ -212,7 +247,22 @@ export const AutocompleteInput = (props: Props) => {
   }, [type, props.dimensionName]);
 
   const loadOptions = async (inputValue: string): Promise<SelectableValue[]> => {
-    if (!datasource || !tableName) {
+    if (!datasource) {
+      return [];
+    }
+
+    // For table names, we don't need a table name
+    if (type === 'table') {
+      setIsLoading(true);
+      try {
+        return await fetchTableNames(datasource, inputValue || '');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // For other types, we need a table name
+    if (!tableName) {
       return [];
     }
 
@@ -260,7 +310,11 @@ export const AutocompleteInput = (props: Props) => {
         isLoading={isLoading}
         cacheOptions={true}
         noOptionsMessage={
-          !datasource || !tableName
+          !datasource
+            ? 'Datasource not available'
+            : type === 'table'
+            ? 'No tables found'
+            : !tableName
             ? 'Please select a table first'
             : type === 'dimensionValue' && !dimensionName
             ? 'Please select a dimension first'

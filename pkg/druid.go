@@ -252,6 +252,19 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 		default:
 			body = "Method not supported"
 		}
+	case "datasources":
+		switch req.Method {
+		case "GET":
+			body, err = ds.ListDatasources(ctx)
+			if err == nil {
+				code = 200
+			} else {
+				code = 500
+				body = map[string]string{"error": err.Error()}
+			}
+		default:
+			body = "Method not supported"
+		}
 	default:
 		body = "Path not supported"
 	}
@@ -315,6 +328,46 @@ func (ds *druidDatasource) GetDatasourceMetadata(ctx context.Context, req *backe
 	}
 
 	return metadata, nil
+}
+
+func (ds *druidDatasource) ListDatasources(ctx context.Context) ([]string, error) {
+	// Construct the URL for the Druid metadata API to list all datasources
+	url := strings.TrimSuffix(ds.settings.druidURL, "/") + "/druid/v2/datasources"
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Create HTTP client with authentication if configured
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Add basic auth if configured
+	if ds.settings.hasBasicAuth {
+		httpReq.SetBasicAuth(ds.settings.basicAuthUser, ds.settings.basicAuthPassword)
+	}
+
+	// Make the request
+	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch datasources list: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Druid API returned status %d", resp.StatusCode)
+	}
+
+	// Parse the response - /druid/v2/datasources returns a JSON array of datasource names
+	var datasources []string
+	if err := json.NewDecoder(resp.Body).Decode(&datasources); err != nil {
+		return nil, fmt.Errorf("failed to parse datasources response: %w", err)
+	}
+
+	return datasources, nil
 }
 
 func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
