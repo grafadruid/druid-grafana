@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -267,7 +268,12 @@ type grafanaMetricFindValue struct {
 
 func (ds *druidDatasource) GetDatasourceMetadata(ctx context.Context, req *backend.CallResourceRequest) (map[string]any, error) {
 	// Parse datasource name from query parameters
-	datasourceName := req.URL.Query().Get("datasource")
+	// req.URL is a string, so we need to parse it first
+	parsedURL, err := url.Parse(req.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse request URL: %w", err)
+	}
+	datasourceName := parsedURL.Query().Get("datasource")
 	if datasourceName == "" {
 		return nil, fmt.Errorf("datasource parameter is required")
 	}
