@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import { QueryEditorProps, getTimeZone } from '@grafana/data';
 import { css, cx } from '@emotion/css';
 import { DruidDataSource } from './DruidDataSource';
 import { DruidSettings, DruidQuery } from './types';
@@ -107,12 +107,28 @@ const isQueryComplete = (builder: any): boolean => {
 
 export const QueryEditor = (props: Props) => {
   const { builder, settings } = props.query;
-  const builderOptions = { builder: builder || {}, settings: settings || {} };
+  
+  // Get timezone from Grafana dashboard/user settings
+  const timezone = useMemo(() => {
+    return getTimeZone(props.data);
+  }, [props.data]);
+  
+  // Automatically add timezone to settings if not already set
+  const settingsWithTimezone = useMemo(() => {
+    const mergedSettings = { ...settings };
+    // Only add timezone if it's not already set and we have a valid timezone
+    if (!mergedSettings.timezone && timezone && timezone !== 'browser') {
+      mergedSettings.timezone = timezone;
+    }
+    return mergedSettings;
+  }, [settings, timezone]);
+  
+  const builderOptions = { builder: builder || {}, settings: settingsWithTimezone || {} };
   const datasourceQuerySettings = normalizeData(props.datasource.settingsData, false, 'query');
   /*TODO merging settings that way is not good: things like query context won't get merged
   the query settings context will replace the datasource query settings context instead of merging
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
-  const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
+  const settingsOptions = { settings: {...datasourceQuerySettings, ...settingsWithTimezone} };
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -127,9 +143,14 @@ export const QueryEditor = (props: Props) => {
         intervals: ['${__from:date:iso}/${__to:date:iso}'],
       };
     }
+    // Ensure timezone is included in settings
+    const settingsWithTz = {
+      ...queryBuilderOptions.settings,
+      timezone: queryBuilderOptions.settings?.timezone || (timezone && timezone !== 'browser' ? timezone : undefined),
+    };
     //workaround: https://github.com/grafana/grafana/issues/30013
-    const expr = JSON.stringify(queryBuilderOptions);
-    onChange({ ...query, ...queryBuilderOptions, expr: expr });
+    const expr = JSON.stringify({ ...queryBuilderOptions, settings: settingsWithTz });
+    onChange({ ...query, ...queryBuilderOptions, settings: settingsWithTz, expr: expr });
     
     // Only run query if it's complete enough to execute
     if (isQueryComplete(queryBuilderOptions.builder)) {
@@ -138,9 +159,14 @@ export const QueryEditor = (props: Props) => {
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
+    // Ensure timezone is included in settings if not explicitly set
+    const settingsWithTz = {
+      ...querySettingsOptions.settings,
+      timezone: querySettingsOptions.settings?.timezone || (timezone && timezone !== 'browser' ? timezone : undefined),
+    };
     //workaround: https://github.com/grafana/grafana/issues/30013
-    const expr = JSON.stringify({ builder: query.builder, ...querySettingsOptions });
-    onChange({ ...query, ...querySettingsOptions, expr: expr });
+    const expr = JSON.stringify({ builder: query.builder, settings: settingsWithTz });
+    onChange({ ...query, settings: settingsWithTz, expr: expr });
     
     // Only run query if it's complete enough to execute
     if (isQueryComplete(query.builder)) {

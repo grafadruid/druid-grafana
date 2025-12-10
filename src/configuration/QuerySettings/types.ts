@@ -12,6 +12,7 @@ export interface QuerySettings {
   logColumnLevel?: string;
   logColumnMessage?: string;
   debounceTime?: number;
+  timezone?: string;
 }
 export interface QuerySettingsOptions {
   settings: QuerySettings;

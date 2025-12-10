@@ -379,7 +379,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
-	q, stg, err := ds.prepareQuery(qry, s)
+	q, stg, err := ds.prepareQuery(qry, s, nil)
 	if err != nil {
 		return response, err
 	}
@@ -489,7 +489,7 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
-	q, stg, err := ds.prepareQuery([]byte(rawQuery), s)
+	q, stg, err := ds.prepareQuery([]byte(rawQuery), s, &qry)
 	if err != nil {
 		response.Error = err
 		return response
@@ -574,7 +574,53 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
-func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]any, error) {
+// convertSimpleGranularityToPeriod converts simple granularity strings to period granularity with timezone
+func convertSimpleGranularityToPeriod(granularity interface{}, timezone string) interface{} {
+	// If granularity is already an object, return as-is
+	if granularityMap, ok := granularity.(map[string]interface{}); ok {
+		return granularityMap
+	}
+
+	// If granularity is a string, convert it to period granularity
+	if granularityStr, ok := granularity.(string); ok {
+		// Map simple granularity strings to ISO8601 periods
+		periodMap := map[string]string{
+			"second":         "PT1S",
+			"minute":         "PT1M",
+			"fifteen_minute": "PT15M",
+			"thirty_minute":  "PT30M",
+			"hour":           "PT1H",
+			"day":            "P1D",
+			"week":           "P1W",
+			"month":          "P1M",
+			"quarter":        "P3M",
+			"year":           "P1Y",
+		}
+
+		// If it's "all" or "none", return as string (Druid handles these specially)
+		if granularityStr == "all" || granularityStr == "none" {
+			return granularityStr
+		}
+
+		// Convert to period granularity
+		if period, exists := periodMap[granularityStr]; exists {
+			periodGranularity := map[string]interface{}{
+				"type": "period",
+				"period": period,
+			}
+			// Only add timezone if it's provided and not empty
+			if timezone != "" {
+				periodGranularity["timeZone"] = timezone
+			}
+			return periodGranularity
+		}
+	}
+
+	// Return as-is if we can't convert it
+	return granularity
+}
+
+func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, dataQuery *backend.DataQuery) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
 	if err != nil {
@@ -585,6 +631,27 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 		// Grafana seems to invoke this even before the user has entered any query
 		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
 		return nil, nil, nil
+	}
+
+	// Get timezone from query settings or use default
+	timezone := ""
+	if timezoneSetting, ok := q.Settings["timezone"]; ok {
+		if tzStr, ok := timezoneSetting.(string); ok && tzStr != "" {
+			timezone = tzStr
+		}
+	}
+	// If no timezone in query settings, try to get from default query settings
+	if timezone == "" {
+		if defaultTimezone, ok := s.defaultQuerySettings["timezone"]; ok {
+			if tzStr, ok := defaultTimezone.(string); ok && tzStr != "" {
+				timezone = tzStr
+			}
+		}
+	}
+
+	// Convert simple granularity to period granularity with timezone if needed
+	if granularity, exists := q.Builder["granularity"]; exists {
+		q.Builder["granularity"] = convertSimpleGranularityToPeriod(granularity, timezone)
 	}
 
 	var defaultQueryContext map[string]any
