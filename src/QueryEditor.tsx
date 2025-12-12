@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
-import { QueryEditorProps, getTimeZone } from '@grafana/data';
+import { QueryEditorProps } from '@grafana/data';
 import { css, cx } from '@emotion/css';
 import { DruidDataSource } from './DruidDataSource';
 import { DruidSettings, DruidQuery } from './types';
@@ -107,66 +107,12 @@ const isQueryComplete = (builder: any): boolean => {
 
 export const QueryEditor = (props: Props) => {
   const { builder, settings } = props.query;
-  
-  // Get timezone from Grafana dashboard/user settings
-  const timezone = useMemo(() => {
-    return getTimeZone(props.data);
-  }, [props.data]);
-  
-  // Automatically add timezone to settings if not already set
-  const settingsWithTimezone = useMemo(() => {
-    const mergedSettings = { ...settings };
-    // Only add timezone if it's not already set and we have a valid timezone
-    if (!mergedSettings.timezone && timezone && timezone !== 'browser') {
-      mergedSettings.timezone = timezone;
-    }
-    return mergedSettings;
-  }, [settings, timezone]);
-  
-  const builderOptions = { builder: builder || {}, settings: settingsWithTimezone || {} };
+  const builderOptions = { builder: builder || {}, settings: settings || {} };
   const datasourceQuerySettings = normalizeData(props.datasource.settingsData, false, 'query');
   /*TODO merging settings that way is not good: things like query context won't get merged
   the query settings context will replace the datasource query settings context instead of merging
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
-  const settingsOptions = { settings: {...datasourceQuerySettings, ...settingsWithTimezone} };
-  // Convert simple granularity to period granularity with timezone if needed (only for backend)
-  const convertSimpleGranularityForBackend = (builder: any, tz: string | undefined): any => {
-    if (!builder || !builder.granularity || typeof builder.granularity !== 'string') {
-      return builder;
-    }
-    
-    const granularityStr = builder.granularity;
-    const periodMap: Record<string, string> = {
-      second: 'PT1S',
-      minute: 'PT1M',
-      fifteen_minute: 'PT15M',
-      thirty_minute: 'PT30M',
-      hour: 'PT1H',
-      day: 'P1D',
-      week: 'P1W',
-      month: 'P1M',
-      quarter: 'P3M',
-      year: 'P1Y',
-    };
-    
-    // If it's "all" or "none", keep as string
-    if (granularityStr === 'all' || granularityStr === 'none') {
-      return builder;
-    }
-    
-    // Convert to period granularity if we have a timezone and it's a timezone-aware granularity
-    if (tz && tz !== 'browser' && periodMap[granularityStr]) {
-      const periodGranularity: any = {
-        type: 'period',
-        period: periodMap[granularityStr],
-        timeZone: tz,
-      };
-      return { ...builder, granularity: periodGranularity };
-    }
-    
-    return builder;
-  };
-
+  const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -181,49 +127,22 @@ export const QueryEditor = (props: Props) => {
         intervals: ['${__from:date:iso}/${__to:date:iso}'],
       };
     }
-    
-    // Ensure timezone is included in settings
-    const settingsWithTz = {
-      ...queryBuilderOptions.settings,
-      timezone: queryBuilderOptions.settings?.timezone || (timezone && timezone !== 'browser' ? timezone : undefined),
-    };
-    
-    // Convert granularity only for the backend (in expr), keep UI state unchanged
-    const builderForBackend = convertSimpleGranularityForBackend(
-      queryBuilderOptions.builder,
-      timezone && timezone !== 'browser' ? timezone : undefined
-    );
-    
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Use converted builder only in expr (for backend), but keep original in query state (for UI)
-    const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend, settings: settingsWithTz });
-    onChange({ ...query, ...queryBuilderOptions, settings: settingsWithTz, expr: expr });
+    const expr = JSON.stringify(queryBuilderOptions);
+    onChange({ ...query, ...queryBuilderOptions, expr: expr });
     
-    // Only run query if it's complete enough to execute (use original builder for validation)
+    // Only run query if it's complete enough to execute
     if (isQueryComplete(queryBuilderOptions.builder)) {
       onRunQuery();
     }
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
-    // Ensure timezone is included in settings if not explicitly set
-    const settingsWithTz = {
-      ...querySettingsOptions.settings,
-      timezone: querySettingsOptions.settings?.timezone || (timezone && timezone !== 'browser' ? timezone : undefined),
-    };
-    
-    // Convert granularity only for the backend (in expr), keep UI state unchanged
-    const builderForBackend = convertSimpleGranularityForBackend(
-      query.builder,
-      timezone && timezone !== 'browser' ? timezone : undefined
-    );
-    
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Use converted builder only in expr (for backend), but keep original in query state (for UI)
-    const expr = JSON.stringify({ builder: builderForBackend, settings: settingsWithTz });
-    onChange({ ...query, settings: settingsWithTz, expr: expr });
+    const expr = JSON.stringify({ builder: query.builder, ...querySettingsOptions });
+    onChange({ ...query, ...querySettingsOptions, expr: expr });
     
-    // Only run query if it's complete enough to execute (use original builder for validation)
+    // Only run query if it's complete enough to execute
     if (isQueryComplete(query.builder)) {
       onRunQuery();
     }

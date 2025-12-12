@@ -379,7 +379,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
-	q, stg, err := ds.prepareQuery(qry, s, nil)
+	q, stg, err := ds.prepareQuery(qry, s)
 	if err != nil {
 		return response, err
 	}
@@ -489,7 +489,7 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
-	q, stg, err := ds.prepareQuery([]byte(rawQuery), s, &qry)
+	q, stg, err := ds.prepareQuery([]byte(rawQuery), s)
 	if err != nil {
 		response.Error = err
 		return response
@@ -574,7 +574,7 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
-func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, dataQuery *backend.DataQuery) (druidquerybuilder.Query, map[string]any, error) {
+func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
 	if err != nil {
@@ -586,23 +586,6 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, da
 		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
 		return nil, nil, nil
 	}
-
-	// Get timezone from query settings or use default
-	timezone := ""
-	if timezoneSetting, ok := q.Settings["timezone"]; ok {
-		if tzStr, ok := timezoneSetting.(string); ok && tzStr != "" {
-			timezone = tzStr
-		}
-	}
-	// If no timezone in query settings, try to get from default query settings
-	if timezone == "" {
-		if defaultTimezone, ok := s.defaultQuerySettings["timezone"]; ok {
-			if tzStr, ok := defaultTimezone.(string); ok && tzStr != "" {
-				timezone = tzStr
-			}
-		}
-	}
-
 
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
@@ -619,10 +602,6 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, da
 		return nil, nil, err
 	}
 	query, err := s.client.Query().Load(jsonQuery)
-	if err != nil {
-		return nil, nil, err
-	}
-	
 	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
 	return query, mergeSettings(s.defaultQuerySettings, q.Settings), err
 }
