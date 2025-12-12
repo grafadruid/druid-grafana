@@ -574,52 +574,6 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
-// convertSimpleGranularityToPeriod converts simple granularity strings to period granularity with timezone
-func convertSimpleGranularityToPeriod(granularity interface{}, timezone string) interface{} {
-	// If granularity is already an object, return as-is
-	if granularityMap, ok := granularity.(map[string]interface{}); ok {
-		return granularityMap
-	}
-
-	// If granularity is a string, convert it to period granularity
-	if granularityStr, ok := granularity.(string); ok {
-		// Map simple granularity strings to ISO8601 periods
-		periodMap := map[string]string{
-			"second":         "PT1S",
-			"minute":         "PT1M",
-			"fifteen_minute": "PT15M",
-			"thirty_minute":  "PT30M",
-			"hour":           "PT1H",
-			"day":            "P1D",
-			"week":           "P1W",
-			"month":          "P1M",
-			"quarter":        "P3M",
-			"year":           "P1Y",
-		}
-
-		// If it's "all" or "none", return as string (Druid handles these specially)
-		if granularityStr == "all" || granularityStr == "none" {
-			return granularityStr
-		}
-
-		// Convert to period granularity
-		if period, exists := periodMap[granularityStr]; exists {
-			periodGranularity := map[string]interface{}{
-				"type": "period",
-				"period": period,
-			}
-			// Only add timezone if it's provided and not empty
-			if timezone != "" {
-				periodGranularity["timeZone"] = timezone
-			}
-			return periodGranularity
-		}
-	}
-
-	// Return as-is if we can't convert it
-	return granularity
-}
-
 func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, dataQuery *backend.DataQuery) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
@@ -649,10 +603,6 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, da
 		}
 	}
 
-	// Convert simple granularity to period granularity with timezone if needed
-	if granularity, exists := q.Builder["granularity"]; exists {
-		q.Builder["granularity"] = convertSimpleGranularityToPeriod(granularity, timezone)
-	}
 
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
@@ -669,6 +619,10 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, da
 		return nil, nil, err
 	}
 	query, err := s.client.Query().Load(jsonQuery)
+	if err != nil {
+		return nil, nil, err
+	}
+	
 	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
 	return query, mergeSettings(s.defaultQuerySettings, q.Settings), err
 }

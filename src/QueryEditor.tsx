@@ -129,6 +129,44 @@ export const QueryEditor = (props: Props) => {
   the query settings context will replace the datasource query settings context instead of merging
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
   const settingsOptions = { settings: {...datasourceQuerySettings, ...settingsWithTimezone} };
+  // Convert simple granularity to period granularity with timezone if needed
+  const convertSimpleGranularityIfNeeded = (builder: any, tz: string | undefined): any => {
+    if (!builder || !builder.granularity || typeof builder.granularity !== 'string') {
+      return builder;
+    }
+    
+    const granularityStr = builder.granularity;
+    const periodMap: Record<string, string> = {
+      second: 'PT1S',
+      minute: 'PT1M',
+      fifteen_minute: 'PT15M',
+      thirty_minute: 'PT30M',
+      hour: 'PT1H',
+      day: 'P1D',
+      week: 'P1W',
+      month: 'P1M',
+      quarter: 'P3M',
+      year: 'P1Y',
+    };
+    
+    // If it's "all" or "none", keep as string
+    if (granularityStr === 'all' || granularityStr === 'none') {
+      return builder;
+    }
+    
+    // Convert to period granularity if we have a timezone and it's a timezone-aware granularity
+    if (tz && tz !== 'browser' && periodMap[granularityStr]) {
+      const periodGranularity: any = {
+        type: 'period',
+        period: periodMap[granularityStr],
+        timeZone: tz,
+      };
+      return { ...builder, granularity: periodGranularity };
+    }
+    
+    return builder;
+  };
+
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -143,17 +181,24 @@ export const QueryEditor = (props: Props) => {
         intervals: ['${__from:date:iso}/${__to:date:iso}'],
       };
     }
+    
+    // Convert simple granularity to period granularity with timezone if needed
+    const builderWithConvertedGranularity = convertSimpleGranularityIfNeeded(
+      queryBuilderOptions.builder,
+      timezone && timezone !== 'browser' ? timezone : undefined
+    );
+    
     // Ensure timezone is included in settings
     const settingsWithTz = {
       ...queryBuilderOptions.settings,
       timezone: queryBuilderOptions.settings?.timezone || (timezone && timezone !== 'browser' ? timezone : undefined),
     };
     //workaround: https://github.com/grafana/grafana/issues/30013
-    const expr = JSON.stringify({ ...queryBuilderOptions, settings: settingsWithTz });
-    onChange({ ...query, ...queryBuilderOptions, settings: settingsWithTz, expr: expr });
+    const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderWithConvertedGranularity, settings: settingsWithTz });
+    onChange({ ...query, ...queryBuilderOptions, builder: builderWithConvertedGranularity, settings: settingsWithTz, expr: expr });
     
     // Only run query if it's complete enough to execute
-    if (isQueryComplete(queryBuilderOptions.builder)) {
+    if (isQueryComplete(builderWithConvertedGranularity)) {
       onRunQuery();
     }
   };
