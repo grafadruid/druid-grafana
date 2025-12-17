@@ -159,13 +159,13 @@ const fetchDimensionValues = async (
     // Use Druid TopN query to get dimension values with server-side filtering
     // This approach uses native Druid queries instead of SQL, which can be more efficient
     // and doesn't require SQL to be enabled on the Druid cluster
-    
+
     // Build the TopN query structure
     const topNQuery: any = {
       queryType: 'topN',
       dataSource: tableName,
       granularity: 'all',
-      threshold: 10,
+      threshold: 100,
       dimension: dimensionName,
       metric: 'count',
       aggregations: [
@@ -176,6 +176,7 @@ const fetchDimensionValues = async (
       ],
       intervals: ['${__from:date:iso}/${__to:date:iso}'],
     };
+    console.log('topNQuery', topNQuery);
 
     // Add search filter if there's an input value for filtering
     if (inputValue && inputValue.trim() !== '') {
@@ -227,6 +228,7 @@ const fetchDimensionValues = async (
   } catch (error) {
     console.error('Error fetching dimension values:', error);
     console.error('Query details:', { tableName, dimensionName, inputValue });
+    console.log('topNQuery error', topNQuery);
     return [];
   }
 };
