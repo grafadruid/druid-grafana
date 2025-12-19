@@ -176,7 +176,7 @@ const fetchDimensionValues = async (
       ],
       intervals: ['${__from:date:iso}/${__to:date:iso}'],
     };
-    console.log('topNQuery', topNQuery);
+    console.error('topNQuery', topNQuery);
 
     // Add search filter if there's an input value for filtering
     if (inputValue && inputValue.trim() !== '') {
