@@ -228,7 +228,7 @@ const fetchDimensionValues = async (
   } catch (error) {
     console.error('Error fetching dimension values:', error);
     console.error('Query details:', { tableName, dimensionName, inputValue });
-    console.log('topNQuery error', topNQuery);
+    console.error('topNQuery error', topNQuery);
     return [];
   }
 };
