@@ -187,7 +187,7 @@ const fetchDimensionValues = async (
     // Use a higher limit when filtering (100) vs when showing all (20)
     const limit = inputValue && inputValue.trim() !== '' ? 100 : 20;
     const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" FROM "${escapedTableName}" WHERE ${whereClause} ORDER BY "${escapedDimensionName}" LIMIT ${limit}`;
-
+    console.debug('debug SQL Query for dimension values:', { escapedTableName, escapedDimensionName, sqlQueryStr });
     const sqlQuery = {
       builder: {
         queryType: 'sql',
@@ -229,6 +229,7 @@ const fetchDimensionValues = async (
   } catch (error) {
     console.error('Error fetching dimension values:', error);
     console.error('Query details:', { tableName, dimensionName, inputValue });
+    console.debug('SQL Query for dimension values:', { escapedTableName, escapedDimensionName, sqlQueryStr });
     return [];
   }
 };
