@@ -12,6 +12,99 @@ import { QueryBuilderOptions } from './builder/types';
 
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
+/**
+ * Validates if a query is complete enough to be executed.
+ * Returns true if the query has all required fields, false otherwise.
+ */
+const isQueryComplete = (builder: any): boolean => {
+  if (!builder || typeof builder !== 'object') {
+    return false;
+  }
+
+  const queryType = builder.queryType;
+  if (!queryType || typeof queryType !== 'string') {
+    return false;
+  }
+
+  // Check if dataSource exists and is valid
+  const dataSource = builder.dataSource;
+  if (!dataSource) {
+    return false;
+  }
+
+  // dataSource can be a string or an object with a name property
+  const tableName = typeof dataSource === 'string' 
+    ? dataSource 
+    : (dataSource.name || (dataSource.type === 'table' ? dataSource.name : null));
+  
+  if (!tableName || typeof tableName !== 'string' || tableName.trim() === '') {
+    return false;
+  }
+
+  // Query type-specific validation
+  switch (queryType) {
+    case 'timeseries':
+      // Timeseries requires at least one aggregation
+      const aggregations = builder.aggregations;
+      if (!aggregations || !Array.isArray(aggregations) || aggregations.length === 0) {
+        return false;
+      }
+      // Check that aggregations have at least one valid entry
+      const validAggregations = aggregations.filter(
+        (agg: any) => agg && typeof agg === 'object' && agg.type && agg.name
+      );
+      if (validAggregations.length === 0) {
+        return false;
+      }
+      return true;
+
+    case 'groupBy':
+      // GroupBy requires at least one dimension and one aggregation
+      const dimensions = builder.dimensions;
+      const groupByAggregations = builder.aggregations;
+      if (!dimensions || !Array.isArray(dimensions) || dimensions.length === 0) {
+        return false;
+      }
+      if (!groupByAggregations || !Array.isArray(groupByAggregations) || groupByAggregations.length === 0) {
+        return false;
+      }
+      return true;
+
+    case 'topN':
+      // TopN requires dimension, metric, threshold, and aggregations
+      if (!builder.dimension || !builder.metric || builder.threshold === undefined) {
+        return false;
+      }
+      const topNAggregations = builder.aggregations;
+      if (!topNAggregations || !Array.isArray(topNAggregations) || topNAggregations.length === 0) {
+        return false;
+      }
+      return true;
+
+    case 'scan':
+      // Scan queries are simpler - just need dataSource
+      return true;
+
+    case 'search':
+      // Search requires query and searchDimensions
+      if (!builder.query || !builder.searchDimensions) {
+        return false;
+      }
+      return true;
+
+    case 'sql':
+      // SQL queries need the query string
+      if (!builder.query || typeof builder.query !== 'string') {
+        return false;
+      }
+      return true;
+
+    default:
+      // For unknown query types, be permissive but still require dataSource
+      return true;
+  }
+};
+
 export const QueryEditor = (props: Props) => {
   const { builder, settings } = props.query;
   const builderOptions = { builder: builder || {}, settings: settings || {} };
@@ -37,14 +130,22 @@ export const QueryEditor = (props: Props) => {
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify(queryBuilderOptions);
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
-    onRunQuery();
+    
+    // Only run query if it's complete enough to execute
+    if (isQueryComplete(queryBuilderOptions.builder)) {
+      onRunQuery();
+    }
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify({ builder: query.builder, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
-    onRunQuery();
+    
+    // Only run query if it's complete enough to execute
+    if (isQueryComplete(query.builder)) {
+      onRunQuery();
+    }
   };
   const [showDrawer, setShowDrawer] = useState(false);
   return (
