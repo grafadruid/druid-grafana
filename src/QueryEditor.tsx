@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import { QueryEditorProps, getTimeZone } from '@grafana/data';
 import { css, cx } from '@emotion/css';
 import { DruidDataSource } from './DruidDataSource';
 import { DruidSettings, DruidQuery } from './types';
@@ -107,12 +107,46 @@ const isQueryComplete = (builder: any): boolean => {
 
 export const QueryEditor = (props: Props) => {
   const { builder, settings } = props.query;
+  
+  // Get timezone from Grafana dashboard
+  const timezone = useMemo(() => {
+    return getTimeZone(props.data);
+  }, [props.data]);
+  
   const builderOptions = { builder: builder || {}, settings: settings || {} };
   const datasourceQuerySettings = normalizeData(props.datasource.settingsData, false, 'query');
   /*TODO merging settings that way is not good: things like query context won't get merged
   the query settings context will replace the datasource query settings context instead of merging
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
   const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
+  
+  // Convert simple granularity (day/week/month) to period granularity with timezone for backend
+  const convertGranularityForBackend = (builder: any, tz: string | undefined): any => {
+    if (!builder || !builder.granularity || typeof builder.granularity !== 'string') {
+      return builder;
+    }
+    
+    const granularityStr = builder.granularity;
+    // Only convert day, week, and month granularities
+    const periodMap: Record<string, string> = {
+      day: 'P1D',
+      week: 'P1W',
+      month: 'P1M',
+    };
+    
+    // Convert to period granularity if we have a timezone and it's day/week/month
+    if (tz && tz !== 'browser' && periodMap[granularityStr]) {
+      const periodGranularity: any = {
+        type: 'period',
+        period: periodMap[granularityStr],
+        timeZone: tz,
+      };
+      return { ...builder, granularity: periodGranularity };
+    }
+    
+    return builder;
+  };
+  
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -127,22 +161,38 @@ export const QueryEditor = (props: Props) => {
         intervals: ['${__from:date:iso}/${__to:date:iso}'],
       };
     }
+    
+    // Convert granularity only for backend (in expr), keep UI state unchanged
+    const builderForBackend = convertGranularityForBackend(
+      queryBuilderOptions.builder,
+      timezone && timezone !== 'browser' ? timezone : undefined
+    );
+    
     //workaround: https://github.com/grafana/grafana/issues/30013
-    const expr = JSON.stringify(queryBuilderOptions);
+    // Use converted builder only in expr (for backend), but keep original in query state (for UI)
+    const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
     
-    // Only run query if it's complete enough to execute
+    // Only run query if it's complete enough to execute (use original builder for validation)
     if (isQueryComplete(queryBuilderOptions.builder)) {
       onRunQuery();
     }
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
+    
+    // Convert granularity only for backend (in expr), keep UI state unchanged
+    const builderForBackend = convertGranularityForBackend(
+      query.builder,
+      timezone && timezone !== 'browser' ? timezone : undefined
+    );
+    
     //workaround: https://github.com/grafana/grafana/issues/30013
-    const expr = JSON.stringify({ builder: query.builder, ...querySettingsOptions });
+    // Use converted builder only in expr (for backend), but keep original in query state (for UI)
+    const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
     
-    // Only run query if it's complete enough to execute
+    // Only run query if it's complete enough to execute (use original builder for validation)
     if (isQueryComplete(query.builder)) {
       onRunQuery();
     }
