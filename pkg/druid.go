@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -384,8 +385,12 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	if err != nil {
 		return response, err
 	}
+	if q == nil {
+		// prepareQuery returned nil (invalid query), return empty response
+		return response, nil
+	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_query", q)
-	r, err := ds.executeQuery("variable", q, s, stg)
+	r, err := ds.executeQuery(context.Background(), "variable", q, s, stg)
 	if err != nil {
 		return response, err
 	}
@@ -495,8 +500,12 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		response.Error = err
 		return response
 	}
+	if q == nil {
+		// prepareQuery returned nil (invalid query), return empty response
+		return response
+	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_query", q)
-	r, err := ds.executeQuery(qry.RefID, q, s, stg)
+	r, err := ds.executeQuery(context.Background(), qry.RefID, q, s, stg)
 	if err != nil {
 		response.Error = err
 		return response
@@ -668,7 +677,7 @@ func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any 
 	return ctx
 }
 
-func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
+func (ds *druidDatasource) executeQuery(ctx context.Context, queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
 	// refactor: probably need to extract per-query preprocessor and postprocessor into a per-query file. load those "plugins" (ak. QueryProcessor ?) into a register and then do something like plugins[q.Type()].preprocess(q) and plugins[q.Type()].postprocess(r)
 	r := &druidResponse{Reference: queryRef}
 	
@@ -681,10 +690,13 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			return r, err
 		}
 		qtyp, _ := rawQuery["queryType"].(string)
+		if qtyp == "" {
+			qtyp = "timeseries" // default fallback
+		}
 		
 		// Send raw JSON directly to Druid
 		queryURL := s.druidURL + "/druid/v2/"
-		httpReq, err := http.NewRequest("POST", queryURL, strings.NewReader(rawJSON))
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", queryURL, strings.NewReader(rawJSON))
 		if err != nil {
 			return r, err
 		}
@@ -701,7 +713,8 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		defer resp.Body.Close()
 		
 		if resp.StatusCode != http.StatusOK {
-			return r, fmt.Errorf("Druid query failed with status %d", resp.StatusCode)
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			return r, fmt.Errorf("Druid query failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 		
 		var result json.RawMessage
