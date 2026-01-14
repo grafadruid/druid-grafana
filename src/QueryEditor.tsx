@@ -110,7 +110,9 @@ export const QueryEditor = (props: Props) => {
 
   // Get timezone from Grafana dashboard
   const timezone = useMemo(() => {
-    return getTimeZone(props.data);
+    const tz = getTimeZone(props.data);
+    console.log('Detected Grafana timezone:', tz);
+    return tz;
   }, [props.data]);
 
   const builderOptions = { builder: builder || {}, settings: settings || {} };
@@ -164,15 +166,17 @@ export const QueryEditor = (props: Props) => {
       };
     }
 
-    // Convert granularity only for backend (in expr), keep UI state unchanged
+    // Convert granularity for backend - need to convert in the builder that gets sent
     const builderForBackend = convertGranularityForBackend(
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Use converted builder only in expr (for backend), but keep original in query state (for UI)
+    // Store original builder for UI, but use converted builder in expr for backend
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
+    console.log('Query expr with converted granularity:', expr);
+    // Keep original builder in query state for UI, but expr has converted builder for backend
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
     // Only run query if it's complete enough to execute (use original builder for validation)
@@ -183,14 +187,14 @@ export const QueryEditor = (props: Props) => {
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
 
-    // Convert granularity only for backend (in expr), keep UI state unchanged
+    // Convert granularity for backend
     const builderForBackend = convertGranularityForBackend(
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Use converted builder only in expr (for backend), but keep original in query state (for UI)
+    // Use converted builder in expr for backend
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 

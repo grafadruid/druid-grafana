@@ -51,6 +51,7 @@ func variableVariants(base string) []string {
 type druidQuery struct {
 	Builder  map[string]any `json:"builder"`
 	Settings map[string]any `json:"settings"`
+	Expr     string         `json:"expr,omitempty"`
 }
 
 type druidResponse struct {
@@ -587,20 +588,70 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 		return nil, nil, nil
 	}
 
+	// If expr field exists and contains the query, use it (it may have converted granularity with timezone)
+	// Otherwise use the builder from the parsed query
+	var builderToUse map[string]any
+	if q.Expr != "" {
+		var exprQuery druidQuery
+		if err := json.Unmarshal([]byte(q.Expr), &exprQuery); err == nil && exprQuery.Builder != nil {
+			builderToUse = exprQuery.Builder
+			log.DefaultLogger.Debug("Using builder from expr field (may contain timezone-aware granularity)")
+		} else {
+			builderToUse = q.Builder
+		}
+	} else {
+		builderToUse = q.Builder
+	}
+
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
 		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]any))
 	}
-	q.Builder["context"] = defaultQueryContext
+	builderToUse["context"] = defaultQueryContext
 	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
-		q.Builder["context"] = mergeSettings(
+		builderToUse["context"] = mergeSettings(
 			defaultQueryContext,
 			ds.prepareQueryContext(queryContextParameters.([]any)))
 	}
-	jsonQuery, err := json.Marshal(q.Builder)
+	jsonQuery, err := json.Marshal(builderToUse)
 	if err != nil {
 		return nil, nil, err
 	}
+	
+	// Check if granularity is Period type with timezone (which the library can't parse)
+	// If so, we'll need to send raw JSON directly to Druid
+	hasPeriodGranularity := false
+	if granularity, ok := builderToUse["granularity"].(map[string]any); ok {
+		if gType, ok := granularity["type"].(string); ok && gType == "period" {
+			if _, hasTZ := granularity["timeZone"]; hasTZ {
+				hasPeriodGranularity = true
+				log.DefaultLogger.Debug("Detected Period granularity with timezone - will send raw JSON to Druid")
+			}
+		}
+	}
+	
+	// Store raw JSON for direct execution if needed
+	if hasPeriodGranularity {
+		// Return a placeholder query object - we'll use raw JSON in executeQuery
+		// Extract query type from builder for the placeholder
+		queryType := "timeseries" // default
+		if qt, ok := builderToUse["queryType"].(string); ok {
+			queryType = qt
+		}
+		placeholderJSON := fmt.Sprintf(`{"queryType":"%s"}`, queryType)
+		query, err := s.client.Query().Load([]byte(placeholderJSON))
+		if err != nil {
+			// If even this fails, return error
+			return nil, nil, err
+		}
+		// Store raw JSON in settings for executeQuery to use
+		if q.Settings == nil {
+			q.Settings = make(map[string]any)
+		}
+		q.Settings["_rawQueryJSON"] = string(jsonQuery)
+		return query, mergeSettings(s.defaultQuerySettings, q.Settings), nil
+	}
+	
 	query, err := s.client.Query().Load(jsonQuery)
 	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
 	return query, mergeSettings(s.defaultQuerySettings, q.Settings), err
@@ -620,6 +671,48 @@ func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any 
 func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
 	// refactor: probably need to extract per-query preprocessor and postprocessor into a per-query file. load those "plugins" (ak. QueryProcessor ?) into a register and then do something like plugins[q.Type()].preprocess(q) and plugins[q.Type()].postprocess(r)
 	r := &druidResponse{Reference: queryRef}
+	
+	// Check if we have raw JSON query (for Period granularity with timezone)
+	if rawJSON, ok := settings["_rawQueryJSON"].(string); ok && rawJSON != "" {
+		log.DefaultLogger.Debug("Executing query with raw JSON (Period granularity with timezone)")
+		// Extract query type from raw JSON
+		var rawQuery map[string]any
+		if err := json.Unmarshal([]byte(rawJSON), &rawQuery); err != nil {
+			return r, err
+		}
+		qtyp, _ := rawQuery["queryType"].(string)
+		
+		// Send raw JSON directly to Druid
+		queryURL := s.druidURL + "/druid/v2/"
+		httpReq, err := http.NewRequest("POST", queryURL, strings.NewReader(rawJSON))
+		if err != nil {
+			return r, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		if s.hasBasicAuth {
+			httpReq.SetBasicAuth(s.basicAuthUser, s.basicAuthPassword)
+		}
+		
+		httpClient := &http.Client{}
+		resp, err := httpClient.Do(httpReq)
+		if err != nil {
+			return r, err
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			return r, fmt.Errorf("Druid query failed with status %d", resp.StatusCode)
+		}
+		
+		var result json.RawMessage
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return r, err
+		}
+		// Process result the same way as normal query
+		return ds.processDruidResponse(result, r, qtyp, settings)
+	}
+	
+	// Normal execution path using library
 	qtyp := q.Type()
 	switch qtyp {
 	case "sql":
@@ -632,6 +725,10 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	if err != nil {
 		return r, err
 	}
+	return ds.processDruidResponse(result, r, qtyp, settings)
+}
+
+func (ds *druidDatasource) processDruidResponse(result json.RawMessage, r *druidResponse, qtyp string, settings map[string]any) (*druidResponse, error) {
 	detectColumnType := func(c *struct {
 		Name string
 		Type string
