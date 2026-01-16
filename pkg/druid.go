@@ -1119,7 +1119,7 @@ func (ds *druidDatasource) processDruidResponse(result json.RawMessage, r *druid
 	default:
 		return r, errors.New("unknown query type")
 	}
-	return r, err
+	return r, nil
 }
 
 func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]any) (backend.DataResponse, error) {
