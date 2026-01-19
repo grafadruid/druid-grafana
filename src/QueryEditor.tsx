@@ -111,7 +111,7 @@ export const QueryEditor = (props: Props) => {
   // Get timezone from Grafana dashboard
   const timezone = useMemo(() => {
     const tz = getTimeZone(props.data);
-    console.log('Detected Grafana timezone:', tz);
+    console.error('Detected Grafana timezone:', tz);
     return tz;
   }, [props.data]);
 
@@ -124,19 +124,19 @@ export const QueryEditor = (props: Props) => {
 
   // Convert simple granularity (day/week/month) to period granularity with timezone for backend
   const convertGranularityForBackend = (builder: any, tz: string | undefined): any => {
-    console.log('convertGranularityForBackend called', {
+    console.error('convertGranularityForBackend called', {
       hasBuilder: !!builder,
       granularity: builder?.granularity,
       granularityType: typeof builder?.granularity,
       timezone: tz,
     });
     if (!builder || !builder.granularity || typeof builder.granularity !== 'string') {
-      console.log('convertGranularityForBackend: early return - granularity is not a string');
+      console.error('convertGranularityForBackend: early return - granularity is not a string');
       return builder;
     }
 
     const granularityStr = builder.granularity;
-    console.log('Converting granularity for backend:', granularityStr, 'with timezone:', tz);
+    console.error('Converting granularity for backend:', granularityStr, 'with timezone:', tz);
     // Only convert day, week, and month granularities
     const periodMap: Record<string, string> = {
       day: 'P1D',
@@ -151,7 +151,7 @@ export const QueryEditor = (props: Props) => {
         period: periodMap[granularityStr],
         timeZone: tz,
       };
-    console.log('Converted granularity to period:', periodGranularity);
+    console.error('Converted granularity to period:', periodGranularity);
       return { ...builder, granularity: periodGranularity };
     }
 
@@ -159,7 +159,7 @@ export const QueryEditor = (props: Props) => {
   };
 
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
-    console.log('onBuilderOptionsChange called', {
+    console.error('onBuilderOptionsChange called', {
       queryType: queryBuilderOptions.builder?.queryType,
       granularity: queryBuilderOptions.builder?.granularity,
       granularityType: typeof queryBuilderOptions.builder?.granularity,
@@ -188,13 +188,13 @@ export const QueryEditor = (props: Props) => {
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Store original builder for UI, but use converted builder in expr for backend
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
-    console.log('Query expr with converted granularity:', expr);
+    console.error('Query expr with converted granularity:', expr);
     // Keep original builder in query state for UI, but expr has converted builder for backend
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
     // Only run query if it's complete enough to execute (use original builder for validation)
     const isComplete = isQueryComplete(queryBuilderOptions.builder);
-    console.log('Query completeness check:', {
+    console.error('Query completeness check:', {
       queryType: queryBuilderOptions.builder?.queryType,
       isComplete,
       builder: queryBuilderOptions.builder,
