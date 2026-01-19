@@ -124,7 +124,14 @@ export const QueryEditor = (props: Props) => {
 
   // Convert simple granularity (day/week/month) to period granularity with timezone for backend
   const convertGranularityForBackend = (builder: any, tz: string | undefined): any => {
+    console.log('convertGranularityForBackend called', {
+      hasBuilder: !!builder,
+      granularity: builder?.granularity,
+      granularityType: typeof builder?.granularity,
+      timezone: tz,
+    });
     if (!builder || !builder.granularity || typeof builder.granularity !== 'string') {
+      console.log('convertGranularityForBackend: early return - granularity is not a string');
       return builder;
     }
 
@@ -152,6 +159,12 @@ export const QueryEditor = (props: Props) => {
   };
 
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
+    console.log('onBuilderOptionsChange called', {
+      queryType: queryBuilderOptions.builder?.queryType,
+      granularity: queryBuilderOptions.builder?.granularity,
+      granularityType: typeof queryBuilderOptions.builder?.granularity,
+      timezone,
+    });
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
     if (
@@ -180,7 +193,13 @@ export const QueryEditor = (props: Props) => {
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
     // Only run query if it's complete enough to execute (use original builder for validation)
-    if (isQueryComplete(queryBuilderOptions.builder)) {
+    const isComplete = isQueryComplete(queryBuilderOptions.builder);
+    console.log('Query completeness check:', {
+      queryType: queryBuilderOptions.builder?.queryType,
+      isComplete,
+      builder: queryBuilderOptions.builder,
+    });
+    if (isComplete) {
       onRunQuery();
     }
   };
