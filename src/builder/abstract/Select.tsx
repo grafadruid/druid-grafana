@@ -10,11 +10,6 @@ interface Props extends QueryBuilderFieldProps {
 
 export const Select = (props: Props) => {
   const onChange = (option: SelectableValue<string>) => {
-    console.error('Select onChange called', {
-      option,
-      currentValue: props.options.builder,
-      name: props.name
-    });
     if (null !== option) {
       onBuilderChange(props, option.value);
     }
