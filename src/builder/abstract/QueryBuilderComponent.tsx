@@ -35,6 +35,7 @@ export const useScopedQueryBuilderProps = (
     scopedProps.options.builder = name in builder ? builder[name] : undefined;
     scopedProps.rootBuilder = rootBuilder;
     scopedProps.onOptionsChange = (options: QueryBuilderOptions) => {
+      console.error('useScopedQueryBuilderProps onOptionsChange called', { name, options, builder });
       let newBuilder: any = {};
       if (name === undefined) {
         name = '';
@@ -45,6 +46,7 @@ export const useScopedQueryBuilderProps = (
         newBuilder = { ...builder, ...options.builder };
       }
       let newOptions = { ...options, builder: newBuilder };
+      console.error('useScopedQueryBuilderProps: calling parent with', { newOptions });
       props.onOptionsChange(newOptions);
     };
     return scopedProps;
@@ -65,6 +67,7 @@ export const useScopedQueryBuilderFieldProps = (
     scopedProps.options.builder = name in builder ? builder[name] : undefined;
     scopedProps.rootBuilder = rootBuilder;
     scopedProps.onOptionsChange = (options: QueryBuilderOptions) => {
+      console.error('useScopedQueryBuilderFieldProps onOptionsChange called', { name, options, builder });
       let newBuilder: any = {};
       if (name === undefined) {
         name = '';
@@ -75,6 +78,7 @@ export const useScopedQueryBuilderFieldProps = (
         newBuilder = { ...builder, ...options.builder };
       }
       let newOptions = { ...options, builder: newBuilder };
+      console.error('useScopedQueryBuilderFieldProps: calling parent with', { newOptions });
       props.onOptionsChange(newOptions);
     };
     return scopedProps;
@@ -82,10 +86,19 @@ export const useScopedQueryBuilderFieldProps = (
 };
 
 export const onBuilderChange = (props: QueryBuilderProps | QueryBuilderFieldProps | undefined, builder: any) => {
+  console.error('onBuilderChange called', {
+    hasProps: !!props,
+    currentBuilder: props?.options?.builder,
+    newBuilder: builder,
+    willChange: props && builder !== props.options.builder,
+    hasOnChange: props && 'onChange' in props && props.onChange !== undefined,
+  });
   if (undefined !== props && builder !== props.options.builder) {
     'onChange' in props && props.onChange !== undefined
       ? props.onChange(builder)
       : props.onOptionsChange({ ...props.options, builder: builder });
+  } else {
+    console.error('onBuilderChange: skipping - builder unchanged or props undefined');
   }
 };
 
