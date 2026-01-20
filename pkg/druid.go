@@ -51,6 +51,7 @@ func variableVariants(base string) []string {
 type druidQuery struct {
 	Builder  map[string]any `json:"builder"`
 	Settings map[string]any `json:"settings"`
+	Expr     string         `json:"expr,omitempty"` // Workaround for Grafana issue #30013 - contains converted query with timezone-aware granularity
 }
 
 type druidResponse struct {
@@ -588,7 +589,35 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	if err != nil {
 		return nil, nil, err
 	}
-	if q.Builder == nil || q.Settings == nil {
+
+	// Use expr if available (contains converted query with timezone-aware granularity)
+	// Otherwise fall back to builder/settings
+	var builder map[string]any
+	var settings map[string]any
+
+	if q.Expr != "" {
+		// Parse the expr JSON string which contains { builder: {...}, settings: {...} }
+		var exprQuery druidQuery
+		err := json.Unmarshal([]byte(q.Expr), &exprQuery)
+		if err != nil {
+			log.DefaultLogger.Debug("Failed to parse expr, falling back to builder", "error:", err, "expr:", q.Expr)
+			// Fall back to builder/settings if expr parsing fails
+			builder = q.Builder
+			settings = q.Settings
+		} else {
+			builder = exprQuery.Builder
+			settings = exprQuery.Settings
+			// Merge with original settings if expr doesn't have settings
+			if settings == nil {
+				settings = q.Settings
+			}
+		}
+	} else {
+		builder = q.Builder
+		settings = q.Settings
+	}
+
+	if builder == nil || settings == nil {
 		// Don't return an error here, as this isn't a user error
 		// Grafana seems to invoke this even before the user has entered any query
 		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
@@ -599,19 +628,19 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
 		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]any))
 	}
-	q.Builder["context"] = defaultQueryContext
-	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
-		q.Builder["context"] = mergeSettings(
+	builder["context"] = defaultQueryContext
+	if queryContextParameters, ok := settings["contextParameters"]; ok {
+		builder["context"] = mergeSettings(
 			defaultQueryContext,
 			ds.prepareQueryContext(queryContextParameters.([]any)))
 	}
-	jsonQuery, err := json.Marshal(q.Builder)
+	jsonQuery, err := json.Marshal(builder)
 	if err != nil {
 		return nil, nil, err
 	}
 	query, err := s.client.Query().Load(jsonQuery)
 	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
-	return query, mergeSettings(s.defaultQuerySettings, q.Settings), err
+	return query, mergeSettings(s.defaultQuerySettings, settings), err
 }
 
 func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any {
