@@ -138,17 +138,21 @@ export const QueryEditor = (props: Props) => {
     const granularityStr = builder.granularity;
     console.error('Converting granularity for backend:', granularityStr, 'with timezone:', tz);
     // Only convert day, week, and month granularities
+    // Use case-insensitive matching to handle both "day" and "DAY" formats
     const periodMap: Record<string, string> = {
       day: 'P1D',
       week: 'P1W',
       month: 'P1M',
     };
 
+    // Convert to lowercase for case-insensitive matching
+    const granularityLower = granularityStr.toLowerCase();
+    
     // Convert to period granularity if we have a timezone and it's day/week/month
-    if (tz && tz !== 'browser' && periodMap[granularityStr]) {
+    if (tz && tz !== 'browser' && periodMap[granularityLower]) {
       const periodGranularity: any = {
         type: 'period',
-        period: periodMap[granularityStr],
+        period: periodMap[granularityLower],
         timeZone: tz,
       };
     console.error('Converted granularity to period:', periodGranularity);
