@@ -500,6 +500,22 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		return response
 	}
 	if q == nil {
+		// Check if this is a raw JSON query (period granularity)
+		if rawJSON, ok := stg["_rawQueryJSON"].(string); ok {
+			// Remove the marker from settings
+			delete(stg, "_rawQueryJSON")
+			// Send raw JSON directly to Druid for period granularity queries
+			r, err := ds.executeRawQuery(qry.RefID, []byte(rawJSON), s, stg)
+			if err != nil {
+				response.Error = err
+				return response
+			}
+			response, err = ds.prepareResponse(r, stg)
+			if err != nil {
+				response.Error = err
+			}
+			return response
+		}
 		// prepareQuery returned nil (invalid query), return empty response
 		return response
 	}
@@ -634,10 +650,29 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 			defaultQueryContext,
 			ds.prepareQueryContext(queryContextParameters.([]any)))
 	}
+	// Check if granularity is a period type (which the Go client can't handle properly)
+	// Period granularity uses ISO8601 strings like "P1D" which can't be unmarshaled into time.Duration
+	hasPeriodGranularity := false
+	if granularity, ok := builder["granularity"].(map[string]any); ok {
+		if gtype, ok := granularity["type"].(string); ok && gtype == "period" {
+			hasPeriodGranularity = true
+		}
+	}
+
 	jsonQuery, err := json.Marshal(builder)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// If we have period granularity, we need to send raw JSON directly to Druid
+	// because the Go client's Load method expects time.Duration for period, not ISO8601 strings
+	if hasPeriodGranularity {
+		// Create a raw query wrapper that will be handled specially in executeQuery
+		// We'll return nil for the query and store the raw JSON in settings as a marker
+		settings["_rawQueryJSON"] = string(jsonQuery)
+		return nil, mergeSettings(s.defaultQuerySettings, settings), nil
+	}
+
 	query, err := s.client.Query().Load(jsonQuery)
 	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
 	return query, mergeSettings(s.defaultQuerySettings, settings), err
@@ -652,6 +687,375 @@ func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any 
 		}
 	}
 	return ctx
+}
+
+// executeRawQuery sends raw JSON query directly to Druid, bypassing the Go client's struct unmarshaling
+// This is needed for period granularity queries which use ISO8601 strings that can't be unmarshaled into time.Duration
+func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
+	r := &druidResponse{Reference: queryRef}
+
+	// Determine query type from JSON to handle result format
+	var queryType string
+	var queryMap map[string]any
+	if err := json.Unmarshal(jsonQuery, &queryMap); err == nil {
+		if qt, ok := queryMap["queryType"].(string); ok {
+			queryType = qt
+		}
+	}
+
+	// Send raw JSON query directly to Druid
+	url := strings.TrimSuffix(s.druidURL, "/") + "/druid/v2/"
+	httpReq, err := http.NewRequest("POST", url, strings.NewReader(string(jsonQuery)))
+	if err != nil {
+		return r, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Add authentication if configured
+	if s.hasBasicAuth {
+		httpReq.SetBasicAuth(s.basicAuthUser, s.basicAuthPassword)
+	}
+
+	httpClient := &http.Client{Timeout: 300 * time.Second}
+	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		return r, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := json.Marshal(map[string]any{"error": fmt.Sprintf("Druid returned status %d", resp.StatusCode)})
+		return r, fmt.Errorf("druid query failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var result json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return r, err
+	}
+
+	// Process the result similar to executeQuery
+	election := func(values map[string]int) string {
+		type kv struct {
+			Key   string
+			Value int
+		}
+		var ss []kv
+		for k, v := range values {
+			ss = append(ss, kv{k, v})
+		}
+		sort.Slice(ss, func(i, j int) bool {
+			return ss[i].Value > ss[j].Value
+		})
+		if len(ss) == 2 {
+			return ss[0].Key
+		}
+		return "string"
+	}
+
+	detectColumnType := func(c *struct {
+		Name string
+		Type string
+	}, pos int, rr [][]any,
+	) {
+		t := map[string]int{"nil": 0}
+		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
+			r := rr[i]
+			switch r[pos].(type) {
+			case string:
+				v := r[pos].(string)
+				_, err := strconv.Atoi(v)
+				if err != nil {
+					_, err := strconv.ParseBool(v)
+					if err != nil {
+						_, err := parseTime(v)
+						if err != nil {
+							t["string"]++
+							continue
+						}
+						t["time"]++
+						continue
+					}
+					t["bool"]++
+					continue
+				}
+				t["int"]++
+				continue
+			case float64:
+				if c.Name == "__time" || strings.Contains(strings.ToLower(c.Name), "time_") {
+					t["time"]++
+					continue
+				}
+				t["float"]++
+				continue
+			case bool:
+				t["bool"]++
+				continue
+			case nil:
+				t["nil"]++
+				continue
+			}
+		}
+		c.Type = election(t)
+	}
+
+	switch queryType {
+	case "sql":
+		var sqlr []any
+		err := json.Unmarshal(result, &sqlr)
+		if err == nil && len(sqlr) > 1 {
+			for _, row := range sqlr[1:] {
+				r.Rows = append(r.Rows, row.([]any))
+			}
+			for i, c := range sqlr[0].([]any) {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c.(string)}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "timeseries":
+		var tsr []map[string]any
+		err := json.Unmarshal(result, &tsr)
+		if err == nil && len(tsr) > 0 {
+			columns := []string{"timestamp"}
+			for c := range tsr[0]["result"].(map[string]any) {
+				columns = append(columns, c)
+			}
+			for _, result := range tsr {
+				var row []any
+				t := result["timestamp"]
+				if t == nil {
+					// grand total, lets keep it last
+					if len(r.Rows) > 0 {
+						t = r.Rows[len(r.Rows)-1][0]
+					}
+				}
+				row = append(row, t)
+				colResults := result["result"].(map[string]any)
+				for _, c := range columns[1:] {
+					row = append(row, colResults[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "topN":
+		var tn []map[string]any
+		err := json.Unmarshal(result, &tn)
+		if err == nil && len(tn) > 0 {
+			columns := []string{"timestamp"}
+			for c := range tn[0]["result"].([]map[string]any)[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range tn {
+				var row []any
+				t := result["timestamp"]
+				row = append(row, t)
+				colResults := result["result"].([]map[string]any)
+				if len(colResults) > 0 {
+					for _, c := range columns[1:] {
+						row = append(row, colResults[0][c])
+					}
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "groupBy":
+		var gb []map[string]any
+		err := json.Unmarshal(result, &gb)
+		if err == nil && len(gb) > 0 {
+			columns := []string{"timestamp"}
+			for c := range gb[0]["event"].(map[string]any) {
+				columns = append(columns, c)
+			}
+			for _, result := range gb {
+				var row []any
+				t := result["timestamp"]
+				row = append(row, t)
+				colResults := result["event"].(map[string]any)
+				for _, c := range columns[1:] {
+					row = append(row, colResults[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "scan":
+		var scanr []map[string]any
+		err := json.Unmarshal(result, &scanr)
+		if err == nil && len(scanr) > 0 {
+			columns := []string{}
+			for c := range scanr[0]["events"].([]map[string]any)[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range scanr {
+				colResults := result["events"].([]map[string]any)
+				for _, event := range colResults {
+					var row []any
+					for _, c := range columns {
+						row = append(row, event[c])
+					}
+					r.Rows = append(r.Rows, row)
+				}
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "timeBoundary":
+		var tb []map[string]any
+		err := json.Unmarshal(result, &tb)
+		if err == nil && len(tb) > 0 {
+			columns := []string{"minTime", "maxTime"}
+			for _, result := range tb {
+				var row []any
+				for _, c := range columns {
+					row = append(row, result[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "datasourceMetadata":
+		var dsm []map[string]any
+		err := json.Unmarshal(result, &dsm)
+		if err == nil && len(dsm) > 0 {
+			columns := []string{}
+			for c := range dsm[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range dsm {
+				var row []any
+				for _, c := range columns {
+					row = append(row, result[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "segmentMetadata":
+		var sm []map[string]any
+		err := json.Unmarshal(result, &sm)
+		if err == nil && len(sm) > 0 {
+			columns := []string{}
+			for c := range sm[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range sm {
+				var row []any
+				for _, c := range columns {
+					row = append(row, result[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "search":
+		var s []map[string]any
+		err := json.Unmarshal(result, &s)
+		if err == nil && len(s) > 0 {
+			columns := []string{"timestamp"}
+			for c := range s[0]["result"].([]map[string]any)[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range s {
+				var row []any
+				t := result["timestamp"]
+				row = append(row, t)
+				colResults := result["result"].([]map[string]any)
+				if len(colResults) > 0 {
+					for _, c := range columns[1:] {
+						row = append(row, colResults[0][c])
+					}
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	default:
+		// For unknown query types, try to parse as generic JSON
+		var genericResult []map[string]any
+		if err := json.Unmarshal(result, &genericResult); err == nil && len(genericResult) > 0 {
+			columns := []string{}
+			for c := range genericResult[0] {
+				columns = append(columns, c)
+			}
+			for _, rowData := range genericResult {
+				var row []any
+				for _, c := range columns {
+					row = append(row, rowData[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	}
+
+	return r, nil
 }
 
 func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
