@@ -156,50 +156,54 @@ const fetchDimensionValues = async (
   }
 
   try {
-    // Note: The Druid metadata API (/druid/v2/datasources/{datasourceName}) only returns
-    // dimension names and metrics, not dimension values. To get actual dimension values,
-    // we need to query the data using SQL. This is the standard approach for fetching
-    // distinct values from a column.
-    // Use SQL query to get dimension values with server-side filtering
-    // Escape the dimension name to prevent SQL injection
-    const escapedTableName = tableName.replace(/"/g, '""');
-    const escapedDimensionName = dimensionName.replace(/"/g, '""');
+    // Use TopN query with search filter for faster dimension value fetching
+    // This approach is faster than SQL queries and provides real-time filtering
+    // as the user types using Druid's insensitive_contains search filter
+    
+    // Build the TopN query
+    // Using string for dimension (Druid accepts both string and DimensionSpec object)
+    // This matches the approach used in other Druid plugins for better performance
+    const topNQuery: any = {
+      queryType: 'topN',
+      dataSource: tableName,
+      granularity: 'all',
+      threshold: 10,
+      dimension: dimensionName,
+      metric: {
+        type: 'numeric',
+        metric: 'count',
+      },
+      aggregations: [
+        {
+          type: 'count',
+          name: 'count',
+        },
+      ],
+      intervals: ['${__from:date:iso}/${__to:date:iso}'],
+    };
 
-    // Build WHERE clause with filtering
-    let whereClause = `"${escapedDimensionName}" IS NOT NULL`;
-
-    // If there's an input value, add LIKE filter for substring matching
-    // Escape SQL LIKE special characters: %, _, and \
+    // Add search filter if there's an input value
     if (inputValue && inputValue.trim() !== '') {
-      // Escape special characters for LIKE: % -> \% , _ -> \_ , \ -> \\
-      // Also escape single quotes to prevent SQL injection
-      const escapedInput = inputValue
-        .replace(/\\/g, '\\\\')  // Escape backslashes first
-        .replace(/'/g, "''")     // Escape single quotes (SQL standard)
-        .replace(/%/g, '\\%')    // Escape %
-        .replace(/_/g, '\\_');   // Escape _
-
-      // Use LOWER() for case-insensitive matching and LIKE for substring search
-      whereClause += ` AND LOWER("${escapedDimensionName}") LIKE LOWER('%${escapedInput}%')`;
+      const searchFilter = {
+        type: 'search',
+        dimension: dimensionName,
+        query: {
+          type: 'insensitive_contains',
+          value: inputValue.trim(),
+        },
+      };
+      topNQuery.filter = searchFilter;
     }
 
-    // Build SQL query with filtering, ordering, and appropriate limit
-    // Use a higher limit when filtering (100) vs when showing all (20)
-    const limit = inputValue && inputValue.trim() !== '' ? 100 : 20;
-    const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" FROM "${escapedTableName}" WHERE ${whereClause} ORDER BY "${escapedDimensionName}" LIMIT ${limit}`;
-
-    const sqlQuery = {
-      builder: {
-        queryType: 'sql',
-        query: sqlQueryStr,
-      },
+    const query = {
+      builder: topNQuery,
       settings: {},
     };
 
-    const response = await datasource.postResource('query-variable', sqlQuery);
+    const response = await datasource.postResource('query-variable', query);
 
     // The response from query-variable returns MetricFindValue format
-    // Extract unique values from SQL results
+    // Extract unique dimension values from TopN results
     const values = new Set<string>();
 
     if (Array.isArray(response) && response.length > 0) {
@@ -215,7 +219,7 @@ const fetchDimensionValues = async (
       });
     }
 
-    // Return results (already filtered and sorted by SQL)
+    // Return results (already filtered and sorted by TopN query)
     if (values.size > 0) {
       return Array.from(values)
         .map((val) => ({
