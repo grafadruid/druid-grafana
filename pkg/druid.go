@@ -380,46 +380,17 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
-	
-	// Interpolate variables in the query - use a default time range for query variables
-	// Query variables (like dimension value autocomplete) need variable interpolation
-	// but don't have a specific time range, so we use a wide default range
-	defaultTimeRange := backend.TimeRange{
-		From: time.Now().AddDate(-1, 0, 0), // 1 year ago
-		To:   time.Now(),                    // now
-	}
-	rawQuery := interpolateVariables(string(qry), time.Hour, defaultTimeRange)
-	
-	q, stg, err := ds.prepareQuery([]byte(rawQuery), s)
+	q, stg, err := ds.prepareQuery(qry, s)
 	if err != nil {
-		log.DefaultLogger.Error("DRUID EXECUTE QUERY VARIABLE: prepareQuery failed", "error", err)
 		return response, err
 	}
 	if q == nil {
-		// Check if this is a raw JSON query (period granularity)
-		if rawJSON, ok := stg["_rawQueryJSON"].(string); ok {
-			// Remove the marker from settings
-			delete(stg, "_rawQueryJSON")
-			// Send raw JSON directly to Druid for period granularity queries
-			log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE: using raw JSON query")
-			r, err := ds.executeRawQuery("variable", []byte(rawJSON), s, stg)
-			if err != nil {
-				log.DefaultLogger.Error("DRUID EXECUTE QUERY VARIABLE: executeRawQuery failed", "error", err)
-				return response, err
-			}
-			log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_response", r)
-			response, err = ds.prepareVariableResponse(r, stg)
-			log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_response", response)
-			return response, err
-		}
 		// prepareQuery returned nil (invalid query), return empty response
-		log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE: prepareQuery returned nil, returning empty response")
 		return response, nil
 	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_query", q)
 	r, err := ds.executeQuery("variable", q, s, stg)
 	if err != nil {
-		log.DefaultLogger.Error("DRUID EXECUTE QUERY VARIABLE: executeQuery failed", "error", err)
 		return response, err
 	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_response", r)
