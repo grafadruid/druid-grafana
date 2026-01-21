@@ -163,14 +163,19 @@ const fetchDimensionValues = async (
     // as the user types using Druid's insensitive_contains search filter
 
     // Build the TopN query
-    // Using string for dimension (Druid accepts both string and DimensionSpec object)
-    // This matches the approach used in other Druid plugins for better performance
+    // Use DimensionSpec object format to match what the Go client expects
+    // The intervals need to be in the format expected by the backend
     const topNQuery: any = {
       queryType: 'topN',
       dataSource: tableName,
       granularity: 'all',
       threshold: 50,
-      dimension: dimensionName,
+      dimension: {
+        type: 'default',
+        dimension: dimensionName,
+        outputName: dimensionName,
+        outputType: 'STRING',
+      },
       metric: {
         type: 'numeric',
         metric: 'count',
@@ -181,7 +186,10 @@ const fetchDimensionValues = async (
           name: 'count',
         },
       ],
-      intervals: ['${__from:date:iso}/${__to:date:iso}'],
+      intervals: {
+        type: 'intervals',
+        intervals: ['${__from:date:iso}/${__to:date:iso}'],
+      },
     };
 
     console.error('[fetchDimensionValues] Base TopN query built', { topNQuery });
@@ -268,8 +276,15 @@ const fetchDimensionValues = async (
 
     console.error('[fetchDimensionValues] No values found, returning empty array');
     return [];
-  } catch (error) {
+  } catch (error: any) {
     console.error('[fetchDimensionValues] Error fetching dimension values:', error);
+    console.error('[fetchDimensionValues] Error details:', {
+      message: error?.message,
+      status: error?.status,
+      statusText: error?.statusText,
+      data: error?.data,
+      response: error?.response,
+    });
     console.error('[fetchDimensionValues] Query details:', { tableName, dimensionName, inputValue });
     return [];
   }
