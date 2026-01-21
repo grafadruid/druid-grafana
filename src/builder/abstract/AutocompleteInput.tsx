@@ -150,6 +150,8 @@ const fetchDimensionValues = async (
   dimensionName: string | null,
   inputValue: string
 ): Promise<SelectableValue[]> => {
+  console.error('[fetchDimensionValues] Entry', { tableName, dimensionName, inputValue });
+
   if (!tableName || !dimensionName) {
     console.debug('fetchDimensionValues: Missing tableName or dimensionName', { tableName, dimensionName });
     return [];
@@ -159,7 +161,7 @@ const fetchDimensionValues = async (
     // Use TopN query with search filter for faster dimension value fetching
     // This approach is faster than SQL queries and provides real-time filtering
     // as the user types using Druid's insensitive_contains search filter
-    
+
     // Build the TopN query
     // Using string for dimension (Druid accepts both string and DimensionSpec object)
     // This matches the approach used in other Druid plugins for better performance
@@ -167,7 +169,7 @@ const fetchDimensionValues = async (
       queryType: 'topN',
       dataSource: tableName,
       granularity: 'all',
-      threshold: 10,
+      threshold: 50,
       dimension: dimensionName,
       metric: {
         type: 'numeric',
@@ -182,6 +184,8 @@ const fetchDimensionValues = async (
       intervals: ['${__from:date:iso}/${__to:date:iso}'],
     };
 
+    console.error('[fetchDimensionValues] Base TopN query built', { topNQuery });
+
     // Add search filter if there's an input value
     if (inputValue && inputValue.trim() !== '') {
       const searchFilter = {
@@ -193,6 +197,9 @@ const fetchDimensionValues = async (
         },
       };
       topNQuery.filter = searchFilter;
+      console.error('[fetchDimensionValues] Search filter added', { searchFilter });
+    } else {
+      console.error('[fetchDimensionValues] No input value, skipping search filter');
     }
 
     const query = {
@@ -200,39 +207,70 @@ const fetchDimensionValues = async (
       settings: {},
     };
 
+    console.error('[fetchDimensionValues] Full query object', { query });
+    console.error('[fetchDimensionValues] Calling datasource.postResource...');
+
     const response = await datasource.postResource('query-variable', query);
+
+    console.error('[fetchDimensionValues] Response received', {
+      responseType: typeof response,
+      isArray: Array.isArray(response),
+      responseLength: Array.isArray(response) ? response.length : 'N/A',
+      response: response
+    });
 
     // The response from query-variable returns MetricFindValue format
     // Extract unique dimension values from TopN results
     const values = new Set<string>();
 
     if (Array.isArray(response) && response.length > 0) {
-      response.forEach((item: any) => {
+      console.error('[fetchDimensionValues] Processing response array, length:', response.length);
+      response.forEach((item: any, index: number) => {
         // Try both value and text fields
         const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
+        console.error(`[fetchDimensionValues] Processing item ${index}`, { item, extractedValue: value });
         if (value !== null && value !== undefined) {
           const strValue = String(value);
           if (strValue.trim() !== '') {
             values.add(strValue);
+            console.error(`[fetchDimensionValues] Added value to set: "${strValue}"`);
+          } else {
+            console.error(`[fetchDimensionValues] Skipped empty value at index ${index}`);
           }
+        } else {
+          console.error(`[fetchDimensionValues] Skipped null/undefined value at index ${index}`);
         }
       });
+    } else {
+      console.error('[fetchDimensionValues] Response is not a valid array or is empty');
     }
+
+    console.error('[fetchDimensionValues] Unique values extracted', {
+      valuesCount: values.size,
+      values: Array.from(values)
+    });
 
     // Return results (already filtered and sorted by TopN query)
     if (values.size > 0) {
-      return Array.from(values)
+      const results = Array.from(values)
         .map((val) => ({
           value: val,
           label: val,
         }))
         .slice(0, 10); // Limit to 10 results for display
+      console.error('[fetchDimensionValues] Returning results', {
+        totalValues: values.size,
+        returnedCount: results.length,
+        results
+      });
+      return results;
     }
 
+    console.error('[fetchDimensionValues] No values found, returning empty array');
     return [];
   } catch (error) {
-    console.error('Error fetching dimension values:', error);
-    console.error('Query details:', { tableName, dimensionName, inputValue });
+    console.error('[fetchDimensionValues] Error fetching dimension values:', error);
+    console.error('[fetchDimensionValues] Query details:', { tableName, dimensionName, inputValue });
     return [];
   }
 };
