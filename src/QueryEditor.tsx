@@ -122,9 +122,15 @@ export const QueryEditor = (props: Props) => {
   const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
 
   // Convert simple granularity (day/week/month) to period granularity with timezone for backend
+  // Only applies to timeseries queries - other query types keep simple granularity as-is
   const convertGranularityForBackend = (builder: any, tz: string | undefined): any => {
     if (!builder || !builder.granularity || typeof builder.granularity !== 'string') {
       console.error('convertGranularityForBackend: early return - granularity is not a string');
+      return builder;
+    }
+
+    // Only convert for timeseries queries
+    if (builder.queryType !== 'timeseries') {
       return builder;
     }
 
