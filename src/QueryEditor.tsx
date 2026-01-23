@@ -123,6 +123,7 @@ export const QueryEditor = (props: Props) => {
           type: 'table',
           name: 'raw_events',
         },
+        granularity: 'hour',
       };
     }
     // Ensure queryType is set to timeseries if not set
