@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QueryBuilderComponent, QueryComponent, Component } from './types';
 import { QueryBuilderProps } from '../types';
 import { InlineField, Select } from '@grafana/ui';
@@ -63,6 +63,16 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
   const [selectedComponentKey, selectComponentKey] = useState(
     useComponentKey(queryBuilderComponentProps.options.builder, props.default)
   );
+  
+  // Update selectedComponentKey when builder changes
+  useEffect(() => {
+    const newKey = useComponentKey(queryBuilderComponentProps.options.builder, props.default);
+    selectComponentKey((currentKey) => {
+      // Only update if the key actually changed
+      return newKey !== currentKey ? newKey : currentKey;
+    });
+  }, [queryBuilderComponentProps.options.builder, props.default]);
+  
   const [selectedOption, options] = useSelectOptions(components, selectedComponentKey);
   const onSelection = (selection: SelectableValue<string>) => {
     let componentKey = undefined;
