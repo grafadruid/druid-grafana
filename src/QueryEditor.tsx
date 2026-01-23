@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
 import { QueryEditorProps, getTimeZone } from '@grafana/data';
 import { css, cx } from '@emotion/css';
@@ -114,7 +114,55 @@ export const QueryEditor = (props: Props) => {
     return tz;
   }, [props.data]);
 
-  const builderOptions = { builder: builder || {}, settings: settings || {} };
+  // Initialize default builder if empty or missing required fields
+  const defaultBuilder = useMemo(() => {
+    if (!builder || Object.keys(builder).length === 0) {
+      return {
+        queryType: 'timeseries',
+        dataSource: {
+          type: 'table',
+          name: 'raw_events',
+        },
+      };
+    }
+    // Ensure queryType is set to timeseries if not set
+    if (!builder.queryType) {
+      return { ...builder, queryType: 'timeseries' };
+    }
+    // Ensure dataSource is set to table type if not set
+    if (!builder.dataSource) {
+      return {
+        ...builder,
+        dataSource: {
+          type: 'table',
+          name: 'raw_events',
+        },
+      };
+    }
+    return builder;
+  }, [builder]);
+
+  // Track if we've initialized defaults to avoid infinite loops
+  const hasInitializedDefaults = useRef(false);
+
+  // Persist defaults when they're first set (only if builder is empty or missing required fields)
+  useEffect(() => {
+    const needsDefaults = !builder ||
+      Object.keys(builder).length === 0 ||
+      !builder.queryType ||
+      !builder.dataSource;
+
+    if (needsDefaults && !hasInitializedDefaults.current && defaultBuilder.queryType === 'timeseries' && defaultBuilder.dataSource?.type === 'table') {
+      const { onChange } = props;
+      hasInitializedDefaults.current = true;
+      onChange({
+        ...props.query,
+        builder: defaultBuilder,
+      });
+    }
+  }, [builder, defaultBuilder, props]);
+
+  const builderOptions = { builder: defaultBuilder, settings: settings || {} };
   const datasourceQuerySettings = normalizeData(props.datasource.settingsData, false, 'query');
   /*TODO merging settings that way is not good: things like query context won't get merged
   the query settings context will replace the datasource query settings context instead of merging
@@ -162,16 +210,30 @@ export const QueryEditor = (props: Props) => {
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
-    if (
-      queryBuilderOptions.builder !== null &&
-      (queryBuilderOptions.builder.intervals === undefined ||
+
+    // Ensure defaults are set if missing
+    if (queryBuilderOptions.builder !== null) {
+      if (!queryBuilderOptions.builder.queryType) {
+        queryBuilderOptions.builder.queryType = 'timeseries';
+      }
+      if (!queryBuilderOptions.builder.dataSource) {
+        queryBuilderOptions.builder.dataSource = {
+          type: 'table',
+          name: 'raw_events',
+        };
+      }
+
+      // Auto-populate intervals from Grafana timerange if missing
+      if (
+        queryBuilderOptions.builder.intervals === undefined ||
         (Array.isArray(queryBuilderOptions.builder.intervals.intervals) &&
-          queryBuilderOptions.builder.intervals.intervals.length === 0))
-    ) {
-      queryBuilderOptions.builder.intervals = {
-        type: 'intervals',
-        intervals: ['${__from:date:iso}/${__to:date:iso}'],
-      };
+          queryBuilderOptions.builder.intervals.intervals.length === 0)
+      ) {
+        queryBuilderOptions.builder.intervals = {
+          type: 'intervals',
+          intervals: ['${__from:date:iso}/${__to:date:iso}'],
+        };
+      }
     }
 
     // Convert granularity for backend - need to convert in the builder that gets sent

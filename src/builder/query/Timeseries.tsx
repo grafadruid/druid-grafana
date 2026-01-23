@@ -14,7 +14,6 @@ import { Filter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { VirtualColumn } from '../virtualcolumn';
-import { Intervals } from '../querysegmentspec';
 
 export const Timeseries = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Timeseries);
@@ -23,9 +22,6 @@ export const Timeseries = (props: QueryBuilderProps) => {
     <>
       <Row>
         <DataSource {...scopedComponentProps('dataSource')} />
-      </Row>
-      <Row>
-        <Intervals {...scopedComponentProps('intervals')} />
       </Row>
       <Row>
         <Granularity {...scopedComponentProps('granularity')} />
