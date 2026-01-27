@@ -170,94 +170,6 @@ export const QueryEditor = (props: Props) => {
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
   const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
 
-  // Process json filters: if a filter has type "json", parse the value field as JSON
-  // This matches the behavior of the old plugin where json filters are processed after variable replacement
-  const processJsonFilters = (filter: any): any => {
-    if (!filter || typeof filter !== 'object') {
-      return filter;
-    }
-
-    // Check if this is a json filter type
-    if (filter.type === 'json' && filter.value !== undefined && filter.value !== null) {
-      let value: string;
-      let parsedValue: any = null;
-      
-      // Handle different value types
-      if (typeof filter.value === 'string') {
-        value = filter.value.trim();
-      } else if (typeof filter.value === 'object') {
-        // If value is already an object (Grafana might have replaced variable with object instead of string)
-        // Convert it back to JSON string first, then parse it
-        try {
-          value = JSON.stringify(filter.value);
-          parsedValue = filter.value; // Already parsed
-        } catch (error) {
-          console.warn('Failed to stringify json filter value object:', error);
-          return filter;
-        }
-      } else {
-        value = String(filter.value).trim();
-      }
-      
-      // Skip if value is empty
-      if (!value) {
-        return filter;
-      }
-      
-      // Skip if value still contains unreplaced variables (starts with $ and doesn't contain {)
-      if (value.indexOf('$') === 0 && value.indexOf('{') === -1) {
-        return filter;
-      }
-
-      try {
-        // If we already have a parsed value (from object case), use it
-        let parsedFilter = parsedValue;
-        
-        if (!parsedFilter) {
-          // Validate that the value looks like JSON (starts with { or [)
-          if (value.indexOf('{') !== 0 && value.indexOf('[') !== 0) {
-            // Not JSON, return as-is
-            return filter;
-          }
-          
-          // Parse the value as JSON
-          // The value should be a JSON string like: '{"dimension": "...", "type": "selector", "value": "..."}'
-          parsedFilter = JSON.parse(value);
-        }
-        
-        // Ensure we got a valid object/array
-        if (typeof parsedFilter !== 'object' || parsedFilter === null) {
-          return filter;
-        }
-        
-        // Recursively process nested filters
-        return processJsonFilters(parsedFilter);
-      } catch (error) {
-        // If parsing fails, log the error and return the original filter
-        // This allows the query to still be sent, but the json filter won't be processed
-        console.warn('Failed to parse json filter value:', error, 'value:', value.substring(0, 200));
-        return filter;
-      }
-    }
-
-    // Handle nested filters in "and" and "or" filters
-    if (filter.type === 'and' || filter.type === 'or') {
-      if (Array.isArray(filter.fields)) {
-        return {
-          ...filter,
-          fields: filter.fields.map((field: any) => processJsonFilters(field)),
-        };
-      }
-    } else if (filter.type === 'not' && filter.field) {
-      return {
-        ...filter,
-        field: processJsonFilters(filter.field),
-      };
-    }
-
-    return filter;
-  };
-
   // Convert simple granularity (day/week/month) to period granularity with timezone for backend
   // Only applies to timeseries queries - other query types keep simple granularity as-is
   const convertGranularityForBackend = (builder: any, tz: string | undefined): any => {
@@ -325,115 +237,15 @@ export const QueryEditor = (props: Props) => {
       }
     }
 
-    // Ensure json filter values are always strings (not objects) before serialization
-    // This prevents JSON syntax errors when Grafana replaces variables
-    const ensureJsonFilterValueIsString = (filter: any): any => {
-      if (!filter || typeof filter !== 'object') {
-        return filter;
-      }
-      
-      // If this is a json filter and value is an object, convert it to a JSON string
-      if (filter.type === 'json' && filter.value !== undefined && filter.value !== null) {
-        if (typeof filter.value === 'object') {
-          try {
-            // Convert object to JSON string to ensure valid JSON serialization
-            filter = { ...filter, value: JSON.stringify(filter.value) };
-          } catch (error) {
-            console.warn('Failed to stringify json filter value:', error);
-          }
-        }
-      }
-      
-      // Handle nested filters
-      if (filter.type === 'and' || filter.type === 'or') {
-        if (Array.isArray(filter.fields)) {
-          return {
-            ...filter,
-            fields: filter.fields.map((field: any) => ensureJsonFilterValueIsString(field)),
-          };
-        }
-      } else if (filter.type === 'not' && filter.field) {
-        return {
-          ...filter,
-          field: ensureJsonFilterValueIsString(filter.field),
-        };
-      }
-      
-      return filter;
-    };
-
-    // First, ensure json filter values are strings (to prevent JSON serialization errors)
-    let builderWithStringValues = queryBuilderOptions.builder;
-    if (builderWithStringValues) {
-      try {
-        builderWithStringValues = {
-          ...builderWithStringValues,
-          filter: builderWithStringValues.filter
-            ? ensureJsonFilterValueIsString(builderWithStringValues.filter)
-            : builderWithStringValues.filter,
-          havingSpec: builderWithStringValues.havingSpec
-            ? {
-                ...builderWithStringValues.havingSpec,
-                filter: builderWithStringValues.havingSpec.filter
-                  ? ensureJsonFilterValueIsString(builderWithStringValues.havingSpec.filter)
-                  : builderWithStringValues.havingSpec.filter,
-              }
-            : builderWithStringValues.havingSpec,
-        };
-      } catch (error) {
-        console.error('Error ensuring json filter values are strings:', error);
-        builderWithStringValues = queryBuilderOptions.builder;
-      }
-    }
-
-    // Process json filters (parse the value strings into filter objects)
-    // Note: This happens in the frontend, but variable replacement happens later in Grafana
-    // So we only process if the value doesn't contain unreplaced variables
-    let builderWithProcessedFilters = builderWithStringValues;
-    if (builderWithProcessedFilters) {
-      try {
-        builderWithProcessedFilters = {
-          ...builderWithProcessedFilters,
-          filter: builderWithProcessedFilters.filter
-            ? processJsonFilters(builderWithProcessedFilters.filter)
-            : builderWithProcessedFilters.filter,
-          havingSpec: builderWithProcessedFilters.havingSpec
-            ? {
-                ...builderWithProcessedFilters.havingSpec,
-                filter: builderWithProcessedFilters.havingSpec.filter
-                  ? processJsonFilters(builderWithProcessedFilters.havingSpec.filter)
-                  : builderWithProcessedFilters.havingSpec.filter,
-              }
-            : builderWithProcessedFilters.havingSpec,
-        };
-      } catch (error) {
-        console.error('Error processing json filters:', error);
-        // If processing fails, use builder with string values
-        builderWithProcessedFilters = builderWithStringValues;
-      }
-    }
-
     // Convert granularity for backend - need to convert in the builder that gets sent
     const builderForBackend = convertGranularityForBackend(
-      builderWithProcessedFilters,
+      queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Store original builder for UI, but use converted builder in expr for backend
-    // Wrap in try-catch to handle JSON serialization errors
-    let expr: string;
-    try {
-      expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
-    } catch (error) {
-      console.error('Error serializing query to JSON:', error, 'builder:', builderForBackend);
-      // If serialization fails, try without processing json filters
-      const builderWithoutJsonProcessing = convertGranularityForBackend(
-        queryBuilderOptions.builder,
-        timezone && timezone !== 'browser' ? timezone : undefined
-      );
-      expr = JSON.stringify({ ...queryBuilderOptions, builder: builderWithoutJsonProcessing });
-    }
+    const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     // Keep original builder in query state for UI, but expr has converted builder for backend
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
@@ -446,108 +258,15 @@ export const QueryEditor = (props: Props) => {
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
 
-    // Ensure json filter values are always strings (not objects) before serialization
-    const ensureJsonFilterValueIsString = (filter: any): any => {
-      if (!filter || typeof filter !== 'object') {
-        return filter;
-      }
-      
-      if (filter.type === 'json' && filter.value !== undefined && filter.value !== null) {
-        if (typeof filter.value === 'object') {
-          try {
-            filter = { ...filter, value: JSON.stringify(filter.value) };
-          } catch (error) {
-            console.warn('Failed to stringify json filter value:', error);
-          }
-        }
-      }
-      
-      if (filter.type === 'and' || filter.type === 'or') {
-        if (Array.isArray(filter.fields)) {
-          return {
-            ...filter,
-            fields: filter.fields.map((field: any) => ensureJsonFilterValueIsString(field)),
-          };
-        }
-      } else if (filter.type === 'not' && filter.field) {
-        return {
-          ...filter,
-          field: ensureJsonFilterValueIsString(filter.field),
-        };
-      }
-      
-      return filter;
-    };
-
-    // First, ensure json filter values are strings
-    let builderWithStringValues = query.builder;
-    if (builderWithStringValues) {
-      try {
-        builderWithStringValues = {
-          ...builderWithStringValues,
-          filter: builderWithStringValues.filter
-            ? ensureJsonFilterValueIsString(builderWithStringValues.filter)
-            : builderWithStringValues.filter,
-          havingSpec: builderWithStringValues.havingSpec
-            ? {
-                ...builderWithStringValues.havingSpec,
-                filter: builderWithStringValues.havingSpec.filter
-                  ? ensureJsonFilterValueIsString(builderWithStringValues.havingSpec.filter)
-                  : builderWithStringValues.havingSpec.filter,
-              }
-            : builderWithStringValues.havingSpec,
-        };
-      } catch (error) {
-        console.error('Error ensuring json filter values are strings:', error);
-        builderWithStringValues = query.builder;
-      }
-    }
-
-    // Process json filters
-    let builderWithProcessedFilters = builderWithStringValues;
-    if (builderWithProcessedFilters) {
-      try {
-        builderWithProcessedFilters = {
-          ...builderWithProcessedFilters,
-          filter: builderWithProcessedFilters.filter
-            ? processJsonFilters(builderWithProcessedFilters.filter)
-            : builderWithProcessedFilters.filter,
-          havingSpec: builderWithProcessedFilters.havingSpec
-            ? {
-                ...builderWithProcessedFilters.havingSpec,
-                filter: builderWithProcessedFilters.havingSpec.filter
-                  ? processJsonFilters(builderWithProcessedFilters.havingSpec.filter)
-                  : builderWithProcessedFilters.havingSpec.filter,
-              }
-            : builderWithProcessedFilters.havingSpec,
-        };
-      } catch (error) {
-        console.error('Error processing json filters:', error);
-        builderWithProcessedFilters = builderWithStringValues;
-      }
-    }
-
     // Convert granularity for backend
     const builderForBackend = convertGranularityForBackend(
-      builderWithProcessedFilters,
+      query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Use converted builder in expr for backend
-    // Wrap in try-catch to handle JSON serialization errors
-    let expr: string;
-    try {
-      expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
-    } catch (error) {
-      console.error('Error serializing query to JSON:', error, 'builder:', builderForBackend);
-      // If serialization fails, try without processing json filters
-      const builderWithoutJsonProcessing = convertGranularityForBackend(
-        query.builder,
-        timezone && timezone !== 'browser' ? timezone : undefined
-      );
-      expr = JSON.stringify({ builder: builderWithoutJsonProcessing, ...querySettingsOptions });
-    }
+    const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
     // Only run query if it's complete enough to execute (use original builder for validation)
