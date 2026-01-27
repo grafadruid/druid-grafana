@@ -55,10 +55,11 @@ export interface QueryBuilderComponentSelectorProps extends QueryBuilderProps {
   label: string;
   components: Record<string, QueryBuilderComponent<QueryComponent | Component>>;
   default?: QueryBuilderComponent<QueryComponent | Component> | undefined;
+  inline?: boolean;
 }
 
 export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelectorProps) => {
-  const { label, components, ...queryBuilderComponentProps } = props;
+  const { label, components, inline = false, ...queryBuilderComponentProps } = props;
   const componentsRegistry = useComponentsRegistry(components);
   const [selectedComponentKey, selectComponentKey] = useState(
     useComponentKey(queryBuilderComponentProps.options.builder, props.default)
@@ -92,7 +93,7 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
       <InlineField label={label} grow>
         <Select options={options} value={selectedOption} onChange={onSelection} isClearable={true} />
       </InlineField>
-      {Component && <Component {...queryBuilderComponentProps} />}
+      {Component && <Component {...queryBuilderComponentProps} inline={inline} />}
     </>
   );
 };

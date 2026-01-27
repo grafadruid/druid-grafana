@@ -14,22 +14,27 @@ import {
   TopN,
 } from './';
 
+import { Row } from '../abstract';
+
 export const Query = (props: QueryBuilderProps) => (
-  <QueryBuilderComponentSelector
-    {...props}
-    label="Query"
-    default={Timeseries}
-    components={{
-      DatasourceMetadata: DatasourceMetadata,
-      GroupBy: GroupBy,
-      Json: Json,
-      Scan: Scan,
-      Search: Search,
-      SegmentMetadata: SegmentMetadata,
-      Sql: Sql,
-      TimeBoundary: TimeBoundary,
-      Timeseries: Timeseries,
-      TopN: TopN,
-    }}
-  />
+  <Row>
+    <QueryBuilderComponentSelector
+      {...props}
+      label="Query"
+      default={Timeseries}
+      inline={true}
+      components={{
+        DatasourceMetadata: DatasourceMetadata,
+        GroupBy: GroupBy,
+        Json: Json,
+        Scan: Scan,
+        Search: Search,
+        SegmentMetadata: SegmentMetadata,
+        Sql: Sql,
+        TimeBoundary: TimeBoundary,
+        Timeseries: Timeseries,
+        TopN: TopN,
+      }}
+    />
+  </Row>
 );
