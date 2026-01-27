@@ -178,23 +178,64 @@ export const QueryEditor = (props: Props) => {
     }
 
     // Check if this is a json filter type
-    if (filter.type === 'json' && filter.value) {
-      const value = typeof filter.value === 'string' ? filter.value.trim() : String(filter.value);
+    if (filter.type === 'json' && filter.value !== undefined && filter.value !== null) {
+      let value: string;
+      let parsedValue: any = null;
+      
+      // Handle different value types
+      if (typeof filter.value === 'string') {
+        value = filter.value.trim();
+      } else if (typeof filter.value === 'object') {
+        // If value is already an object (Grafana might have replaced variable with object instead of string)
+        // Convert it back to JSON string first, then parse it
+        try {
+          value = JSON.stringify(filter.value);
+          parsedValue = filter.value; // Already parsed
+        } catch (error) {
+          console.warn('Failed to stringify json filter value object:', error);
+          return filter;
+        }
+      } else {
+        value = String(filter.value).trim();
+      }
+      
+      // Skip if value is empty
+      if (!value) {
+        return filter;
+      }
       
       // Skip if value still contains unreplaced variables (starts with $ and doesn't contain {)
-      if (value.startsWith('$') && !value.includes('{')) {
+      if (value.indexOf('$') === 0 && value.indexOf('{') === -1) {
         return filter;
       }
 
       try {
-        // Parse the value as JSON
-        const parsedFilter = JSON.parse(value);
+        // If we already have a parsed value (from object case), use it
+        let parsedFilter = parsedValue;
+        
+        if (!parsedFilter) {
+          // Validate that the value looks like JSON (starts with { or [)
+          if (value.indexOf('{') !== 0 && value.indexOf('[') !== 0) {
+            // Not JSON, return as-is
+            return filter;
+          }
+          
+          // Parse the value as JSON
+          // The value should be a JSON string like: '{"dimension": "...", "type": "selector", "value": "..."}'
+          parsedFilter = JSON.parse(value);
+        }
+        
+        // Ensure we got a valid object/array
+        if (typeof parsedFilter !== 'object' || parsedFilter === null) {
+          return filter;
+        }
+        
         // Recursively process nested filters
         return processJsonFilters(parsedFilter);
       } catch (error) {
-        // If parsing fails, return the original filter
-        // This allows variables to be replaced later by Grafana's template service
-        console.warn('Failed to parse json filter value:', error, 'value:', value);
+        // If parsing fails, log the error and return the original filter
+        // This allows the query to still be sent, but the json filter won't be processed
+        console.warn('Failed to parse json filter value:', error, 'value:', value.substring(0, 200));
         return filter;
       }
     }
@@ -285,22 +326,30 @@ export const QueryEditor = (props: Props) => {
     }
 
     // Process json filters first (after variable replacement by Grafana)
-    const builderWithProcessedFilters = queryBuilderOptions.builder
-      ? {
-          ...queryBuilderOptions.builder,
-          filter: queryBuilderOptions.builder.filter
-            ? processJsonFilters(queryBuilderOptions.builder.filter)
-            : queryBuilderOptions.builder.filter,
-          havingSpec: queryBuilderOptions.builder.havingSpec
+    // Only process if we have a valid builder
+    let builderWithProcessedFilters = queryBuilderOptions.builder;
+    if (builderWithProcessedFilters) {
+      try {
+        builderWithProcessedFilters = {
+          ...builderWithProcessedFilters,
+          filter: builderWithProcessedFilters.filter
+            ? processJsonFilters(builderWithProcessedFilters.filter)
+            : builderWithProcessedFilters.filter,
+          havingSpec: builderWithProcessedFilters.havingSpec
             ? {
-                ...queryBuilderOptions.builder.havingSpec,
-                filter: queryBuilderOptions.builder.havingSpec.filter
-                  ? processJsonFilters(queryBuilderOptions.builder.havingSpec.filter)
-                  : queryBuilderOptions.builder.havingSpec.filter,
+                ...builderWithProcessedFilters.havingSpec,
+                filter: builderWithProcessedFilters.havingSpec.filter
+                  ? processJsonFilters(builderWithProcessedFilters.havingSpec.filter)
+                  : builderWithProcessedFilters.havingSpec.filter,
               }
-            : queryBuilderOptions.builder.havingSpec,
-        }
-      : queryBuilderOptions.builder;
+            : builderWithProcessedFilters.havingSpec,
+        };
+      } catch (error) {
+        console.error('Error processing json filters:', error);
+        // If processing fails, use original builder
+        builderWithProcessedFilters = queryBuilderOptions.builder;
+      }
+    }
 
     // Convert granularity for backend - need to convert in the builder that gets sent
     const builderForBackend = convertGranularityForBackend(
@@ -310,7 +359,19 @@ export const QueryEditor = (props: Props) => {
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Store original builder for UI, but use converted builder in expr for backend
-    const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
+    // Wrap in try-catch to handle JSON serialization errors
+    let expr: string;
+    try {
+      expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
+    } catch (error) {
+      console.error('Error serializing query to JSON:', error, 'builder:', builderForBackend);
+      // If serialization fails, try without processing json filters
+      const builderWithoutJsonProcessing = convertGranularityForBackend(
+        queryBuilderOptions.builder,
+        timezone && timezone !== 'browser' ? timezone : undefined
+      );
+      expr = JSON.stringify({ ...queryBuilderOptions, builder: builderWithoutJsonProcessing });
+    }
     // Keep original builder in query state for UI, but expr has converted builder for backend
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
@@ -324,20 +385,28 @@ export const QueryEditor = (props: Props) => {
     const { query, onChange, onRunQuery } = props;
 
     // Process json filters first (after variable replacement by Grafana)
-    const builderWithProcessedFilters = query.builder
-      ? {
-          ...query.builder,
-          filter: query.builder.filter ? processJsonFilters(query.builder.filter) : query.builder.filter,
-          havingSpec: query.builder.havingSpec
+    let builderWithProcessedFilters = query.builder;
+    if (builderWithProcessedFilters) {
+      try {
+        builderWithProcessedFilters = {
+          ...builderWithProcessedFilters,
+          filter: builderWithProcessedFilters.filter
+            ? processJsonFilters(builderWithProcessedFilters.filter)
+            : builderWithProcessedFilters.filter,
+          havingSpec: builderWithProcessedFilters.havingSpec
             ? {
-                ...query.builder.havingSpec,
-                filter: query.builder.havingSpec.filter
-                  ? processJsonFilters(query.builder.havingSpec.filter)
-                  : query.builder.havingSpec.filter,
+                ...builderWithProcessedFilters.havingSpec,
+                filter: builderWithProcessedFilters.havingSpec.filter
+                  ? processJsonFilters(builderWithProcessedFilters.havingSpec.filter)
+                  : builderWithProcessedFilters.havingSpec.filter,
               }
-            : query.builder.havingSpec,
-        }
-      : query.builder;
+            : builderWithProcessedFilters.havingSpec,
+        };
+      } catch (error) {
+        console.error('Error processing json filters:', error);
+        builderWithProcessedFilters = query.builder;
+      }
+    }
 
     // Convert granularity for backend
     const builderForBackend = convertGranularityForBackend(
@@ -347,7 +416,19 @@ export const QueryEditor = (props: Props) => {
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Use converted builder in expr for backend
-    const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
+    // Wrap in try-catch to handle JSON serialization errors
+    let expr: string;
+    try {
+      expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
+    } catch (error) {
+      console.error('Error serializing query to JSON:', error, 'builder:', builderForBackend);
+      // If serialization fails, try without processing json filters
+      const builderWithoutJsonProcessing = convertGranularityForBackend(
+        query.builder,
+        timezone && timezone !== 'browser' ? timezone : undefined
+      );
+      expr = JSON.stringify({ builder: builderWithoutJsonProcessing, ...querySettingsOptions });
+    }
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
     // Only run query if it's complete enough to execute (use original builder for validation)
