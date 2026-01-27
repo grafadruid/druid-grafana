@@ -21,9 +21,13 @@ export const Timeseries = (props: QueryBuilderProps & { inline?: boolean }) => {
   return (
     <>
       <DataSource {...scopedComponentProps('dataSource')} inline={props.inline} />
-      <Row>
-        <Granularity {...scopedComponentProps('granularity')} />
-      </Row>
+      {props.inline ? (
+        <Granularity {...scopedComponentProps('granularity')} inline={props.inline} />
+      ) : (
+        <Row>
+          <Granularity {...scopedComponentProps('granularity')} />
+        </Row>
+      )}
       <Row>
         <Filter {...scopedComponentProps('filter')} />
       </Row>

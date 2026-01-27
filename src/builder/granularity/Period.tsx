@@ -2,10 +2,10 @@ import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderFieldProps, Input, DateTime, Row } from '../abstract';
 
-export const Period = (props: QueryBuilderProps) => {
+export const Period = (props: QueryBuilderProps & { inline?: boolean }) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Period);
-  return (
-    <Row>
+  const content = (
+    <>
       <DateTime
         {...scopedProps('origin')}
         label="Origin"
@@ -20,8 +20,14 @@ export const Period = (props: QueryBuilderProps) => {
         type="text"
       />
       <Input {...scopedProps('timeZone')} label="Timezone" description="The timezone (e.g. Europe/Paris)" type="text" />
-    </Row>
+    </>
   );
+  
+  if (props.inline) {
+    return content;
+  }
+  
+  return <Row>{content}</Row>;
 };
 Period.type = 'period';
 Period.fields = ['origin', 'period', 'timeZone'];

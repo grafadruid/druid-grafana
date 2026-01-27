@@ -3,12 +3,13 @@ import { QueryBuilderProps } from '../types';
 import { QueryBuilderComponentSelector } from '../abstract';
 import { Duration, Period, Simple } from './';
 
-export const Granularity = (props: QueryBuilderProps) => {
+export const Granularity = (props: QueryBuilderProps & { inline?: boolean }) => {
   //const defaultComponent = typeof props.options.builder === 'string' ? Simple : undefined;
   return (
     <QueryBuilderComponentSelector
       {...props}
-      label="Granularity"
+      label={props.inline ? "Granularity-type" : "Granularity"}
+      inline={props.inline}
       components={{ Duration: Duration, Period: Period, Simple: Simple }}
       default={Simple}
     />
