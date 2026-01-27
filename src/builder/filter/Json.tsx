@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Code, Row } from '../abstract';
 
 export const Json = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Json);
@@ -9,11 +9,11 @@ export const Json = (props: QueryBuilderProps) => {
   return (
     <>
       <Row>
-        <Input
+        <Code
           {...valueScopedProps}
           label="Value"
-          description="The variable will be replaced with the actual filter JSON when the query executes."
-          type="text"
+          description="Enter a JSON filter string or variable like $variable_name. Variables will be replaced, then the value will be parsed as JSON filter."
+          lang="hjson"
         />
       </Row>
     </>

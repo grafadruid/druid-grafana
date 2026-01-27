@@ -599,6 +599,56 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
+// processJsonFilters processes filters and handles json filter type
+// If a filter has type "json", it parses the value field as JSON and replaces the filter with the parsed result
+// This matches the behavior of the old plugin where json filters are processed after variable replacement
+func processJsonFilters(filter map[string]any) map[string]any {
+	if filter == nil {
+		return filter
+	}
+
+	// Check if this is a json filter type
+	if filterType, ok := filter["type"].(string); ok && filterType == "json" {
+		if value, ok := filter["value"].(string); ok && value != "" {
+			// Parse the value as JSON
+			var parsedFilter map[string]any
+			if err := json.Unmarshal([]byte(value), &parsedFilter); err == nil {
+				// Successfully parsed, return the parsed filter
+				log.DefaultLogger.Debug("Processed json filter", "original_value", value, "parsed_filter", parsedFilter)
+				return processJsonFilters(parsedFilter) // Recursively process nested filters
+			} else {
+				log.DefaultLogger.Warn("Failed to parse json filter value", "error", err, "value", value)
+				// If parsing fails, return the original filter (might contain variables that weren't replaced)
+				return filter
+			}
+		}
+	}
+
+	// Handle nested filters in "and" and "or" filters
+	if filterType, ok := filter["type"].(string); ok {
+		if filterType == "and" || filterType == "or" {
+			if fields, ok := filter["fields"].([]any); ok {
+				processedFields := make([]any, len(fields))
+				for i, field := range fields {
+					if fieldMap, ok := field.(map[string]any); ok {
+						processedFields[i] = processJsonFilters(fieldMap)
+					} else {
+						processedFields[i] = field
+					}
+				}
+				filter["fields"] = processedFields
+			}
+		} else if filterType == "not" {
+			// Handle "not" filter which has a "field" property
+			if field, ok := filter["field"].(map[string]any); ok {
+				filter["field"] = processJsonFilters(field)
+			}
+		}
+	}
+
+	return filter
+}
+
 func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
@@ -638,6 +688,19 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 		// Grafana seems to invoke this even before the user has entered any query
 		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
 		return nil, nil, nil
+	}
+
+	// Process json filters: if a filter has type "json", parse the value field as JSON
+	// This matches the behavior of the old plugin where json filters are processed after variable replacement
+	// Filters can appear at the top level of the builder
+	if filter, ok := builder["filter"].(map[string]any); ok {
+		builder["filter"] = processJsonFilters(filter)
+	}
+	// Also process filters in havingSpec (for groupBy queries)
+	if havingSpec, ok := builder["havingSpec"].(map[string]any); ok {
+		if filter, ok := havingSpec["filter"].(map[string]any); ok {
+			havingSpec["filter"] = processJsonFilters(filter)
+		}
 	}
 
 	var defaultQueryContext map[string]any
