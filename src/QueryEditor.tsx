@@ -325,9 +325,71 @@ export const QueryEditor = (props: Props) => {
       }
     }
 
-    // Process json filters first (after variable replacement by Grafana)
-    // Only process if we have a valid builder
-    let builderWithProcessedFilters = queryBuilderOptions.builder;
+    // Ensure json filter values are always strings (not objects) before serialization
+    // This prevents JSON syntax errors when Grafana replaces variables
+    const ensureJsonFilterValueIsString = (filter: any): any => {
+      if (!filter || typeof filter !== 'object') {
+        return filter;
+      }
+      
+      // If this is a json filter and value is an object, convert it to a JSON string
+      if (filter.type === 'json' && filter.value !== undefined && filter.value !== null) {
+        if (typeof filter.value === 'object') {
+          try {
+            // Convert object to JSON string to ensure valid JSON serialization
+            filter = { ...filter, value: JSON.stringify(filter.value) };
+          } catch (error) {
+            console.warn('Failed to stringify json filter value:', error);
+          }
+        }
+      }
+      
+      // Handle nested filters
+      if (filter.type === 'and' || filter.type === 'or') {
+        if (Array.isArray(filter.fields)) {
+          return {
+            ...filter,
+            fields: filter.fields.map((field: any) => ensureJsonFilterValueIsString(field)),
+          };
+        }
+      } else if (filter.type === 'not' && filter.field) {
+        return {
+          ...filter,
+          field: ensureJsonFilterValueIsString(filter.field),
+        };
+      }
+      
+      return filter;
+    };
+
+    // First, ensure json filter values are strings (to prevent JSON serialization errors)
+    let builderWithStringValues = queryBuilderOptions.builder;
+    if (builderWithStringValues) {
+      try {
+        builderWithStringValues = {
+          ...builderWithStringValues,
+          filter: builderWithStringValues.filter
+            ? ensureJsonFilterValueIsString(builderWithStringValues.filter)
+            : builderWithStringValues.filter,
+          havingSpec: builderWithStringValues.havingSpec
+            ? {
+                ...builderWithStringValues.havingSpec,
+                filter: builderWithStringValues.havingSpec.filter
+                  ? ensureJsonFilterValueIsString(builderWithStringValues.havingSpec.filter)
+                  : builderWithStringValues.havingSpec.filter,
+              }
+            : builderWithStringValues.havingSpec,
+        };
+      } catch (error) {
+        console.error('Error ensuring json filter values are strings:', error);
+        builderWithStringValues = queryBuilderOptions.builder;
+      }
+    }
+
+    // Process json filters (parse the value strings into filter objects)
+    // Note: This happens in the frontend, but variable replacement happens later in Grafana
+    // So we only process if the value doesn't contain unreplaced variables
+    let builderWithProcessedFilters = builderWithStringValues;
     if (builderWithProcessedFilters) {
       try {
         builderWithProcessedFilters = {
@@ -346,8 +408,8 @@ export const QueryEditor = (props: Props) => {
         };
       } catch (error) {
         console.error('Error processing json filters:', error);
-        // If processing fails, use original builder
-        builderWithProcessedFilters = queryBuilderOptions.builder;
+        // If processing fails, use builder with string values
+        builderWithProcessedFilters = builderWithStringValues;
       }
     }
 
@@ -384,8 +446,65 @@ export const QueryEditor = (props: Props) => {
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
 
-    // Process json filters first (after variable replacement by Grafana)
-    let builderWithProcessedFilters = query.builder;
+    // Ensure json filter values are always strings (not objects) before serialization
+    const ensureJsonFilterValueIsString = (filter: any): any => {
+      if (!filter || typeof filter !== 'object') {
+        return filter;
+      }
+      
+      if (filter.type === 'json' && filter.value !== undefined && filter.value !== null) {
+        if (typeof filter.value === 'object') {
+          try {
+            filter = { ...filter, value: JSON.stringify(filter.value) };
+          } catch (error) {
+            console.warn('Failed to stringify json filter value:', error);
+          }
+        }
+      }
+      
+      if (filter.type === 'and' || filter.type === 'or') {
+        if (Array.isArray(filter.fields)) {
+          return {
+            ...filter,
+            fields: filter.fields.map((field: any) => ensureJsonFilterValueIsString(field)),
+          };
+        }
+      } else if (filter.type === 'not' && filter.field) {
+        return {
+          ...filter,
+          field: ensureJsonFilterValueIsString(filter.field),
+        };
+      }
+      
+      return filter;
+    };
+
+    // First, ensure json filter values are strings
+    let builderWithStringValues = query.builder;
+    if (builderWithStringValues) {
+      try {
+        builderWithStringValues = {
+          ...builderWithStringValues,
+          filter: builderWithStringValues.filter
+            ? ensureJsonFilterValueIsString(builderWithStringValues.filter)
+            : builderWithStringValues.filter,
+          havingSpec: builderWithStringValues.havingSpec
+            ? {
+                ...builderWithStringValues.havingSpec,
+                filter: builderWithStringValues.havingSpec.filter
+                  ? ensureJsonFilterValueIsString(builderWithStringValues.havingSpec.filter)
+                  : builderWithStringValues.havingSpec.filter,
+              }
+            : builderWithStringValues.havingSpec,
+        };
+      } catch (error) {
+        console.error('Error ensuring json filter values are strings:', error);
+        builderWithStringValues = query.builder;
+      }
+    }
+
+    // Process json filters
+    let builderWithProcessedFilters = builderWithStringValues;
     if (builderWithProcessedFilters) {
       try {
         builderWithProcessedFilters = {
@@ -404,7 +523,7 @@ export const QueryEditor = (props: Props) => {
         };
       } catch (error) {
         console.error('Error processing json filters:', error);
-        builderWithProcessedFilters = query.builder;
+        builderWithProcessedFilters = builderWithStringValues;
       }
     }
 
