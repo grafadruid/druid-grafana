@@ -170,6 +170,53 @@ export const QueryEditor = (props: Props) => {
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
   const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
 
+  // Process json filters: if a filter has type "json", parse the value field as JSON
+  // This matches the behavior of the old plugin where json filters are processed after variable replacement
+  const processJsonFilters = (filter: any): any => {
+    if (!filter || typeof filter !== 'object') {
+      return filter;
+    }
+
+    // Check if this is a json filter type
+    if (filter.type === 'json' && filter.value) {
+      const value = typeof filter.value === 'string' ? filter.value.trim() : String(filter.value);
+      
+      // Skip if value still contains unreplaced variables (starts with $ and doesn't contain {)
+      if (value.startsWith('$') && !value.includes('{')) {
+        return filter;
+      }
+
+      try {
+        // Parse the value as JSON
+        const parsedFilter = JSON.parse(value);
+        // Recursively process nested filters
+        return processJsonFilters(parsedFilter);
+      } catch (error) {
+        // If parsing fails, return the original filter
+        // This allows variables to be replaced later by Grafana's template service
+        console.warn('Failed to parse json filter value:', error, 'value:', value);
+        return filter;
+      }
+    }
+
+    // Handle nested filters in "and" and "or" filters
+    if (filter.type === 'and' || filter.type === 'or') {
+      if (Array.isArray(filter.fields)) {
+        return {
+          ...filter,
+          fields: filter.fields.map((field: any) => processJsonFilters(field)),
+        };
+      }
+    } else if (filter.type === 'not' && filter.field) {
+      return {
+        ...filter,
+        field: processJsonFilters(filter.field),
+      };
+    }
+
+    return filter;
+  };
+
   // Convert simple granularity (day/week/month) to period granularity with timezone for backend
   // Only applies to timeseries queries - other query types keep simple granularity as-is
   const convertGranularityForBackend = (builder: any, tz: string | undefined): any => {
@@ -237,9 +284,27 @@ export const QueryEditor = (props: Props) => {
       }
     }
 
+    // Process json filters first (after variable replacement by Grafana)
+    const builderWithProcessedFilters = queryBuilderOptions.builder
+      ? {
+          ...queryBuilderOptions.builder,
+          filter: queryBuilderOptions.builder.filter
+            ? processJsonFilters(queryBuilderOptions.builder.filter)
+            : queryBuilderOptions.builder.filter,
+          havingSpec: queryBuilderOptions.builder.havingSpec
+            ? {
+                ...queryBuilderOptions.builder.havingSpec,
+                filter: queryBuilderOptions.builder.havingSpec.filter
+                  ? processJsonFilters(queryBuilderOptions.builder.havingSpec.filter)
+                  : queryBuilderOptions.builder.havingSpec.filter,
+              }
+            : queryBuilderOptions.builder.havingSpec,
+        }
+      : queryBuilderOptions.builder;
+
     // Convert granularity for backend - need to convert in the builder that gets sent
     const builderForBackend = convertGranularityForBackend(
-      queryBuilderOptions.builder,
+      builderWithProcessedFilters,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
 
@@ -258,9 +323,25 @@ export const QueryEditor = (props: Props) => {
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
 
+    // Process json filters first (after variable replacement by Grafana)
+    const builderWithProcessedFilters = query.builder
+      ? {
+          ...query.builder,
+          filter: query.builder.filter ? processJsonFilters(query.builder.filter) : query.builder.filter,
+          havingSpec: query.builder.havingSpec
+            ? {
+                ...query.builder.havingSpec,
+                filter: query.builder.havingSpec.filter
+                  ? processJsonFilters(query.builder.havingSpec.filter)
+                  : query.builder.havingSpec.filter,
+              }
+            : query.builder.havingSpec,
+        }
+      : query.builder;
+
     // Convert granularity for backend
     const builderForBackend = convertGranularityForBackend(
-      query.builder,
+      builderWithProcessedFilters,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
 
