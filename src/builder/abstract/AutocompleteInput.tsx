@@ -160,6 +160,7 @@ const fetchDimensionValues = async (
     // Use Druid topN query to get dimension values
     // This is similar to the SQL approach but uses native Druid queries
     // Get intervals - handle both object format { type: 'intervals', intervals: [...] } and array format
+    // For topN queries, intervals should be an array of strings
     let intervals: string[] = ['${__from:date:iso}/${__to:date:iso}'];
     if (rootBuilder?.intervals) {
       if (Array.isArray(rootBuilder.intervals)) {
@@ -171,9 +172,24 @@ const fetchDimensionValues = async (
     console.error('fetchDimensionValues - Intervals:', intervals);
     console.error('fetchDimensionValues - Root builder intervals:', rootBuilder?.intervals);
 
+    // Build dataSource - can be string or object, but object format is preferred
+    let dataSource: any = tableName;
+    if (rootBuilder?.dataSource) {
+      if (typeof rootBuilder.dataSource === 'object' && rootBuilder.dataSource.name) {
+        dataSource = rootBuilder.dataSource;
+      } else if (typeof rootBuilder.dataSource === 'string') {
+        dataSource = { type: 'table', name: rootBuilder.dataSource };
+      } else {
+        dataSource = { type: 'table', name: tableName };
+      }
+    } else {
+      dataSource = { type: 'table', name: tableName };
+    }
+    console.error('fetchDimensionValues - DataSource:', JSON.stringify(dataSource, null, 2));
+
     const topNQuery: any = {
       queryType: 'topN',
-      dataSource: tableName,
+      dataSource: dataSource,
       granularity: 'all',
       threshold: 10,
       dimension: dimensionName,
