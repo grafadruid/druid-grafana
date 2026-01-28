@@ -188,8 +188,39 @@ const fetchDimensionValues = async (
     if (rootBuilder?.filter) {
       // Deep copy the existing filter to avoid mutating the original
       const existingFilter = JSON.parse(JSON.stringify(rootBuilder.filter));
-      filters.push(existingFilter);
       console.error('fetchDimensionValues - Existing filter from root builder:', JSON.stringify(existingFilter, null, 2));
+      
+      // Helper function to validate and filter out incomplete filters
+      const isValidFilter = (filter: any): boolean => {
+        if (!filter || typeof filter !== 'object') return false;
+        
+        // Selector filters must have a value
+        if (filter.type === 'selector') {
+          if (filter.value === undefined || filter.value === null || filter.value === '') {
+            console.error('fetchDimensionValues - Skipping incomplete selector filter (missing value):', filter);
+            return false;
+          }
+        }
+        
+        return true;
+      };
+      
+      // If the existing filter is already an "and" filter, extract its fields to avoid nesting
+      if (existingFilter.type === 'and' && Array.isArray(existingFilter.fields)) {
+        const validFields = existingFilter.fields.filter(isValidFilter);
+        if (validFields.length > 0) {
+          filters.push(...validFields);
+          console.error('fetchDimensionValues - Extracted valid fields from existing "and" filter:', validFields);
+        } else {
+          console.error('fetchDimensionValues - All fields in "and" filter were invalid, skipping');
+        }
+      } else {
+        if (isValidFilter(existingFilter)) {
+          filters.push(existingFilter);
+        } else {
+          console.error('fetchDimensionValues - Existing filter is invalid, skipping');
+        }
+      }
     }
 
     // Add search filter if there's an input value
