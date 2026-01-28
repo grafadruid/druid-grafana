@@ -148,7 +148,8 @@ const fetchDimensionValues = async (
   datasource: DruidDataSource,
   tableName: string | null,
   dimensionName: string | null,
-  inputValue: string
+  inputValue: string,
+  rootBuilder: any = null
 ): Promise<SelectableValue[]> => {
   if (!tableName || !dimensionName) {
     console.debug('fetchDimensionValues: Missing tableName or dimensionName', { tableName, dimensionName });
@@ -156,50 +157,70 @@ const fetchDimensionValues = async (
   }
 
   try {
-    // Note: The Druid metadata API (/druid/v2/datasources/{datasourceName}) only returns
-    // dimension names and metrics, not dimension values. To get actual dimension values,
-    // we need to query the data using SQL. This is the standard approach for fetching
-    // distinct values from a column.
-    // Use SQL query to get dimension values with server-side filtering
-    // Escape the dimension name to prevent SQL injection
-    const escapedTableName = tableName.replace(/"/g, '""');
-    const escapedDimensionName = dimensionName.replace(/"/g, '""');
-
-    // Build WHERE clause with filtering
-    let whereClause = `"${escapedDimensionName}" IS NOT NULL`;
-
-    // If there's an input value, add LIKE filter for substring matching
-    // Escape SQL LIKE special characters: %, _, and \
-    if (inputValue && inputValue.trim() !== '') {
-      // Escape special characters for LIKE: % -> \% , _ -> \_ , \ -> \\
-      // Also escape single quotes to prevent SQL injection
-      const escapedInput = inputValue
-        .replace(/\\/g, '\\\\')  // Escape backslashes first
-        .replace(/'/g, "''")     // Escape single quotes (SQL standard)
-        .replace(/%/g, '\\%')    // Escape %
-        .replace(/_/g, '\\_');   // Escape _
-
-      // Use LOWER() for case-insensitive matching and LIKE for substring search
-      whereClause += ` AND LOWER("${escapedDimensionName}") LIKE LOWER('%${escapedInput}%')`;
+    // Use Druid topN query to get dimension values
+    // This is similar to the SQL approach but uses native Druid queries
+    // Get intervals - handle both object format { type: 'intervals', intervals: [...] } and array format
+    let intervals: string[] = ['${__from:date:iso}/${__to:date:iso}'];
+    if (rootBuilder?.intervals) {
+      if (Array.isArray(rootBuilder.intervals)) {
+        intervals = rootBuilder.intervals;
+      } else if (rootBuilder.intervals.intervals && Array.isArray(rootBuilder.intervals.intervals)) {
+        intervals = rootBuilder.intervals.intervals;
+      }
     }
 
-    // Build SQL query with filtering, ordering, and appropriate limit
-    // Use a higher limit when filtering (100) vs when showing all (20)
-    const limit = inputValue && inputValue.trim() !== '' ? 100 : 20;
-    const sqlQueryStr = `SELECT DISTINCT "${escapedDimensionName}" FROM "${escapedTableName}" WHERE ${whereClause} ORDER BY "${escapedDimensionName}" LIMIT ${limit}`;
+    const topNQuery: any = {
+      queryType: 'topN',
+      dataSource: tableName,
+      granularity: 'all',
+      threshold: 10,
+      dimension: dimensionName,
+      metric: 'count',
+      aggregations: [{ type: 'count', name: 'count' }],
+      intervals: intervals,
+    };
 
-    const sqlQuery = {
-      builder: {
-        queryType: 'sql',
-        query: sqlQueryStr,
-      },
+    // Build filters array - start with existing filters from root builder if any
+    const filters: any[] = [];
+    if (rootBuilder?.filter) {
+      // Deep copy the existing filter to avoid mutating the original
+      filters.push(JSON.parse(JSON.stringify(rootBuilder.filter)));
+    }
+
+    // Add search filter if there's an input value
+    if (inputValue && inputValue.trim() !== '') {
+      filters.push({
+        type: 'search',
+        dimension: dimensionName,
+        query: {
+          type: 'contains',
+          value: inputValue,
+          case_sensitive: false,
+        },
+      });
+    }
+
+    // Build filter tree - if we have multiple filters, wrap them in an "and" filter
+    if (filters.length > 0) {
+      if (filters.length === 1) {
+        topNQuery.filter = filters[0];
+      } else {
+        topNQuery.filter = {
+          type: 'and',
+          fields: filters,
+        };
+      }
+    }
+
+    const query = {
+      builder: topNQuery,
       settings: {},
     };
 
-    const response = await datasource.postResource('query-variable', sqlQuery);
+    const response = await datasource.postResource('query-variable', query);
 
     // The response from query-variable returns MetricFindValue format
-    // Extract unique values from SQL results
+    // Extract unique values from topN results
     const values = new Set<string>();
 
     if (Array.isArray(response) && response.length > 0) {
@@ -215,7 +236,7 @@ const fetchDimensionValues = async (
       });
     }
 
-    // Return results (already filtered and sorted by SQL)
+    // Return results (already filtered and sorted by topN)
     if (values.size > 0) {
       return Array.from(values)
         .map((val) => ({
@@ -293,7 +314,9 @@ export const AutocompleteInput = (props: Props) => {
       } else if (type === 'metric') {
         return await fetchMetrics(datasource, tableName, inputValue || '');
       } else {
-        return await fetchDimensionValues(datasource, tableName, dimensionName, inputValue || '');
+        // Get root builder to access filters and intervals
+        const rootBuilder = (props as any).rootBuilder || props.options.builder;
+        return await fetchDimensionValues(datasource, tableName, dimensionName, inputValue || '', rootBuilder);
       }
     } finally {
       setIsLoading(false);
