@@ -168,6 +168,8 @@ const fetchDimensionValues = async (
         intervals = rootBuilder.intervals.intervals;
       }
     }
+    console.error('fetchDimensionValues - Intervals:', intervals);
+    console.error('fetchDimensionValues - Root builder intervals:', rootBuilder?.intervals);
 
     const topNQuery: any = {
       queryType: 'topN',
@@ -179,17 +181,20 @@ const fetchDimensionValues = async (
       aggregations: [{ type: 'count', name: 'count' }],
       intervals: intervals,
     };
+    console.error('fetchDimensionValues - Initial topN query:', JSON.stringify(topNQuery, null, 2));
 
     // Build filters array - start with existing filters from root builder if any
     const filters: any[] = [];
     if (rootBuilder?.filter) {
       // Deep copy the existing filter to avoid mutating the original
-      filters.push(JSON.parse(JSON.stringify(rootBuilder.filter)));
+      const existingFilter = JSON.parse(JSON.stringify(rootBuilder.filter));
+      filters.push(existingFilter);
+      console.error('fetchDimensionValues - Existing filter from root builder:', JSON.stringify(existingFilter, null, 2));
     }
 
     // Add search filter if there's an input value
     if (inputValue && inputValue.trim() !== '') {
-      filters.push({
+      const searchFilter = {
         type: 'search',
         dimension: dimensionName,
         query: {
@@ -197,8 +202,12 @@ const fetchDimensionValues = async (
           value: inputValue,
           case_sensitive: false,
         },
-      });
+      };
+      filters.push(searchFilter);
+      console.error('fetchDimensionValues - Search filter added:', JSON.stringify(searchFilter, null, 2));
     }
+
+    console.error('fetchDimensionValues - All filters array:', JSON.stringify(filters, null, 2));
 
     // Build filter tree - if we have multiple filters, wrap them in an "and" filter
     if (filters.length > 0) {
@@ -210,14 +219,21 @@ const fetchDimensionValues = async (
           fields: filters,
         };
       }
+      console.error('fetchDimensionValues - Final filter in topN query:', JSON.stringify(topNQuery.filter, null, 2));
     }
+
+    console.error('fetchDimensionValues - Complete topN query:', JSON.stringify(topNQuery, null, 2));
 
     const query = {
       builder: topNQuery,
       settings: {},
     };
 
+    console.error('fetchDimensionValues - Query being sent to query-variable:', JSON.stringify(query, null, 2));
+
     const response = await datasource.postResource('query-variable', query);
+
+    console.error('fetchDimensionValues - Response received:', response);
 
     // The response from query-variable returns MetricFindValue format
     // Extract unique values from topN results
@@ -250,6 +266,12 @@ const fetchDimensionValues = async (
   } catch (error) {
     console.error('Error fetching dimension values:', error);
     console.error('Query details:', { tableName, dimensionName, inputValue });
+    console.error('Root builder:', rootBuilder);
+    if (error && typeof error === 'object' && 'data' in error) {
+      console.error('Error data:', error.data);
+      console.error('Error status:', (error as any).status);
+      console.error('Error statusText:', (error as any).statusText);
+    }
     return [];
   }
 };
