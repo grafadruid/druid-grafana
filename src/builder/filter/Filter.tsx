@@ -25,6 +25,7 @@ export const Filter = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
     {...props}
     label="Filter"
+    default={And}
     components={{
       And: And,
       Bound: Bound,
