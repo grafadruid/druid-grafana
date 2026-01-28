@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Multiple, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Multiple } from '../abstract';
 
 export const Histogram = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Histogram);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
       <AutocompleteInput
         {...scopedProps('fieldName')}
@@ -25,7 +25,7 @@ export const Histogram = (props: QueryBuilderProps) => {
           type: 'number',
         }}
       />
-    </Row>
+    </>
   );
 };
 Histogram.type = 'histogram';

@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Multiple, Code, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, Multiple, Code } from '../abstract';
 
 export const Javascript = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Javascript);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
       <Multiple
         {...scopedProps('fieldNames')}
@@ -38,7 +38,7 @@ export const Javascript = (props: QueryBuilderProps) => {
         description="The javascript reset function. e.g: function() { return <initial value>; }"
         lang="javascript"
       />
-    </Row>
+    </>
   );
 };
 Javascript.type = 'javascript';

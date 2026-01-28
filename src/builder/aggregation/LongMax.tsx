@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput } from '../abstract';
 
 export const LongMax = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, LongMax);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
       <AutocompleteInput
         {...scopedProps('fieldName')}
@@ -15,7 +15,7 @@ export const LongMax = (props: QueryBuilderProps) => {
         datasource={props.datasource}
       />
       <Input {...scopedProps('expression')} label="Expression" description="The expression" type="text" />
-    </Row>
+    </>
   );
 };
 LongMax.type = 'longMax';

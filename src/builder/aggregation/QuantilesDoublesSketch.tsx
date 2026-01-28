@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput } from '../abstract';
 
 export const QuantilesDoublesSketch = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, QuantilesDoublesSketch);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the sketch" type="text" />
       <AutocompleteInput
         {...scopedProps('fieldName')}
@@ -15,7 +15,7 @@ export const QuantilesDoublesSketch = (props: QueryBuilderProps) => {
         datasource={props.datasource}
       />
       <Input {...scopedProps('k')} label="k" description="Parameter that controls size and accuracy" type="number" />
-    </Row>
+    </>
   );
 };
 QuantilesDoublesSketch.type = 'quantilesDoublesSketch';

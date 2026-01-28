@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput } from '../abstract';
 
 export const DoubleSum = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, DoubleSum);
   return (
-    <Row>
+    <>
       <AutocompleteInput
         {...scopedProps('fieldName')}
         label="Field name"
@@ -15,7 +15,7 @@ export const DoubleSum = (props: QueryBuilderProps) => {
       />
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
       <Input {...scopedProps('expression')} label="Expression" description="The expression" type="text" />
-    </Row>
+    </>
   );
 };
 DoubleSum.type = 'doubleSum';

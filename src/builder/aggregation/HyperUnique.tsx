@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Checkbox, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Checkbox } from '../abstract';
 
 export const HyperUnique = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, HyperUnique);
   return (
-    <Row>
+    <>
       <AutocompleteInput
         {...scopedProps('fieldName')}
         label="Field name"
@@ -19,7 +19,7 @@ export const HyperUnique = (props: QueryBuilderProps) => {
         label="Round"
         description="Set to true to round off estimated lues to whole numbers"
       />
-    </Row>
+    </>
   );
 };
 HyperUnique.type = 'hyperUnique';

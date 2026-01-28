@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput } from '../abstract';
 
 export const LongFirst = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, LongFirst);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed lue" type="text" />
       <AutocompleteInput
         {...scopedProps('fieldName')}
@@ -14,7 +14,7 @@ export const LongFirst = (props: QueryBuilderProps) => {
         type="metric"
         datasource={props.datasource}
       />
-    </Row>
+    </>
   );
 };
 LongFirst.type = 'longFirst';
