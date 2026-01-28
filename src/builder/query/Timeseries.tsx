@@ -41,16 +41,18 @@ export const Timeseries = (props: QueryBuilderProps & { inline?: boolean }) => {
           description: 'An aggregation',
         }}
       />
-      <Multiple
-        {...scopedProps('postAggregations')}
-        label="Post-aggregations"
-        description="The post-aggregations"
-        component={PostAggregation}
-        componentExtraProps={{
-          label: 'Post-aggregation',
-          description: 'A post-aggregation',
-        }}
-      />
+      <Row>
+        <Multiple
+          {...scopedProps('postAggregations')}
+          label="Post-aggregations"
+          description="The post-aggregations"
+          component={PostAggregation}
+          componentExtraProps={{
+            label: 'Post-aggregation',
+            description: 'A post-aggregation',
+          }}
+        />
+      </Row>
       <Row>
         <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
       </Row>
