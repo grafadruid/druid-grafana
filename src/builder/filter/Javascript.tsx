@@ -1,32 +1,22 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Code, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, Code } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
-import { FilterTuning } from '.';
 
-export const Javascript = (props: QueryBuilderProps) => {
+export const Javascript = (props: QueryBuilderProps & { inline?: boolean }) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Javascript);
   return (
     <>
-      <Row>
-        <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      </Row>
-      <Row>
-        <Code
-          {...scopedProps('function')}
-          label="Function"
-          description="The javascript function. e.g: function(x) { return(x >= 'bar' && x <= 'foo') }"
-          lang="javascript"
-        />
-      </Row>
-      <Row>
-        <ExtractionFn {...scopedProps('extractionFn')} />
-      </Row>
-      <Row>
-        <FilterTuning {...scopedProps('filterTuning')} />
-      </Row>
+      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
+      <Code
+        {...scopedProps('function')}
+        label="Function"
+        description="The javascript function. e.g: function(x) { return(x >= 'bar' && x <= 'foo') }"
+        lang="javascript"
+      />
+      <ExtractionFn {...scopedProps('extractionFn')} />
     </>
   );
 };
 Javascript.type = 'javascript';
-Javascript.fields = ['dimension', 'function', 'extractionFn', 'filterTuning'];
+Javascript.fields = ['dimension', 'function', 'extractionFn'];

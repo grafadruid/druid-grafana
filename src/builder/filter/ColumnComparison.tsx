@@ -1,20 +1,18 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Multiple, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Multiple } from '../abstract';
 import { Dimension } from '../dimension';
 
-export const ColumnComparison = (props: QueryBuilderProps) => {
+export const ColumnComparison = (props: QueryBuilderProps & { inline?: boolean }) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, ColumnComparison);
   return (
-    <Row>
-      <Multiple
-        {...scopedProps('dimensions')}
-        label="Dimensions"
-        description="The dimensions"
-        component={Dimension}
-        componentExtraProps={{}}
-      />
-    </Row>
+    <Multiple
+      {...scopedProps('dimensions')}
+      label="Dimensions"
+      description="The dimensions"
+      component={Dimension}
+      componentExtraProps={{ inline: props.inline }}
+    />
   );
 };
 ColumnComparison.type = 'columnComparison';

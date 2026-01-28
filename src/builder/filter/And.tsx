@@ -1,20 +1,18 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Multiple, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Multiple } from '../abstract';
 import { Filter } from './';
 
-export const And = (props: QueryBuilderProps) => {
+export const And = (props: QueryBuilderProps & { inline?: boolean }) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, And);
   return (
-    <Row>
-      <Multiple
-        {...scopedProps('fields')}
-        label="Fields"
-        description="The filter fields"
-        component={Filter}
-        componentExtraProps={{}}
-      />
-    </Row>
+    <Multiple
+      {...scopedProps('fields')}
+      label="Fields"
+      description="The filter fields"
+      component={Filter}
+      componentExtraProps={{ inline: props.inline }}
+    />
   );
 };
 And.type = 'and';

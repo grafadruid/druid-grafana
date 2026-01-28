@@ -30,13 +30,17 @@ export const Multiple = (props: Props) => {
   const onComponentOptionsChange = (name: string, options: QueryBuilderOptions) => {
     setProxyBuilder({ ...proxyBuilder, [name]: options.builder });
   };
+  
+  // Check if component should render inline (from componentExtraProps)
+  const inline = props.componentExtraProps?.inline || false;
+  
   return (
     <>
       <InlineLabel width="auto" tooltip={props.description}>
         {props.label}
       </InlineLabel>
-      {Object.entries(proxyBuilder).map((builderEntry: any, index: number) => (
-        <Row key={index}>
+      {Object.entries(proxyBuilder).map((builderEntry: any, index: number) => {
+        const componentElement = (
           <Component
             {...props}
             {...props.componentExtraProps}
@@ -44,6 +48,8 @@ export const Multiple = (props: Props) => {
             options={{ ...props.options, builder: builderEntry[1] }}
             onOptionsChange={onComponentOptionsChange.bind(this, builderEntry[0])}
           />
+        );
+        const deleteButton = (
           <Button
             variant="secondary"
             size="xs"
@@ -56,8 +62,24 @@ export const Multiple = (props: Props) => {
           >
             <Icon name="trash-alt" />
           </Button>
-        </Row>
-      ))}
+        );
+        
+        if (inline) {
+          return (
+            <React.Fragment key={index}>
+              {componentElement}
+              {deleteButton}
+            </React.Fragment>
+          );
+        }
+        
+        return (
+          <Row key={index}>
+            {componentElement}
+            {deleteButton}
+          </Row>
+        );
+      })}
       <Button
         variant="secondary"
         icon="plus"
