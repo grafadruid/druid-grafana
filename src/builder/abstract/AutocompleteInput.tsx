@@ -159,45 +159,59 @@ const fetchDimensionValues = async (
   try {
     // Use Druid topN query to get dimension values
     // This is similar to the SQL approach but uses native Druid queries
-    // Get intervals - handle both object format { type: 'intervals', intervals: [...] } and array format
-    // For topN queries, intervals should be an array of strings
-    let intervals: string[] = ['${__from:date:iso}/${__to:date:iso}'];
+    // Get intervals - should be in object format { type: 'intervals', intervals: [...] }
+    let intervalsObj: any = {
+      type: 'intervals',
+      intervals: ['${__from:date:iso}/${__to:date:iso}'],
+    };
     if (rootBuilder?.intervals) {
-      if (Array.isArray(rootBuilder.intervals)) {
-        intervals = rootBuilder.intervals;
-      } else if (rootBuilder.intervals.intervals && Array.isArray(rootBuilder.intervals.intervals)) {
-        intervals = rootBuilder.intervals.intervals;
+      if (rootBuilder.intervals.type === 'intervals' && Array.isArray(rootBuilder.intervals.intervals)) {
+        intervalsObj = rootBuilder.intervals;
+      } else if (Array.isArray(rootBuilder.intervals)) {
+        intervalsObj = {
+          type: 'intervals',
+          intervals: rootBuilder.intervals,
+        };
       }
     }
-    console.error('fetchDimensionValues - Intervals:', intervals);
+    console.error('fetchDimensionValues - Intervals:', intervalsObj);
     console.error('fetchDimensionValues - Root builder intervals:', rootBuilder?.intervals);
 
-    // Build dataSource - can be string or object, but object format is preferred
-    let dataSource: any = tableName;
+    // Build dataSource - should be object format { type: 'table', name: '...' }
+    let dataSource: any = { type: 'table', name: tableName };
     if (rootBuilder?.dataSource) {
       if (typeof rootBuilder.dataSource === 'object' && rootBuilder.dataSource.name) {
         dataSource = rootBuilder.dataSource;
       } else if (typeof rootBuilder.dataSource === 'string') {
         dataSource = { type: 'table', name: rootBuilder.dataSource };
-      } else {
-        dataSource = { type: 'table', name: tableName };
       }
-    } else {
-      dataSource = { type: 'table', name: tableName };
     }
     console.error('fetchDimensionValues - DataSource:', JSON.stringify(dataSource, null, 2));
+
+    // Build dimension - should be object format { type: 'default', dimension: '...' }
+    const dimensionObj = {
+      type: 'default',
+      dimension: dimensionName,
+    };
+
+    // Build metric - should be object format { type: 'numeric', metric: 'count' }
+    const metricObj = {
+      type: 'numeric',
+      metric: 'count',
+    };
 
     const topNQuery: any = {
       queryType: 'topN',
       dataSource: dataSource,
+      intervals: intervalsObj,
       granularity: 'all',
       threshold: 10,
-      dimension: dimensionName,
-      metric: 'count',
+      dimension: dimensionObj,
+      metric: metricObj,
       aggregations: [{ type: 'count', name: 'count' }],
-      intervals: intervals,
     };
     console.error('fetchDimensionValues - Initial topN query:', JSON.stringify(topNQuery, null, 2));
+
 
     // Build filters array - start with existing filters from root builder if any
     const filters: any[] = [];
@@ -205,11 +219,11 @@ const fetchDimensionValues = async (
       // Deep copy the existing filter to avoid mutating the original
       const existingFilter = JSON.parse(JSON.stringify(rootBuilder.filter));
       console.error('fetchDimensionValues - Existing filter from root builder:', JSON.stringify(existingFilter, null, 2));
-      
+
       // Helper function to validate and filter out incomplete filters
       const isValidFilter = (filter: any): boolean => {
         if (!filter || typeof filter !== 'object') return false;
-        
+
         // Selector filters must have a value
         if (filter.type === 'selector') {
           if (filter.value === undefined || filter.value === null || filter.value === '') {
@@ -217,10 +231,10 @@ const fetchDimensionValues = async (
             return false;
           }
         }
-        
+
         return true;
       };
-      
+
       // If the existing filter is already an "and" filter, extract its fields to avoid nesting
       if (existingFilter.type === 'and' && Array.isArray(existingFilter.fields)) {
         const validFields = existingFilter.fields.filter(isValidFilter);
@@ -240,6 +254,7 @@ const fetchDimensionValues = async (
     }
 
     // Add search filter if there's an input value
+    // Note: Search filter structure matches the search query format
     if (inputValue && inputValue.trim() !== '') {
       const searchFilter = {
         type: 'search',
@@ -257,6 +272,7 @@ const fetchDimensionValues = async (
     console.error('fetchDimensionValues - All filters array:', JSON.stringify(filters, null, 2));
 
     // Build filter tree - if we have multiple filters, wrap them in an "and" filter
+    // If no filters, set to null to match Druid query format
     if (filters.length > 0) {
       if (filters.length === 1) {
         topNQuery.filter = filters[0];
@@ -267,6 +283,8 @@ const fetchDimensionValues = async (
         };
       }
       console.error('fetchDimensionValues - Final filter in topN query:', JSON.stringify(topNQuery.filter, null, 2));
+    } else {
+      topNQuery.filter = null;
     }
 
     console.error('fetchDimensionValues - Complete topN query:', JSON.stringify(topNQuery, null, 2));
