@@ -1,12 +1,14 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Row } from '../abstract';
 import { Filter } from './';
 
-export const Not = (props: QueryBuilderProps & { inline?: boolean }) => {
+export const Not = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Not);
   return (
-    <Filter {...scopedProps('field')} inline={props.inline} />
+    <Row>
+      <Filter {...scopedProps('field')} />
+    </Row>
   );
 };
 Not.type = 'not';

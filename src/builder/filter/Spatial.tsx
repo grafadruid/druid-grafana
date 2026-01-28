@@ -1,18 +1,28 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
+import { FilterTuning } from '.';
 import { Bound } from '../bound';
 
-export const Spatial = (props: QueryBuilderProps & { inline?: boolean }) => {
+export const Spatial = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Spatial);
   return (
     <>
-      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      <Bound {...scopedProps('bound')} />
-      <ExtractionFn {...scopedProps('extractionFn')} />
+      <Row>
+        <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
+      </Row>
+      <Row>
+        <Bound {...scopedProps('bound')} />
+      </Row>
+      <Row>
+        <ExtractionFn {...scopedProps('extractionFn')} />
+      </Row>
+      <Row>
+        <FilterTuning {...scopedProps('filterTuning')} />
+      </Row>
     </>
   );
 };
 Spatial.type = 'spatial';
-Spatial.fields = ['dimension', 'bound', 'extractionFn'];
+Spatial.fields = ['dimension', 'bound', 'extractionFn', 'filterTuning'];

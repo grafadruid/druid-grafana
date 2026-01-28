@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, AutocompleteInput } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
+import { FilterTuning } from '.';
 
-export const Selector = (props: QueryBuilderProps & { inline?: boolean }) => {
+export const Selector = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Selector);
   const dimensionScopedProps = scopedProps('dimension');
   const valueScopedProps = scopedProps('value');
@@ -15,24 +16,31 @@ export const Selector = (props: QueryBuilderProps & { inline?: boolean }) => {
   
   return (
     <>
-      <AutocompleteInput 
-        {...dimensionScopedProps} 
-        label="Dimension" 
-        description="the dimension name" 
-        type="dimension"
-        datasource={props.datasource}
-      />
-      <AutocompleteInput 
-        {...valueScopedProps} 
-        label="Value" 
-        description="the dimension value" 
-        type="dimensionValue"
-        datasource={props.datasource}
-        dimensionName={dimensionName}
-      />
-      <ExtractionFn {...scopedProps('extractionFn')} />
+      <Row>
+        <AutocompleteInput 
+          {...dimensionScopedProps} 
+          label="Dimension" 
+          description="the dimension name" 
+          type="dimension"
+          datasource={props.datasource}
+        />
+        <AutocompleteInput 
+          {...valueScopedProps} 
+          label="Value" 
+          description="the dimension value" 
+          type="dimensionValue"
+          datasource={props.datasource}
+          dimensionName={dimensionName}
+        />
+      </Row>
+      <Row>
+        <ExtractionFn {...scopedProps('extractionFn')} />
+      </Row>
+      <Row>
+        <FilterTuning {...scopedProps('filterTuning')} />
+      </Row>
     </>
   );
 };
 Selector.type = 'selector';
-Selector.fields = ['dimension', 'value', 'extractionFn'];
+Selector.fields = ['dimension', 'value', 'extractionFn', 'filterTuning'];

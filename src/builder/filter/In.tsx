@@ -1,27 +1,37 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Multiple } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, Multiple, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
+import { FilterTuning } from '.';
 
-export const In = (props: QueryBuilderProps & { inline?: boolean }) => {
+export const In = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, In);
   return (
     <>
-      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      <Multiple
-        {...scopedProps('values')}
-        label="Values"
-        description="The values"
-        component={Input}
-        componentExtraProps={{
-          label: 'Value',
-          description: 'A value',
-          type: 'text',
-        }}
-      />
-      <ExtractionFn {...scopedProps('extractionFn')} />
+      <Row>
+        <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
+      </Row>
+      <Row>
+        <Multiple
+          {...scopedProps('values')}
+          label="Values"
+          description="The values"
+          component={Input}
+          componentExtraProps={{
+            label: 'Value',
+            description: 'A value',
+            type: 'text',
+          }}
+        />
+      </Row>
+      <Row>
+        <ExtractionFn {...scopedProps('extractionFn')} />
+      </Row>
+      <Row>
+        <FilterTuning {...scopedProps('filterTuning')} />
+      </Row>
     </>
   );
 };
 In.type = 'in';
-In.fields = ['dimension', 'values', 'extractionFn'];
+In.fields = ['dimension', 'values', 'extractionFn', 'filterTuning'];

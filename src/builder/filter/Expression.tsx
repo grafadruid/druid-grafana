@@ -1,14 +1,20 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
+import { FilterTuning } from '.';
 
-export const Expression = (props: QueryBuilderProps & { inline?: boolean }) => {
+export const Expression = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Expression);
   return (
     <>
-      <Input {...scopedProps('expression')} label="Expression" description="The expression" type="text" />
+      <Row>
+        <Input {...scopedProps('expression')} label="Expression" description="The expression" type="text" />
+      </Row>
+      <Row>
+        <FilterTuning {...scopedProps('filterTuning')} />
+      </Row>
     </>
   );
 };
 Expression.type = 'expression';
-Expression.fields = ['expression'];
+Expression.fields = ['expression', 'filterTuning'];

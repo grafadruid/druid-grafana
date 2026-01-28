@@ -3,8 +3,9 @@ import { InfoBox } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
+import { FilterTuning } from '.';
 
-export const Extraction = (props: QueryBuilderProps & { inline?: boolean }) => {
+export const Extraction = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Extraction);
   const [showInfo, setShowInfo] = useState(true);
   return (
@@ -25,9 +26,13 @@ export const Extraction = (props: QueryBuilderProps & { inline?: boolean }) => {
           </InfoBox>
         </Row>
       )}
-      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      <Input {...scopedProps('value')} label="Value" description="The dimension value" type="text" />
-      <ExtractionFn {...scopedProps('extractionFn')} />
+      <Row>
+        <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
+        <Input {...scopedProps('value')} label="Value" description="The dimension value" type="text" />
+      </Row>
+      <Row>
+        <ExtractionFn {...scopedProps('extractionFn')} />
+      </Row>
     </>
   );
 };

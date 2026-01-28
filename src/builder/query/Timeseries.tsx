@@ -28,7 +28,9 @@ export const Timeseries = (props: QueryBuilderProps & { inline?: boolean }) => {
           <Granularity {...scopedComponentProps('granularity')} />
         </Row>
       )}
-      <Filter {...scopedComponentProps('filter')} inline={true} />
+      <Row>
+        <Filter {...scopedComponentProps('filter')} />
+      </Row>
       <Row>
         <Multiple
           {...scopedProps('aggregations')}

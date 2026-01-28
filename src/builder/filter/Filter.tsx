@@ -21,12 +21,10 @@ import {
   True,
 } from './';
 
-export const Filter = (props: QueryBuilderProps & { inline?: boolean }) => (
+export const Filter = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
     {...props}
     label="Filter"
-    default={And}
-    inline={props.inline}
     components={{
       And: And,
       Bound: Bound,
