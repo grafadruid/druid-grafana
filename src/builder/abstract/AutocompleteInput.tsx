@@ -294,7 +294,8 @@ const fetchDimensionValues = async (
     // Execute query through the regular query execution path (same as QueryEditor.tsx)
     // This sends the query directly to Druid via the normal query execution flow
     // requestId is used by Grafana for request tracking - simple string is sufficient
-    const response = await datasource.query({
+    // datasource.query() returns an Observable, so we need to convert it to a Promise
+    const queryObservable = datasource.query({
       targets: [query],
       requestId: 'autocomplete', // Simple requestId - no need for timestamp
       interval: '1s',
@@ -309,8 +310,22 @@ const fetchDimensionValues = async (
       },
     } as any);
 
+    // Convert Observable to Promise - get the first (and only) value
+    const response = await new Promise<any>((resolve, reject) => {
+      const subscription = queryObservable.subscribe({
+        next: (value: any) => {
+          subscription.unsubscribe();
+          resolve(value);
+        },
+        error: (err: any) => {
+          subscription.unsubscribe();
+          reject(err);
+        },
+      });
+    });
+
     console.error('fetchDimensionValues - Response received:', response);
-    console.error('fetchDimensionValues - Response data:', response.data);
+    console.error('fetchDimensionValues - Response data:', response?.data);
 
     // Extract unique values from search query response
     // Search query returns frames with dimension values
