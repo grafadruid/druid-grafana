@@ -4,6 +4,7 @@ import { SelectableValue } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
 import { DruidDataSource } from '../../DruidDataSource';
+import { DruidQuery } from '../../types';
 
 interface Props extends QueryBuilderFieldProps {
   type: 'dimension' | 'dimensionValue' | 'metric' | 'table';
@@ -204,14 +205,14 @@ const fetchDimensionValues = async (
       searchDimensions: searchDimensions,
       limit: inputValue && inputValue.trim() !== '' ? 10 : 20, // More results when no filter
     };
-    
+
     // Build search query - use contains for filtering
     // Search query requires a query field, use empty string to get all values when no input
     searchQueryObj.query = {
       type: 'contains',
       value: inputValue && inputValue.trim() !== '' ? inputValue : '',
     };
-    
+
     console.error('fetchDimensionValues - Initial search query:', JSON.stringify(searchQueryObj, null, 2));
 
 
@@ -272,45 +273,107 @@ const fetchDimensionValues = async (
 
     console.error('fetchDimensionValues - Complete search query:', JSON.stringify(searchQueryObj, null, 2));
 
-    const query = {
+    // Build query in the same format as QueryEditor.tsx (using regular query execution path)
+    // refId is required by DataQuery interface - used for response identification in backend
+    const query: DruidQuery = {
+      refId: 'A', // Simple refId - just needs to be a string identifier
       builder: searchQueryObj,
       settings: {},
+      expr: JSON.stringify({ builder: searchQueryObj, settings: {} }),
     };
 
-    console.error('fetchDimensionValues - Query being sent to query-variable:', JSON.stringify(query, null, 2));
+    console.error('fetchDimensionValues - Query being sent to Druid:', JSON.stringify(query, null, 2));
+    
+    // Log what is being sent to Druid (same format as QueryEditor.tsx)
+    if (searchQueryObj.queryType === 'search') {
+      console.error('=== SEARCH QUERY JSON SENT TO DRUID (from autocomplete) ===');
+      console.error(JSON.stringify(searchQueryObj, null, 2));
+      console.error('============================================================');
+    }
 
-    const response = await datasource.postResource('query-variable', query);
+    // Execute query through the regular query execution path (same as QueryEditor.tsx)
+    // This sends the query directly to Druid via the normal query execution flow
+    // requestId is used by Grafana for request tracking - simple string is sufficient
+    const response = await datasource.query({
+      targets: [query],
+      requestId: 'autocomplete', // Simple requestId - no need for timestamp
+      interval: '1s',
+      intervalMs: 1000,
+      scopedVars: {},
+      timezone: 'browser',
+      app: 'dashboard',
+      startTime: Date.now(),
+      range: {
+        from: { valueOf: () => Date.now() - 86400000 }, // 24 hours ago
+        to: { valueOf: () => Date.now() },
+      },
+    } as any);
 
     console.error('fetchDimensionValues - Response received:', response);
+    console.error('fetchDimensionValues - Response data:', response.data);
 
-    // The response from query-variable returns MetricFindValue format
-    // Extract unique values from search results
+    // Extract unique values from search query response
+    // Search query returns frames with dimension values
+    // The dimension values are in string fields (excluding timestamp field)
     const values = new Set<string>();
 
-    if (Array.isArray(response) && response.length > 0) {
-      response.forEach((item: any) => {
-        // Try both value and text fields
-        const value = item.value !== undefined && item.value !== null ? item.value : (item.text !== undefined && item.text !== null ? item.text : null);
-        if (value !== null && value !== undefined) {
-          const strValue = String(value);
-          if (strValue.trim() !== '') {
-            values.add(strValue);
-          }
+    if (response.data && Array.isArray(response.data)) {
+      response.data.forEach((frame: any, frameIndex: number) => {
+        console.error(`fetchDimensionValues - Frame ${frameIndex}:`, frame);
+        
+        if (frame.fields && Array.isArray(frame.fields)) {
+          frame.fields.forEach((field: any, fieldIndex: number) => {
+            console.error(`fetchDimensionValues - Field ${fieldIndex} (${field.name}):`, {
+              name: field.name,
+              type: field.type,
+              valuesCount: field.values ? field.values.length : 0,
+              sampleValues: field.values ? field.values.slice(0, 5) : [],
+            });
+            
+            // Extract distinct values from the "value" column
+            // Search query response has columns: timestamp, dimension, value, count
+            // We need to get distinct values from the "value" column
+            if (
+              field.name === 'value' &&
+              field.values && 
+              Array.isArray(field.values)
+            ) {
+              console.error(`fetchDimensionValues - Extracting values from "value" column, total: ${field.values.length}`);
+              field.values.forEach((val: any, valIndex: number) => {
+                if (val !== null && val !== undefined) {
+                  const strValue = String(val);
+                  if (strValue.trim() !== '') {
+                    values.add(strValue);
+                  }
+                }
+              });
+              console.error(`fetchDimensionValues - Distinct values from "value" column so far: ${values.size}`);
+            }
+          });
         }
       });
     }
 
+    console.error('fetchDimensionValues - Distinct values extracted:', Array.from(values));
+    console.error('fetchDimensionValues - Total distinct values:', values.size);
+
     // Return results (already filtered and sorted by search query)
     // Limit to 10 distinct results
     if (values.size > 0) {
-      return Array.from(values)
+      const resultArray = Array.from(values)
         .map((val) => ({
           value: val,
           label: val,
         }))
         .slice(0, 10); // Limit to 10 results for display
+      
+      console.error('fetchDimensionValues - Final distinct values for autocomplete:', resultArray);
+      console.error('fetchDimensionValues - Number of values returned:', resultArray.length);
+      
+      return resultArray;
     }
 
+    console.error('fetchDimensionValues - No distinct values found, returning empty array');
     return [];
   } catch (error) {
     console.error('Error fetching dimension values:', error);

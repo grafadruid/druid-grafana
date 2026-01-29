@@ -246,11 +246,13 @@ export const QueryEditor = (props: Props) => {
     // Log topN and search queries before sending to Druid
     if (builderForBackend?.queryType === 'topN') {
       console.error('=== TOPN QUERY JSON SENT TO DRUID ===');
-      console.error(JSON.stringify(builderForBackend, null, 2));
+      console.error('refId:', query.refId);
+      console.error('Query JSON:', JSON.stringify(builderForBackend, null, 2));
       console.error('=====================================');
     } else if (builderForBackend?.queryType === 'search') {
       console.error('=== SEARCH QUERY JSON SENT TO DRUID ===');
-      console.error(JSON.stringify(builderForBackend, null, 2));
+      console.error('refId:', query.refId);
+      console.error('Query JSON:', JSON.stringify(builderForBackend, null, 2));
       console.error('=======================================');
     }
 
