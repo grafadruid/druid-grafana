@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { InlineField, AsyncSelect } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
@@ -418,6 +418,24 @@ export const AutocompleteInput = (props: Props) => {
     }
   };
 
+  // Clear value when dimension changes (for dimensionValue type)
+  // This prevents showing cached values from the previous dimension
+  const prevDimensionNameRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (type === 'dimensionValue') {
+      const prevDimension = prevDimensionNameRef.current;
+      const currentDimension = dimensionName;
+      
+      // If dimension changed and we had a previous dimension, clear the value
+      if (prevDimension !== null && prevDimension !== currentDimension && props.options.builder) {
+        onBuilderChange(props, '');
+      }
+      
+      // Update the ref for next comparison
+      prevDimensionNameRef.current = currentDimension;
+    }
+  }, [dimensionName, type, props]);
+
   const onChange = (option: SelectableValue<string> | null) => {
     if (option !== null) {
       onBuilderChange(props, option.value);
@@ -430,9 +448,16 @@ export const AutocompleteInput = (props: Props) => {
     ? { value: props.options.builder, label: props.options.builder }
     : null;
 
+  // Create a key that includes dimension name to force remount when dimension changes
+  // This clears the cache and ensures fresh data for the new dimension
+  const selectKey = type === 'dimensionValue' 
+    ? `dimensionValue-${dimensionName || 'none'}-${tableName || 'none'}`
+    : `${type}-${tableName || 'none'}`;
+
   return (
     <InlineField label={props.label} tooltip={props.description} grow>
       <AsyncSelect
+        key={selectKey}
         value={currentValue}
         loadOptions={loadOptions}
         onChange={onChange}
