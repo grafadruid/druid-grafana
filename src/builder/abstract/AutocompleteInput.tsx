@@ -157,8 +157,8 @@ const fetchDimensionValues = async (
   }
 
   try {
-    // Use Druid topN query to get dimension values
-    // This is similar to the SQL approach but uses native Druid queries
+    // Use Druid search query to get dimension values
+    // This replaces the SQL approach with native Druid search queries
     // Get intervals - should be in object format { type: 'intervals', intervals: [...] }
     let intervalsObj: any = {
       type: 'intervals',
@@ -188,29 +188,31 @@ const fetchDimensionValues = async (
     }
     console.error('fetchDimensionValues - DataSource:', JSON.stringify(dataSource, null, 2));
 
-    // Build dimension - should be object format { type: 'default', dimension: '...' }
-    const dimensionObj = {
-      type: 'default',
-      dimension: dimensionName,
-    };
+    // Build searchDimensions - should be array of dimension objects
+    const searchDimensions = [
+      {
+        type: 'default',
+        dimension: dimensionName,
+      },
+    ];
 
-    // Build metric - should be object format { type: 'numeric', metric: 'count' }
-    const metricObj = {
-      type: 'numeric',
-      metric: 'count',
-    };
-
-    const topNQuery: any = {
-      queryType: 'topN',
+    const searchQueryObj: any = {
+      queryType: 'search',
       dataSource: dataSource,
-      intervals: intervalsObj,
       granularity: 'all',
-      threshold: 10,
-      dimension: dimensionObj,
-      metric: metricObj,
-      aggregations: [{ type: 'count', name: 'count' }],
+      intervals: intervalsObj,
+      searchDimensions: searchDimensions,
+      limit: inputValue && inputValue.trim() !== '' ? 10 : 20, // More results when no filter
     };
-    console.error('fetchDimensionValues - Initial topN query:', JSON.stringify(topNQuery, null, 2));
+    
+    // Build search query - use contains for filtering
+    // Search query requires a query field, use empty string to get all values when no input
+    searchQueryObj.query = {
+      type: 'contains',
+      value: inputValue && inputValue.trim() !== '' ? inputValue : '',
+    };
+    
+    console.error('fetchDimensionValues - Initial search query:', JSON.stringify(searchQueryObj, null, 2));
 
 
     // Build filters array - start with existing filters from root builder if any
@@ -253,44 +255,25 @@ const fetchDimensionValues = async (
       }
     }
 
-    // Add search filter if there's an input value
-    // Note: Search filter structure matches the search query format
-    if (inputValue && inputValue.trim() !== '') {
-      const searchFilter = {
-        type: 'search',
-        dimension: dimensionName,
-        query: {
-          type: 'contains',
-          value: inputValue,
-          case_sensitive: false,
-        },
-      };
-      filters.push(searchFilter);
-      console.error('fetchDimensionValues - Search filter added:', JSON.stringify(searchFilter, null, 2));
-    }
-
-    console.error('fetchDimensionValues - All filters array:', JSON.stringify(filters, null, 2));
-
-    // Build filter tree - if we have multiple filters, wrap them in an "and" filter
-    // If no filters, set to null to match Druid query format
+    // Set filter in search query - if we have filters, combine them, otherwise set to null
     if (filters.length > 0) {
       if (filters.length === 1) {
-        topNQuery.filter = filters[0];
+        searchQueryObj.filter = filters[0];
       } else {
-        topNQuery.filter = {
+        searchQueryObj.filter = {
           type: 'and',
           fields: filters,
         };
       }
-      console.error('fetchDimensionValues - Final filter in topN query:', JSON.stringify(topNQuery.filter, null, 2));
+      console.error('fetchDimensionValues - Final filter in search query:', JSON.stringify(searchQueryObj.filter, null, 2));
     } else {
-      topNQuery.filter = null;
+      searchQueryObj.filter = null;
     }
 
-    console.error('fetchDimensionValues - Complete topN query:', JSON.stringify(topNQuery, null, 2));
+    console.error('fetchDimensionValues - Complete search query:', JSON.stringify(searchQueryObj, null, 2));
 
     const query = {
-      builder: topNQuery,
+      builder: searchQueryObj,
       settings: {},
     };
 
@@ -301,7 +284,7 @@ const fetchDimensionValues = async (
     console.error('fetchDimensionValues - Response received:', response);
 
     // The response from query-variable returns MetricFindValue format
-    // Extract unique values from topN results
+    // Extract unique values from search results
     const values = new Set<string>();
 
     if (Array.isArray(response) && response.length > 0) {
@@ -317,7 +300,8 @@ const fetchDimensionValues = async (
       });
     }
 
-    // Return results (already filtered and sorted by topN)
+    // Return results (already filtered and sorted by search query)
+    // Limit to 10 distinct results
     if (values.size > 0) {
       return Array.from(values)
         .map((val) => ({
