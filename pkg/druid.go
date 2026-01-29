@@ -479,11 +479,9 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 }
 
 func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
-	log.DefaultLogger.Debug("DRUID QueryData - requestId", "requestId", req.Headers["X-Request-Id"])
 	response := backend.NewQueryDataResponse()
 
 	for _, q := range req.Queries {
-		log.DefaultLogger.Debug("DRUID QueryData - Processing query", "refId", q.RefID, "queryType", "checking...")
 		response.Responses[q.RefID] = ds.query(q, ds.settings)
 	}
 
@@ -492,7 +490,6 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
-	log.DefaultLogger.Debug("DRUID EXECUTE QUERY - refId", "refId", qry.RefID)
 	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange)
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then

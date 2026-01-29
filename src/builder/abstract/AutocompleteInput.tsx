@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { InlineField, AsyncSelect } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
@@ -153,7 +153,7 @@ const fetchDimensionValues = async (
   rootBuilder: any = null
 ): Promise<SelectableValue[]> => {
   if (!tableName || !dimensionName) {
-    console.debug('fetchDimensionValues: Missing tableName or dimensionName', { tableName, dimensionName });
+    console.error('fetchDimensionValues: Missing tableName or dimensionName', { tableName, dimensionName });
     return [];
   }
 
@@ -175,8 +175,6 @@ const fetchDimensionValues = async (
         };
       }
     }
-    console.error('fetchDimensionValues - Intervals:', intervalsObj);
-    console.error('fetchDimensionValues - Root builder intervals:', rootBuilder?.intervals);
 
     // Build dataSource - should be object format { type: 'table', name: '...' }
     let dataSource: any = { type: 'table', name: tableName };
@@ -187,7 +185,6 @@ const fetchDimensionValues = async (
         dataSource = { type: 'table', name: rootBuilder.dataSource };
       }
     }
-    console.error('fetchDimensionValues - DataSource:', JSON.stringify(dataSource, null, 2));
 
     // Build searchDimensions - should be array of dimension objects
     const searchDimensions = [
@@ -210,18 +207,14 @@ const fetchDimensionValues = async (
     // Search query requires a query field, use empty string to get all values when no input
     searchQueryObj.query = {
       type: 'contains',
-      value: inputValue && inputValue.trim() !== '' ? inputValue : '',
+      value: inputValue && inputValue.trim() !== '' ? inputValue : 'a',
     };
-
-    console.error('fetchDimensionValues - Initial search query:', JSON.stringify(searchQueryObj, null, 2));
-
 
     // Build filters array - start with existing filters from root builder if any
     const filters: any[] = [];
     if (rootBuilder?.filter) {
       // Deep copy the existing filter to avoid mutating the original
       const existingFilter = JSON.parse(JSON.stringify(rootBuilder.filter));
-      console.error('fetchDimensionValues - Existing filter from root builder:', JSON.stringify(existingFilter, null, 2));
 
       // Helper function to validate and filter out incomplete filters
       const isValidFilter = (filter: any): boolean => {
@@ -230,7 +223,6 @@ const fetchDimensionValues = async (
         // Selector filters must have a value
         if (filter.type === 'selector') {
           if (filter.value === undefined || filter.value === null || filter.value === '') {
-            console.error('fetchDimensionValues - Skipping incomplete selector filter (missing value):', filter);
             return false;
           }
         }
@@ -243,15 +235,10 @@ const fetchDimensionValues = async (
         const validFields = existingFilter.fields.filter(isValidFilter);
         if (validFields.length > 0) {
           filters.push(...validFields);
-          console.error('fetchDimensionValues - Extracted valid fields from existing "and" filter:', validFields);
-        } else {
-          console.error('fetchDimensionValues - All fields in "and" filter were invalid, skipping');
         }
       } else {
         if (isValidFilter(existingFilter)) {
           filters.push(existingFilter);
-        } else {
-          console.error('fetchDimensionValues - Existing filter is invalid, skipping');
         }
       }
     }
@@ -266,38 +253,25 @@ const fetchDimensionValues = async (
           fields: filters,
         };
       }
-      console.error('fetchDimensionValues - Final filter in search query:', JSON.stringify(searchQueryObj.filter, null, 2));
     } else {
       searchQueryObj.filter = null;
     }
 
-    console.error('fetchDimensionValues - Complete search query:', JSON.stringify(searchQueryObj, null, 2));
-
-    // Build query in the same format as QueryEditor.tsx (using regular query execution path)
+    // using regular query execution
     // refId is required by DataQuery interface - used for response identification in backend
     const query: DruidQuery = {
-      refId: 'A', // Simple refId - just needs to be a string identifier
+      refId: 'searchAutoSuggest',
       builder: searchQueryObj,
       settings: {},
       expr: JSON.stringify({ builder: searchQueryObj, settings: {} }),
     };
 
-    console.error('fetchDimensionValues - Query being sent to Druid:', JSON.stringify(query, null, 2));
-    
-    // Log what is being sent to Druid (same format as QueryEditor.tsx)
-    if (searchQueryObj.queryType === 'search') {
-      console.error('=== SEARCH QUERY JSON SENT TO DRUID (from autocomplete) ===');
-      console.error(JSON.stringify(searchQueryObj, null, 2));
-      console.error('============================================================');
-    }
-
-    // Execute query through the regular query execution path (same as QueryEditor.tsx)
     // This sends the query directly to Druid via the normal query execution flow
     // requestId is used by Grafana for request tracking - simple string is sufficient
     // datasource.query() returns an Observable, so we need to convert it to a Promise
     const queryObservable = datasource.query({
       targets: [query],
-      requestId: 'autocomplete', // Simple requestId - no need for timestamp
+      requestId: 'autocomplete-' + Date.now(), // requestId with timestamp
       interval: '1s',
       intervalMs: 1000,
       scopedVars: {},
@@ -305,7 +279,7 @@ const fetchDimensionValues = async (
       app: 'dashboard',
       startTime: Date.now(),
       range: {
-        from: { valueOf: () => Date.now() - 86400000 }, // 24 hours ago
+        from: { valueOf: () => Date.now() - (7 * 24 * 60 * 60 * 1000) }, // 7 days ago
         to: { valueOf: () => Date.now() },
       },
     } as any);
@@ -324,37 +298,24 @@ const fetchDimensionValues = async (
       });
     });
 
-    console.error('fetchDimensionValues - Response received:', response);
-    console.error('fetchDimensionValues - Response data:', response?.data);
-
     // Extract unique values from search query response
     // Search query returns frames with dimension values
     // The dimension values are in string fields (excluding timestamp field)
     const values = new Set<string>();
 
     if (response.data && Array.isArray(response.data)) {
-      response.data.forEach((frame: any, frameIndex: number) => {
-        console.error(`fetchDimensionValues - Frame ${frameIndex}:`, frame);
-        
+      response.data.forEach((frame: any) => {
         if (frame.fields && Array.isArray(frame.fields)) {
-          frame.fields.forEach((field: any, fieldIndex: number) => {
-            console.error(`fetchDimensionValues - Field ${fieldIndex} (${field.name}):`, {
-              name: field.name,
-              type: field.type,
-              valuesCount: field.values ? field.values.length : 0,
-              sampleValues: field.values ? field.values.slice(0, 5) : [],
-            });
-            
+          frame.fields.forEach((field: any) => {
             // Extract distinct values from the "value" column
             // Search query response has columns: timestamp, dimension, value, count
             // We need to get distinct values from the "value" column
             if (
               field.name === 'value' &&
-              field.values && 
+              field.values &&
               Array.isArray(field.values)
             ) {
-              console.error(`fetchDimensionValues - Extracting values from "value" column, total: ${field.values.length}`);
-              field.values.forEach((val: any, valIndex: number) => {
+              field.values.forEach((val: any) => {
                 if (val !== null && val !== undefined) {
                   const strValue = String(val);
                   if (strValue.trim() !== '') {
@@ -362,15 +323,11 @@ const fetchDimensionValues = async (
                   }
                 }
               });
-              console.error(`fetchDimensionValues - Distinct values from "value" column so far: ${values.size}`);
             }
           });
         }
       });
     }
-
-    console.error('fetchDimensionValues - Distinct values extracted:', Array.from(values));
-    console.error('fetchDimensionValues - Total distinct values:', values.size);
 
     // Return results (already filtered and sorted by search query)
     // Limit to 10 distinct results
@@ -381,24 +338,13 @@ const fetchDimensionValues = async (
           label: val,
         }))
         .slice(0, 10); // Limit to 10 results for display
-      
-      console.error('fetchDimensionValues - Final distinct values for autocomplete:', resultArray);
-      console.error('fetchDimensionValues - Number of values returned:', resultArray.length);
-      
+
       return resultArray;
     }
 
-    console.error('fetchDimensionValues - No distinct values found, returning empty array');
     return [];
   } catch (error) {
     console.error('Error fetching dimension values:', error);
-    console.error('Query details:', { tableName, dimensionName, inputValue });
-    console.error('Root builder:', rootBuilder);
-    if (error && typeof error === 'object' && 'data' in error) {
-      console.error('Error data:', error.data);
-      console.error('Error status:', (error as any).status);
-      console.error('Error statusText:', (error as any).statusText);
-    }
     return [];
   }
 };
@@ -406,6 +352,7 @@ const fetchDimensionValues = async (
 export const AutocompleteInput = (props: Props) => {
   const { datasource, type, debounceTime = 300 } = props;
   const [isLoading, setIsLoading] = useState(false);
+  const [inputValue, setInputValue] = useState<string>('');
 
   // Get table name from the query builder
   const tableName = useMemo(() => {
@@ -475,24 +422,39 @@ export const AutocompleteInput = (props: Props) => {
   const onChange = (option: SelectableValue<string> | null) => {
     if (option !== null) {
       onBuilderChange(props, option.value);
+      setInputValue(option.value || '');
     } else {
       onBuilderChange(props, '');
+      setInputValue('');
     }
+  };
+
+  const onInputChange = (newValue: string, actionMeta: any) => {
+    // Allow editing the input value
+    setInputValue(newValue);
   };
 
   const currentValue = props.options.builder
     ? { value: props.options.builder, label: props.options.builder }
     : null;
 
+  // Sync inputValue with current value from builder (only when builder changes externally)
+  useEffect(() => {
+    const currentBuilderValue = props.options.builder || '';
+    setInputValue(currentBuilderValue);
+  }, [props.options.builder]);
+
   return (
     <InlineField label={props.label} tooltip={props.description} grow>
       <AsyncSelect
         value={currentValue}
+        inputValue={inputValue}
+        onInputChange={onInputChange}
         loadOptions={loadOptions}
         onChange={onChange}
         placeholder={props.description}
         defaultOptions={true}
-        allowCustomValue={true}
+        allowCustomValue={false}
         isClearable={true}
         isLoading={isLoading}
         cacheOptions={true}
