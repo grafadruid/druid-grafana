@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { InlineField, AsyncSelect } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
@@ -279,7 +279,7 @@ const fetchDimensionValues = async (
       app: 'dashboard',
       startTime: Date.now(),
       range: {
-        from: { valueOf: () => Date.now() - (7 * 24 * 60 * 60 * 1000) }, // 7 days ago
+        from: { valueOf: () => Date.now() - (365 * 24 * 60 * 60 * 1000) }, // 365 days ago
         to: { valueOf: () => Date.now() },
       },
     } as any);
@@ -352,7 +352,6 @@ const fetchDimensionValues = async (
 export const AutocompleteInput = (props: Props) => {
   const { datasource, type, debounceTime = 300 } = props;
   const [isLoading, setIsLoading] = useState(false);
-  const [inputValue, setInputValue] = useState<string>('');
 
   // Get table name from the query builder
   const tableName = useMemo(() => {
@@ -422,34 +421,19 @@ export const AutocompleteInput = (props: Props) => {
   const onChange = (option: SelectableValue<string> | null) => {
     if (option !== null) {
       onBuilderChange(props, option.value);
-      setInputValue(option.value || '');
     } else {
       onBuilderChange(props, '');
-      setInputValue('');
     }
-  };
-
-  const onInputChange = (newValue: string, actionMeta: any) => {
-    // Allow editing the input value
-    setInputValue(newValue);
   };
 
   const currentValue = props.options.builder
     ? { value: props.options.builder, label: props.options.builder }
     : null;
 
-  // Sync inputValue with current value from builder (only when builder changes externally)
-  useEffect(() => {
-    const currentBuilderValue = props.options.builder || '';
-    setInputValue(currentBuilderValue);
-  }, [props.options.builder]);
-
   return (
     <InlineField label={props.label} tooltip={props.description} grow>
       <AsyncSelect
         value={currentValue}
-        inputValue={inputValue}
-        onInputChange={onInputChange}
         loadOptions={loadOptions}
         onChange={onChange}
         placeholder={props.description}
