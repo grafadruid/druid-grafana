@@ -13,8 +13,123 @@ import { QueryBuilderOptions } from './builder/types';
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
 /**
+ * Checks if an aggregation has all required fields and no empty required strings.
+ * Incomplete aggregations (e.g. newly added empty row) must not be sent to Druid.
+ */
+const isAggregationComplete = (agg: any): boolean => {
+  if (!agg || typeof agg !== 'object') {
+    return false;
+  }
+  const type = agg.type;
+  const name = agg.name;
+  if (!type || typeof type !== 'string' || type.trim() === '') {
+    return false;
+  }
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return false;
+  }
+  // Field-based aggregations (doubleSum, longSum, etc.) require fieldName
+  if (agg.fieldName !== undefined && (!agg.fieldName || String(agg.fieldName).trim() === '')) {
+    return false;
+  }
+  // Filtered aggregation requires filter and aggregator
+  if (type === 'filtered') {
+    if (!isFilterComplete(agg.filter)) {
+      return false;
+    }
+    if (!isAggregationComplete(agg.aggregator)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
+ * Checks if a filter is complete (has type and required fields; for and/or all sub-filters complete).
+ */
+const isFilterComplete = (filter: any): boolean => {
+  if (filter === null || filter === undefined) {
+    return true;
+  }
+  if (typeof filter !== 'object' || !filter.type || String(filter.type).trim() === '') {
+    return false;
+  }
+  const type = filter.type;
+  if (type === 'and' || type === 'or') {
+    const fields = filter.fields;
+    if (!Array.isArray(fields) || fields.length === 0) {
+      return false;
+    }
+    return fields.every((f: any) => isFilterComplete(f));
+  }
+  // Leaf filters: require no empty string for common required fields
+  if (filter.dimension !== undefined && (!filter.dimension || String(filter.dimension).trim() === '')) {
+    return false;
+  }
+  if (filter.value !== undefined && filter.value !== null && String(filter.value).trim() === '') {
+    return false;
+  }
+  if (filter.fieldName !== undefined && (!filter.fieldName || String(filter.fieldName).trim() === '')) {
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Checks if a post-aggregation is complete.
+ */
+const isPostAggregationComplete = (pa: any): boolean => {
+  if (!pa || typeof pa !== 'object') {
+    return false;
+  }
+  if (!pa.type || String(pa.type).trim() === '') {
+    return false;
+  }
+  if (pa.name !== undefined && (!pa.name || String(pa.name).trim() === '')) {
+    return false;
+  }
+  if (pa.type === 'arithmetic') {
+    if (!pa.fn || !Array.isArray(pa.fields)) {
+      return false;
+    }
+    return pa.fields.every((f: any) => isPostAggregationComplete(f));
+  }
+  if (pa.type === 'fieldAccess' || pa.type === 'finalizingFieldAccess') {
+    return !!(pa.fieldName && String(pa.fieldName).trim());
+  }
+  return true;
+};
+
+/**
+ * Returns a copy of the builder with only complete aggregations, filter, and post-aggregations.
+ * Incomplete items are omitted so Druid never receives partial config and errors.
+ */
+const sanitizeBuilderForBackend = (builder: any): any => {
+  if (!builder || typeof builder !== 'object') {
+    return builder;
+  }
+  const out = { ...builder };
+
+  if (Array.isArray(out.aggregations)) {
+    out.aggregations = out.aggregations.filter((agg: any) => isAggregationComplete(agg));
+  }
+
+  if (out.filter !== undefined && out.filter !== null) {
+    if (!isFilterComplete(out.filter)) {
+      out.filter = null;
+    }
+  }
+
+  if (Array.isArray(out.postAggregations)) {
+    out.postAggregations = out.postAggregations.filter((pa: any) => isPostAggregationComplete(pa));
+  }
+
+  return out;
+};
+
+/**
  * Validates if a query is complete enough to be executed.
- * Returns true if the query has all required fields, false otherwise.
+ * Should be called on the sanitized builder so we only run when the payload we send is valid.
  */
 const isQueryComplete = (builder: any): boolean => {
   if (!builder || typeof builder !== 'object') {
@@ -238,20 +353,21 @@ export const QueryEditor = (props: Props) => {
     }
 
     // Convert granularity for backend - need to convert in the builder that gets sent
-    const builderForBackend = convertGranularityForBackend(
+    const converted = convertGranularityForBackend(
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-
+    // Only send complete aggregations, filter, and post-aggregations to Druid (omit incomplete ones)
+    const builderForBackend = sanitizeBuilderForBackend(converted);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Store original builder for UI, but use converted builder in expr for backend
+    // Store original builder for UI, but use sanitized builder in expr for backend
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
-    // Keep original builder in query state for UI, but expr has converted builder for backend
+    // Keep original builder in query state for UI, but expr has sanitized builder for backend
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Only run query if it's complete enough to execute (use original builder for validation)
-    const isComplete = isQueryComplete(queryBuilderOptions.builder);
+    // Only run query when the payload we send (sanitized) is complete
+    const isComplete = isQueryComplete(builderForBackend);
     if (isComplete) {
       onRunQuery();
     }
@@ -259,19 +375,20 @@ export const QueryEditor = (props: Props) => {
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
 
-    // Convert granularity for backend
-    const builderForBackend = convertGranularityForBackend(
+    // Convert granularity and sanitize so only complete aggregations/filter/post-aggregations are sent
+    const converted = convertGranularityForBackend(
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
+    const builderForBackend = sanitizeBuilderForBackend(converted);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Use converted builder in expr for backend
+    // Use sanitized builder in expr for backend
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    // Only run query if it's complete enough to execute (use original builder for validation)
-    if (isQueryComplete(query.builder)) {
+    // Only run when the payload we send (sanitized) is complete
+    if (isQueryComplete(builderForBackend)) {
       onRunQuery();
     }
   };
