@@ -233,6 +233,9 @@ export const QueryEditor = (props: Props) => {
   // Track if we've initialized defaults to avoid infinite loops
   const hasInitializedDefaults = useRef(false);
 
+  // Track last payload we ran so we don't re-send the same query while user fills an incomplete aggregation
+  const lastRunPayloadRef = useRef<string | null>(null);
+
   // Persist defaults when they're first set (only if builder is empty or missing required fields)
   useEffect(() => {
     const needsDefaults = !builder ||
@@ -336,9 +339,11 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Only run when the payload we send (with only complete aggregations) is complete
+    // Only run when the payload we send is complete AND it changed (avoid re-sending same query while filling new aggregation)
     const isComplete = isQueryComplete(builderForBackend);
-    if (isComplete) {
+    const payloadStr = JSON.stringify(builderForBackend);
+    if (isComplete && payloadStr !== lastRunPayloadRef.current) {
+      lastRunPayloadRef.current = payloadStr;
       onRunQuery();
     }
   };
@@ -357,8 +362,10 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    // Only run when the payload we send (with only complete aggregations) is complete
-    if (isQueryComplete(builderForBackend)) {
+    // Only run when the payload we send is complete AND it changed
+    const payloadStr = JSON.stringify(builderForBackend);
+    if (isQueryComplete(builderForBackend) && payloadStr !== lastRunPayloadRef.current) {
+      lastRunPayloadRef.current = payloadStr;
       onRunQuery();
     }
   };
