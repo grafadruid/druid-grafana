@@ -145,6 +145,22 @@ const fetchTableNames = async (
   }
 };
 
+/** Build a stable cache key for dimension-value context (table, dimension, filter) */
+const getDimensionValueCacheKey = (
+  tableName: string | null,
+  dimensionName: string | null,
+  rootBuilder: any
+): string => {
+  const ds =
+    rootBuilder?.dataSource != null
+      ? typeof rootBuilder.dataSource === 'object'
+        ? rootBuilder.dataSource.name
+        : rootBuilder.dataSource
+      : '';
+  const filterJson = rootBuilder?.filter ? JSON.stringify(rootBuilder.filter) : '';
+  return `${tableName ?? ''}|${dimensionName ?? ''}|${ds}|${filterJson}`;
+};
+
 const fetchDimensionValues = async (
   datasource: DruidDataSource,
   tableName: string | null,
@@ -349,9 +365,17 @@ const fetchDimensionValues = async (
   }
 };
 
+/** Cache for dimension-value search: only query Druid when input length is 1; filter from cache for longer input */
+interface DimensionValueCache {
+  contextKey: string;
+  queryChar: string;
+  values: string[];
+}
+
 export const AutocompleteInput = (props: Props) => {
   const { datasource, type, debounceTime = 300 } = props;
   const [isLoading, setIsLoading] = useState(false);
+  const dimensionValueCacheRef = useRef<DimensionValueCache | null>(null);
 
   // Get table name from the query builder
   const tableName = useMemo(() => {
@@ -409,9 +433,66 @@ export const AutocompleteInput = (props: Props) => {
       } else if (type === 'metric') {
         return await fetchMetrics(datasource, tableName, inputValue || '');
       } else {
-        // Get root builder to access filters and intervals
+        // Dimension value: only send Druid search when input is a single character; filter from cache for longer input
         const rootBuilder = (props as any).rootBuilder || props.options.builder;
-        return await fetchDimensionValues(datasource, tableName, dimensionName, inputValue || '', rootBuilder);
+        const trimmedInput = (inputValue || '').trim();
+        const contextKey = getDimensionValueCacheKey(tableName, dimensionName, rootBuilder);
+
+        if (trimmedInput.length === 0) {
+          return await fetchDimensionValues(datasource, tableName, dimensionName, '', rootBuilder);
+        }
+
+        if (trimmedInput.length === 1) {
+          const result = await fetchDimensionValues(
+            datasource,
+            tableName,
+            dimensionName,
+            trimmedInput,
+            rootBuilder
+          );
+          dimensionValueCacheRef.current = {
+            contextKey,
+            queryChar: trimmedInput,
+            values: result.map((r) => r.value ?? r.label ?? ''),
+          };
+          return result;
+        }
+
+        // trimmedInput.length > 1: use cache if it matches first character and context
+        const cache = dimensionValueCacheRef.current;
+        const firstChar = trimmedInput[0];
+        if (
+          cache &&
+          cache.contextKey === contextKey &&
+          cache.queryChar === firstChar &&
+          cache.values.length > 0
+        ) {
+          const lower = trimmedInput.toLowerCase();
+          const filtered = cache.values
+            .filter((v) => v.toLowerCase().includes(lower))
+            .map((v) => ({ value: v, label: v }))
+            .slice(0, 10);
+          return filtered;
+        }
+
+        // Cache miss (e.g. pasted "ord"): run query for first char, then filter
+        const result = await fetchDimensionValues(
+          datasource,
+          tableName,
+          dimensionName,
+          firstChar,
+          rootBuilder
+        );
+        dimensionValueCacheRef.current = {
+          contextKey,
+          queryChar: firstChar,
+          values: result.map((r) => r.value ?? r.label ?? ''),
+        };
+        const lower = trimmedInput.toLowerCase();
+        return dimensionValueCacheRef.current.values
+          .filter((v) => v.toLowerCase().includes(lower))
+          .map((v) => ({ value: v, label: v }))
+          .slice(0, 10);
       }
     } finally {
       setIsLoading(false);
