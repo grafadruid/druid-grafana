@@ -40,7 +40,7 @@ const isFilterComplete = (filter: any): boolean => {
 
 /**
  * Checks if an aggregation is complete. An aggregation is complete only if its
- * 3 fields are non-empty: type, name, and fieldName (when the aggregation uses it).
+ * 3 fields are non-empty: type, name, and fieldName (for types that require it).
  * For "filtered" type, the nested filter and aggregator must also be complete.
  */
 const isAggregationComplete = (agg: any): boolean => {
@@ -57,9 +57,13 @@ const isAggregationComplete = (agg: any): boolean => {
   if (!name || typeof name !== 'string' || name.trim() === '') {
     return false;
   }
-  // 3. fieldName must be non-empty when present (e.g. longSum, doubleSum, hyperUnique)
-  if (agg.fieldName !== undefined && (!agg.fieldName || String(agg.fieldName).trim() === '')) {
-    return false;
+  // 3. fieldName must be present and non-empty for types that require it (all except count and filtered)
+  // Treat undefined, null, or empty string as incomplete so we never send fieldName: null to Druid
+  if (type !== 'count' && type !== 'filtered') {
+    const fn = agg.fieldName;
+    if (fn === undefined || fn === null || typeof fn !== 'string' || fn.trim() === '') {
+      return false;
+    }
   }
   // filtered aggregation: nested filter and aggregator must be complete
   if (type === 'filtered') {
