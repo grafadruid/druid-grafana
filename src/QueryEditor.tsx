@@ -39,24 +39,29 @@ const isFilterComplete = (filter: any): boolean => {
 };
 
 /**
- * Checks if an aggregation is complete. Once a query is working, a newly added
- * aggregation is sent to Druid only when it is complete.
+ * Checks if an aggregation is complete. An aggregation is complete only if its
+ * 3 fields are non-empty: type, name, and fieldName (when the aggregation uses it).
+ * For "filtered" type, the nested filter and aggregator must also be complete.
  */
 const isAggregationComplete = (agg: any): boolean => {
   if (!agg || typeof agg !== 'object') {
     return false;
   }
+  // 1. type must be non-empty
   const type = agg.type;
-  const name = agg.name;
   if (!type || typeof type !== 'string' || type.trim() === '') {
     return false;
   }
+  // 2. name must be non-empty
+  const name = agg.name;
   if (!name || typeof name !== 'string' || name.trim() === '') {
     return false;
   }
+  // 3. fieldName must be non-empty when present (e.g. longSum, doubleSum, hyperUnique)
   if (agg.fieldName !== undefined && (!agg.fieldName || String(agg.fieldName).trim() === '')) {
     return false;
   }
+  // filtered aggregation: nested filter and aggregator must be complete
   if (type === 'filtered') {
     if (!isFilterComplete(agg.filter)) {
       return false;
@@ -119,22 +124,19 @@ const isQueryComplete = (builder: any): boolean => {
   // Query type-specific validation
   switch (queryType) {
     case 'timeseries':
-      // Timeseries requires at least one aggregation
+      // Timeseries requires at least one complete aggregation (type, name, and fieldName when present non-empty)
       const aggregations = builder.aggregations;
       if (!aggregations || !Array.isArray(aggregations) || aggregations.length === 0) {
         return false;
       }
-      // Check that aggregations have at least one valid entry
-      const validAggregations = aggregations.filter(
-        (agg: any) => agg && typeof agg === 'object' && agg.type && agg.name
-      );
+      const validAggregations = aggregations.filter((agg: any) => isAggregationComplete(agg));
       if (validAggregations.length === 0) {
         return false;
       }
       return true;
 
     case 'groupBy':
-      // GroupBy requires at least one dimension and one aggregation
+      // GroupBy requires at least one dimension and one complete aggregation
       const dimensions = builder.dimensions;
       const groupByAggregations = builder.aggregations;
       if (!dimensions || !Array.isArray(dimensions) || dimensions.length === 0) {
@@ -143,15 +145,21 @@ const isQueryComplete = (builder: any): boolean => {
       if (!groupByAggregations || !Array.isArray(groupByAggregations) || groupByAggregations.length === 0) {
         return false;
       }
+      if (groupByAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) {
+        return false;
+      }
       return true;
 
     case 'topN':
-      // TopN requires dimension, metric, threshold, and aggregations
+      // TopN requires dimension, metric, threshold, and at least one complete aggregation
       if (!builder.dimension || !builder.metric || builder.threshold === undefined) {
         return false;
       }
       const topNAggregations = builder.aggregations;
       if (!topNAggregations || !Array.isArray(topNAggregations) || topNAggregations.length === 0) {
+        return false;
+      }
+      if (topNAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) {
         return false;
       }
       return true;

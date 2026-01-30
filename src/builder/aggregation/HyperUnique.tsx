@@ -6,6 +6,7 @@ export const HyperUnique = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, HyperUnique);
   return (
     <>
+      <Input {...scopedProps('name')} label="Name" description="Output name for the summed lue" type="text" />
       <AutocompleteInput
         {...scopedProps('fieldName')}
         label="Field name"
@@ -13,7 +14,6 @@ export const HyperUnique = (props: QueryBuilderProps) => {
         type="metric"
         datasource={props.datasource}
       />
-      <Input {...scopedProps('name')} label="Name" description="Output name for the summed lue" type="text" />
       <Checkbox
         {...scopedProps('round')}
         label="Round"
