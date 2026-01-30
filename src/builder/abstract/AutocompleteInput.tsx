@@ -210,52 +210,8 @@ const fetchDimensionValues = async (
       value: inputValue && inputValue.trim() !== '' ? inputValue : 'a',
     };
 
-    // Build filters array - start with existing filters from root builder if any
-    const filters: any[] = [];
-    if (rootBuilder?.filter) {
-      // Deep copy the existing filter to avoid mutating the original
-      const existingFilter = JSON.parse(JSON.stringify(rootBuilder.filter));
-
-      // Helper function to validate and filter out incomplete filters
-      const isValidFilter = (filter: any): boolean => {
-        if (!filter || typeof filter !== 'object') return false;
-
-        // Selector filters must have a value
-        if (filter.type === 'selector') {
-          if (filter.value === undefined || filter.value === null || filter.value === '') {
-            return false;
-          }
-        }
-
-        return true;
-      };
-
-      // If the existing filter is already an "and" filter, extract its fields to avoid nesting
-      if (existingFilter.type === 'and' && Array.isArray(existingFilter.fields)) {
-        const validFields = existingFilter.fields.filter(isValidFilter);
-        if (validFields.length > 0) {
-          filters.push(...validFields);
-        }
-      } else {
-        if (isValidFilter(existingFilter)) {
-          filters.push(existingFilter);
-        }
-      }
-    }
-
-    // Set filter in search query - if we have filters, combine them, otherwise set to null
-    if (filters.length > 0) {
-      if (filters.length === 1) {
-        searchQueryObj.filter = filters[0];
-      } else {
-        searchQueryObj.filter = {
-          type: 'and',
-          fields: filters,
-        };
-      }
-    } else {
-      searchQueryObj.filter = null;
-    }
+    // Dimension value suggestions: always send filter: null (no existing filter in search query)
+    searchQueryObj.filter = null;
 
     // using regular query execution
     // refId is required by DataQuery interface - used for response identification in backend
