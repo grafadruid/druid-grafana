@@ -102,7 +102,9 @@ const isPostAggregationComplete = (pa: any): boolean => {
 
 /**
  * Returns a copy of the builder with only complete aggregations, filter, and post-aggregations.
- * Incomplete items are omitted so Druid never receives partial config and errors.
+ * When a new filter / aggregation / post-aggregation is added but incomplete, it is omitted
+ * so Druid never receives partial config and errors. Post-aggregations are optional and may
+ * not exist in every query.
  */
 const sanitizeBuilderForBackend = (builder: any): any => {
   if (!builder || typeof builder !== 'object') {
@@ -110,18 +112,26 @@ const sanitizeBuilderForBackend = (builder: any): any => {
   }
   const out = { ...builder };
 
+  // Only send complete aggregations; omit newly added incomplete ones
   if (Array.isArray(out.aggregations)) {
     out.aggregations = out.aggregations.filter((agg: any) => isAggregationComplete(agg));
   }
 
+  // Only send filter if complete; omit if newly added and incomplete
   if (out.filter !== undefined && out.filter !== null) {
     if (!isFilterComplete(out.filter)) {
       out.filter = null;
     }
   }
 
+  // Post-aggregations are optional. Only send when present and include only complete ones.
   if (Array.isArray(out.postAggregations)) {
-    out.postAggregations = out.postAggregations.filter((pa: any) => isPostAggregationComplete(pa));
+    const complete = out.postAggregations.filter((pa: any) => isPostAggregationComplete(pa));
+    if (complete.length > 0) {
+      out.postAggregations = complete;
+    } else {
+      delete out.postAggregations;
+    }
   }
 
   return out;
