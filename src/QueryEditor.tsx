@@ -13,6 +13,81 @@ import { QueryBuilderOptions } from './builder/types';
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
 /**
+ * Checks if a filter is complete (used only for filtered aggregation).
+ */
+const isFilterComplete = (filter: any): boolean => {
+  if (filter === null || filter === undefined) {
+    return true;
+  }
+  if (typeof filter !== 'object' || !filter.type || String(filter.type).trim() === '') {
+    return false;
+  }
+  if (filter.type === 'and' || filter.type === 'or') {
+    const fields = filter.fields;
+    if (!Array.isArray(fields) || fields.length === 0) {
+      return false;
+    }
+    return fields.every((f: any) => isFilterComplete(f));
+  }
+  if (filter.dimension !== undefined && (!filter.dimension || String(filter.dimension).trim() === '')) {
+    return false;
+  }
+  if (filter.value !== undefined && filter.value !== null && String(filter.value).trim() === '') {
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Checks if an aggregation is complete. Once a query is working, a newly added
+ * aggregation is sent to Druid only when it is complete.
+ */
+const isAggregationComplete = (agg: any): boolean => {
+  if (!agg || typeof agg !== 'object') {
+    return false;
+  }
+  const type = agg.type;
+  const name = agg.name;
+  if (!type || typeof type !== 'string' || type.trim() === '') {
+    return false;
+  }
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return false;
+  }
+  if (agg.fieldName !== undefined && (!agg.fieldName || String(agg.fieldName).trim() === '')) {
+    return false;
+  }
+  if (type === 'filtered') {
+    if (!isFilterComplete(agg.filter)) {
+      return false;
+    }
+    if (!isAggregationComplete(agg.aggregator)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
+ * Returns a copy of the builder with only complete aggregations. Incomplete
+ * aggregations (e.g. newly added empty row) are omitted so Druid is not sent
+ * partial config.
+ */
+const sanitizeAggregationsForBackend = (builder: any): any => {
+  if (!builder || typeof builder !== 'object') {
+    return builder;
+  }
+  if (!Array.isArray(builder.aggregations)) {
+    return builder;
+  }
+  const complete = builder.aggregations.filter((agg: any) => isAggregationComplete(agg));
+  if (complete.length === builder.aggregations.length) {
+    return builder;
+  }
+  return { ...builder, aggregations: complete };
+};
+
+/**
  * Validates if a query is complete enough to be executed.
  * Returns true if the query has all required fields, false otherwise.
  */
@@ -237,21 +312,20 @@ export const QueryEditor = (props: Props) => {
       }
     }
 
-    // Convert granularity for backend - need to convert in the builder that gets sent
-    const builderForBackend = convertGranularityForBackend(
+    // Convert granularity for backend, then include only complete aggregations
+    const converted = convertGranularityForBackend(
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-
+    const builderForBackend = sanitizeAggregationsForBackend(converted);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Store original builder for UI, but use converted builder in expr for backend
+    // Store original builder for UI, but use builder with only complete aggregations in expr for backend
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
-    // Keep original builder in query state for UI, but expr has converted builder for backend
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Only run query if it's complete enough to execute (use original builder for validation)
-    const isComplete = isQueryComplete(queryBuilderOptions.builder);
+    // Only run when the payload we send (with only complete aggregations) is complete
+    const isComplete = isQueryComplete(builderForBackend);
     if (isComplete) {
       onRunQuery();
     }
@@ -259,19 +333,20 @@ export const QueryEditor = (props: Props) => {
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
 
-    // Convert granularity for backend
-    const builderForBackend = convertGranularityForBackend(
+    // Convert granularity for backend, then include only complete aggregations
+    const converted = convertGranularityForBackend(
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
+    const builderForBackend = sanitizeAggregationsForBackend(converted);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Use converted builder in expr for backend
+    // Use builder with only complete aggregations in expr for backend
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    // Only run query if it's complete enough to execute (use original builder for validation)
-    if (isQueryComplete(query.builder)) {
+    // Only run when the payload we send (with only complete aggregations) is complete
+    if (isQueryComplete(builderForBackend)) {
       onRunQuery();
     }
   };
