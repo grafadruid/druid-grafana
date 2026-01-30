@@ -423,10 +423,12 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Only run when the payload we send is complete AND it changed (avoid re-sending same query while filling new aggregation)
+    // Only run when the payload we send is complete, the filter (if any) is complete, and the payload changed.
+    // Don't fire at all while the user is editing an incomplete filter (e.g. selected type/dimension but no value).
+    const filterComplete = !queryBuilderOptions.builder?.filter || isFilterComplete(queryBuilderOptions.builder.filter);
     const isComplete = isQueryComplete(builderForBackend);
     const payloadStr = JSON.stringify(builderForBackend);
-    if (isComplete && payloadStr !== lastRunPayloadRef.current) {
+    if (filterComplete && isComplete && payloadStr !== lastRunPayloadRef.current) {
       lastRunPayloadRef.current = payloadStr;
       onRunQuery();
     }
@@ -446,9 +448,10 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    // Only run when the payload we send is complete AND it changed
+    // Only run when the payload we send is complete, the filter (if any) is complete, and the payload changed
+    const filterComplete = !query.builder?.filter || isFilterComplete(query.builder.filter);
     const payloadStr = JSON.stringify(builderForBackend);
-    if (isQueryComplete(builderForBackend) && payloadStr !== lastRunPayloadRef.current) {
+    if (filterComplete && isQueryComplete(builderForBackend) && payloadStr !== lastRunPayloadRef.current) {
       lastRunPayloadRef.current = payloadStr;
       onRunQuery();
     }
