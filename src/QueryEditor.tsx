@@ -12,8 +12,17 @@ import { QueryBuilderOptions } from './builder/types';
 
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
+/** Returns true if a value is empty (null, undefined, or blank string/array). */
+const isEmpty = (v: any): boolean => {
+  if (v === null || v === undefined) return true;
+  if (typeof v === 'string') return String(v).trim() === '';
+  if (Array.isArray(v)) return v.length === 0;
+  return false;
+};
+
 /**
- * Checks if a filter is complete (used only for filtered aggregation).
+ * Checks if a filter is complete (used for filtered aggregation and for main query filter).
+ * Any filter with required fields that are null/empty is incomplete and must not be sent to Druid.
  */
 const isFilterComplete = (filter: any): boolean => {
   if (filter === null || filter === undefined) {
@@ -29,13 +38,43 @@ const isFilterComplete = (filter: any): boolean => {
     }
     return fields.every((f: any) => isFilterComplete(f));
   }
-  if (filter.dimension !== undefined && (!filter.dimension || String(filter.dimension).trim() === '')) {
+  if (filter.type === 'not') {
+    return filter.field != null && isFilterComplete(filter.field);
+  }
+  // Any filter that has a dimension field requires it to be non-empty
+  if (filter.dimension !== undefined && isEmpty(filter.dimension)) {
     return false;
   }
-  if (filter.value !== undefined && filter.value !== null && String(filter.value).trim() === '') {
-    return false;
+  // Type-specific required fields (must be non-empty)
+  switch (filter.type) {
+    case 'selector':
+      return !isEmpty(filter.value);
+    case 'like':
+      return !isEmpty(filter.pattern);
+    case 'regex':
+      return !isEmpty(filter.pattern);
+    case 'in':
+      return Array.isArray(filter.values) && filter.values.length > 0;
+    case 'bound':
+      return !isEmpty(filter.lower) || !isEmpty(filter.upper);
+    case 'expression':
+      return !isEmpty(filter.expression);
+    case 'interval':
+      return !isEmpty(filter.intervals);
+    case 'javascript':
+      return !isEmpty(filter.function);
+    case 'columnComparison':
+      return Array.isArray(filter.dimensions) && filter.dimensions.length > 0;
+    case 'true':
+    case 'false':
+      return true;
+    default:
+      // For unknown types, treat common value-like fields as required if present
+      if (filter.value !== undefined && isEmpty(filter.value)) return false;
+      if (filter.pattern !== undefined && isEmpty(filter.pattern)) return false;
+      if (filter.values !== undefined && isEmpty(filter.values)) return false;
+      return true;
   }
-  return true;
 };
 
 /**
@@ -94,6 +133,51 @@ const sanitizeAggregationsForBackend = (builder: any): any => {
     return builder;
   }
   return { ...builder, aggregations: complete };
+};
+
+/**
+ * Returns a copy of the builder with only complete filters. Any filter with
+ * empty required fields (e.g. selector value null, like pattern empty) is
+ * omitted so Druid is never sent incomplete filter config.
+ */
+const sanitizeFilterForBackend = (builder: any): any => {
+  if (!builder || typeof builder !== 'object' || !builder.filter) {
+    return builder;
+  }
+  const filter = builder.filter;
+  if (filter.type === 'and' && Array.isArray(filter.fields)) {
+    const validFields = filter.fields.filter((f: any) => isFilterComplete(f));
+    if (validFields.length === filter.fields.length) {
+      return builder;
+    }
+    if (validFields.length === 0) {
+      const { filter: _f, ...rest } = builder;
+      return rest;
+    }
+    if (validFields.length === 1) {
+      return { ...builder, filter: validFields[0] };
+    }
+    return { ...builder, filter: { type: 'and', fields: validFields } };
+  }
+  if (filter.type === 'or' && Array.isArray(filter.fields)) {
+    const validFields = filter.fields.filter((f: any) => isFilterComplete(f));
+    if (validFields.length === filter.fields.length) {
+      return builder;
+    }
+    if (validFields.length === 0) {
+      const { filter: _f, ...rest } = builder;
+      return rest;
+    }
+    if (validFields.length === 1) {
+      return { ...builder, filter: validFields[0] };
+    }
+    return { ...builder, filter: { type: 'or', fields: validFields } };
+  }
+  if (!isFilterComplete(filter)) {
+    const { filter: _f, ...rest } = builder;
+    return rest;
+  }
+  return builder;
 };
 
 /**
@@ -327,12 +411,12 @@ export const QueryEditor = (props: Props) => {
       }
     }
 
-    // Convert granularity for backend, then include only complete aggregations
+    // Convert granularity for backend, then include only complete aggregations and complete filters
     const converted = convertGranularityForBackend(
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeAggregationsForBackend(converted);
+    const builderForBackend = sanitizeFilterForBackend(sanitizeAggregationsForBackend(converted));
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Store original builder for UI, but use builder with only complete aggregations in expr for backend
@@ -350,12 +434,12 @@ export const QueryEditor = (props: Props) => {
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
 
-    // Convert granularity for backend, then include only complete aggregations
+    // Convert granularity for backend, then include only complete aggregations and complete filters
     const converted = convertGranularityForBackend(
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeAggregationsForBackend(converted);
+    const builderForBackend = sanitizeFilterForBackend(sanitizeAggregationsForBackend(converted));
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Use builder with only complete aggregations in expr for backend
