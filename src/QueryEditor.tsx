@@ -344,32 +344,39 @@ export const QueryEditor = (props: Props) => {
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
   const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
 
-  // Convert simple granularity (day/week/month) to period granularity with timezone for backend
-  // Only applies to timeseries queries - other query types keep simple granularity as-is
+  // Query types that do not have a granularity field (no conversion applied)
+  const QUERY_TYPES_WITHOUT_GRANULARITY = ['segmentMetadata', 'scan'];
+
+  // Convert simple granularity (day/week/month/quarter/year) to period granularity with timezone for backend.
+  // Applies to all query types that use granularity (timeseries, groupBy, topN, search, etc.) so Druid buckets in the given timezone (e.g. PST).
   const convertGranularityForBackend = (builder: any, tz: string | undefined): any => {
-    if (!builder || !builder.granularity || typeof builder.granularity !== 'string') {
-      console.error('convertGranularityForBackend: early return - granularity is not a string');
+    if (!builder) {
       return builder;
     }
 
-    // Only convert for timeseries queries
-    if (builder.queryType !== 'timeseries') {
+    // Skip conversion for query types that don't use granularity
+    const queryType = builder.queryType && String(builder.queryType).toLowerCase();
+    if (queryType && QUERY_TYPES_WITHOUT_GRANULARITY.indexOf(queryType) !== -1) {
+      return builder;
+    }
+
+    if (!builder.granularity || typeof builder.granularity !== 'string') {
       return builder;
     }
 
     const granularityStr = builder.granularity;
-    // Only convert day, week, and month granularities
+    // Convert day, week, month, quarter, year to period with timezone
     // Use case-insensitive matching to handle both "day" and "DAY" formats
     const periodMap: Record<string, string> = {
       day: 'P1D',
       week: 'P1W',
       month: 'P1M',
+      quarter: 'P3M',
+      year: 'P1Y',
     };
 
-    // Convert to lowercase for case-insensitive matching
     const granularityLower = granularityStr.toLowerCase();
 
-    // Convert to period granularity if we have a timezone and it's day/week/month
     if (tz && tz !== 'browser' && periodMap[granularityLower]) {
       const periodGranularity: any = {
         type: 'period',

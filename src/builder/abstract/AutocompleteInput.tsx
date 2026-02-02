@@ -217,7 +217,7 @@ const fetchDimensionValues = async (
     // Search query requires a query field, use empty string to get all values when no input
     searchQueryObj.query = {
       type: 'contains',
-      value: inputValue && inputValue.trim() !== '' ? inputValue : 'a',
+      value: inputValue && inputValue.trim() !== '' ? inputValue : '',
     };
 
     // Dimension value suggestions: always send filter: null (no existing filter in search query)
@@ -250,7 +250,7 @@ const fetchDimensionValues = async (
       targets: [query],
       requestId: 'autocomplete-' + Date.now(), // requestId with timestamp
       interval: '1s',
-      intervalMs: 1000,
+      intervalMs: 100,
       scopedVars: {},
       timezone: 'browser',
       app: 'dashboard',
@@ -406,12 +406,12 @@ export const AutocompleteInput = (props: Props) => {
     if (type === 'dimensionValue') {
       const prevDimension = prevDimensionNameRef.current;
       const currentDimension = dimensionName;
-      
+
       // If dimension changed and we had a previous dimension, clear the value
       if (prevDimension !== null && prevDimension !== currentDimension && props.options.builder) {
         onBuilderChange(props, '');
       }
-      
+
       // Update the ref for next comparison
       prevDimensionNameRef.current = currentDimension;
     }
@@ -431,7 +431,7 @@ export const AutocompleteInput = (props: Props) => {
 
   // Create a key that includes dimension name to force remount when dimension changes
   // This clears the cache and ensures fresh data for the new dimension
-  const selectKey = type === 'dimensionValue' 
+  const selectKey = type === 'dimensionValue'
     ? `dimensionValue-${dimensionName || 'none'}-${tableName || 'none'}`
     : `${type}-${tableName || 'none'}`;
 
