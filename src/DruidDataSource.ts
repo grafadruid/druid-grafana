@@ -14,6 +14,11 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     return !query.hide;
   }
   applyTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
+    console.error('[Druid] applyTemplateVariables received from Grafana:', {
+      templatedQuery,
+      scopedVars,
+    });
+
     const templateSrv = getTemplateSrv();
     let template = JSON.stringify({ ...templatedQuery, expr: undefined }).replace(
       druidVariableRegex,
@@ -24,7 +29,9 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         return match;
       }
     );
-    return { ...JSON.parse(templateSrv.replace(template, scopedVars)), expr: templatedQuery.expr };
+    const result = { ...JSON.parse(templateSrv.replace(template, scopedVars)), expr: templatedQuery.expr };
+    console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
+    return result;
   }
   async metricFindQuery(query: DruidQuery, options?: any): Promise<MetricFindValue[]> {
     return this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
