@@ -1,12 +1,18 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Select, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Input, Select, Row } from '../abstract';
 
 export const Default = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Default);
   return (
     <Row>
-      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
+      <AutocompleteInput
+        {...scopedProps('dimension')}
+        label="Dimension"
+        description="The dimension name"
+        type="dimension"
+        datasource={props.datasource}
+      />
       <Input
         {...scopedProps('outputName')}
         label="Output name"
