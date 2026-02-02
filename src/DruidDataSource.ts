@@ -4,6 +4,49 @@ import { DruidSettings, DruidQuery } from './types';
 
 const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::druid:(\w+))?}\"/g;
 
+/**
+ * Recursively expand filter tree: replace any filter with type "json" by the parsed value
+ * so the filter list contains only the actual filter object (e.g. selector), not {"type":"json","value":"..."}.
+ */
+function expandJsonFiltersInBuilder(obj: any): any {
+  if (obj == null) return obj;
+  if (typeof obj === 'object' && !Array.isArray(obj)) {
+    if (obj.type === 'json' && obj.value != null) {
+      const val = obj.value;
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed === '') return obj;
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed != null && typeof parsed === 'object') {
+            return parsed;
+          }
+        } catch {
+          return obj;
+        }
+      }
+      if (typeof val === 'object' && val !== null) return val;
+      return obj;
+    }
+    if (obj.type === 'and' || obj.type === 'or') {
+      const fields = obj.fields;
+      if (Array.isArray(fields)) {
+        return { ...obj, fields: fields.map((f: any) => expandJsonFiltersInBuilder(f)) };
+      }
+    }
+    if (obj.type === 'not' && obj.field != null) {
+      return { ...obj, field: expandJsonFiltersInBuilder(obj.field) };
+    }
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = expandJsonFiltersInBuilder(v);
+    }
+    return out;
+  }
+  if (Array.isArray(obj)) return obj.map((x) => expandJsonFiltersInBuilder(x));
+  return obj;
+}
+
 export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSettings> {
   settingsData: DruidSettings;
   constructor(instanceSettings: DataSourceInstanceSettings<DruidSettings>) {
@@ -51,7 +94,12 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     const replaced = templateSrv.replace(template, scopedVars);
     console.error('[Druid] template after replace (snippet with first 500 chars):', replaced.slice(0, 500));
 
-    const result = { ...JSON.parse(replaced), expr: templatedQuery.expr };
+    let parsed = JSON.parse(replaced);
+    if (parsed.builder) {
+      parsed = { ...parsed, builder: expandJsonFiltersInBuilder(parsed.builder) };
+    }
+    // Backend uses expr to build the Druid query, so expr must contain the replaced and expanded payload.
+    const result = { ...parsed, expr: JSON.stringify(parsed) };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
     return result;
   }
