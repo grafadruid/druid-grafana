@@ -9,6 +9,7 @@ export { FilterTuning } from './FilterTuning';
 export { Interval } from './Interval';
 export { In } from './In';
 export { Javascript } from './Javascript';
+export { Json } from './Json';
 export { Like } from './Like';
 export { Not } from './Not';
 export { Or } from './Or';

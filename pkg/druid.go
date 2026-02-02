@@ -599,6 +599,90 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
+// expandJsonFiltersInBuilder walks the builder's filter tree and replaces any filter
+// with type "json" by parsing filter.value as JSON. Template variables (e.g. $variable_name)
+// are already replaced by Grafana before the query reaches the backend.
+func expandJsonFiltersInBuilder(builder map[string]any) {
+	if builder == nil {
+		return
+	}
+	filter, ok := builder["filter"]
+	if !ok || filter == nil {
+		return
+	}
+	builder["filter"] = expandJsonFilters(filter)
+}
+
+// expandJsonFilters recursively expands the filter tree. Filters with type "json" are
+// replaced by the parsed JSON object (filter.value). "and" and "or" filters have their
+// fields expanded; "not" has its field expanded.
+func expandJsonFilters(filter any) any {
+	if filter == nil {
+		return nil
+	}
+	f, ok := filter.(map[string]any)
+	if !ok {
+		return filter
+	}
+	ftype, _ := f["type"].(string)
+	switch ftype {
+	case "json":
+		val := f["value"]
+		if val == nil {
+			return filter
+		}
+		var valueStr string
+		switch v := val.(type) {
+		case string:
+			valueStr = v
+		default:
+			// Try to marshal and unmarshal if value was already expanded to a map
+			if alreadyExpanded, ok := val.(map[string]any); ok {
+				return alreadyExpanded
+			}
+			return filter
+		}
+		valueStr = strings.TrimSpace(valueStr)
+		if valueStr == "" {
+			return filter
+		}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(valueStr), &parsed); err != nil {
+			log.DefaultLogger.Debug("Failed to parse json filter value", "error:", err, "value:", valueStr)
+			return filter
+		}
+		return parsed
+	case "and", "or":
+		fields, ok := f["fields"].([]any)
+		if !ok || len(fields) == 0 {
+			return filter
+		}
+		expanded := make([]any, len(fields))
+		for i, field := range fields {
+			expanded[i] = expandJsonFilters(field)
+		}
+		out := make(map[string]any, len(f))
+		for k, v := range f {
+			out[k] = v
+		}
+		out["fields"] = expanded
+		return out
+	case "not":
+		field := f["field"]
+		if field == nil {
+			return filter
+		}
+		out := make(map[string]any, len(f))
+		for k, v := range f {
+			out[k] = v
+		}
+		out["field"] = expandJsonFilters(field)
+		return out
+	default:
+		return filter
+	}
+}
+
 func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
@@ -639,6 +723,9 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
 		return nil, nil, nil
 	}
+
+	// Expand json filters: replace filter type "json" with parsed value (template variables already replaced by Grafana)
+	expandJsonFiltersInBuilder(builder)
 
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {

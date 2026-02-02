@@ -63,6 +63,8 @@ const isFilterComplete = (filter: any): boolean => {
       return !isEmpty(filter.intervals);
     case 'javascript':
       return !isEmpty(filter.function);
+    case 'json':
+      return !isEmpty(filter.value);
     case 'columnComparison':
       return Array.isArray(filter.dimensions) && filter.dimensions.length > 0;
     case 'true':
@@ -437,6 +439,7 @@ export const QueryEditor = (props: Props) => {
     const payloadStr = JSON.stringify(builderForBackend);
     if (filterComplete && isComplete && payloadStr !== lastRunPayloadRef.current) {
       lastRunPayloadRef.current = payloadStr;
+      console.error('Druid query (final payload before sending):', JSON.stringify(builderForBackend, null, 2));
       onRunQuery();
     }
   };

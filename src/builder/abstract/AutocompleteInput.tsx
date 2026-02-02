@@ -217,7 +217,7 @@ const fetchDimensionValues = async (
     // Search query requires a query field, use empty string to get all values when no input
     searchQueryObj.query = {
       type: 'contains',
-      value: inputValue && inputValue.trim() !== '' ? inputValue : '',
+      value: inputValue && inputValue.trim() !== '' ? inputValue : 'a',
     };
 
     // Dimension value suggestions: always send filter: null (no existing filter in search query)
