@@ -489,6 +489,7 @@ export const QueryEditor = (props: Props) => {
         onOptionsChange={onBuilderOptionsChange}
         datasource={props.datasource}
         rootBuilder={builderOptions.builder}
+        range={props.range}
       />
     </>
   );
