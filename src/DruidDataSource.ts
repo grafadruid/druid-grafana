@@ -100,7 +100,19 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   }
   applyTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
     const templateSrv = getTemplateSrv();
-    let template = JSON.stringify({ ...templatedQuery, expr: undefined }).replace(
+    // Use expr when present so variable replacement runs on the backend-ready payload (e.g. period granularity).
+    // Otherwise we would use query.builder (UI state) and lose convertGranularityForBackend (granularity would become "day" again).
+    let payload: Record<string, unknown>;
+    if (templatedQuery.expr && typeof templatedQuery.expr === 'string') {
+      try {
+        payload = JSON.parse(templatedQuery.expr) as Record<string, unknown>;
+      } catch {
+        payload = { ...templatedQuery, expr: undefined };
+      }
+    } else {
+      payload = { ...templatedQuery, expr: undefined };
+    }
+    let template = JSON.stringify(payload).replace(
       druidVariableRegex,
       (match, variable1, format1, variable2, format2) => {
         if (format1 || format2 === 'json') {
