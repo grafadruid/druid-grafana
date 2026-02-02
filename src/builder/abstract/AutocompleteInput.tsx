@@ -157,34 +157,18 @@ const fetchDimensionValues = async (
     console.error('fetchDimensionValues: Missing tableName or dimensionName', { tableName, dimensionName });
     return [];
   }
+  if (panelRange?.from == null || panelRange?.to == null) {
+    return [];
+  }
 
   try {
-    // Use Druid search query to get dimension values
-    // Intervals: use panel time range when available (from QueryEditor) so suggestions match the dashboard's range
-    let intervalsObj: any;
-    if (panelRange?.from != null && panelRange?.to != null) {
-      const fromISO = new Date(panelRange.from.valueOf()).toISOString();
-      const toISO = new Date(panelRange.to.valueOf()).toISOString();
-      intervalsObj = {
-        type: 'intervals',
-        intervals: [`${fromISO}/${toISO}`],
-      };
-    } else {
-      intervalsObj = {
-        type: 'intervals',
-        intervals: ['${__from:date:iso}/${__to:date:iso}'],
-      };
-      if (rootBuilder?.intervals) {
-        if (rootBuilder.intervals.type === 'intervals' && Array.isArray(rootBuilder.intervals.intervals)) {
-          intervalsObj = rootBuilder.intervals;
-        } else if (Array.isArray(rootBuilder.intervals)) {
-          intervalsObj = {
-            type: 'intervals',
-            intervals: rootBuilder.intervals,
-          };
-        }
-      }
-    }
+    // Use Druid search query to get dimension values; only panel time range (no default)
+    const fromISO = new Date(panelRange.from.valueOf()).toISOString();
+    const toISO = new Date(panelRange.to.valueOf()).toISOString();
+    const intervalsObj = {
+      type: 'intervals',
+      intervals: [`${fromISO}/${toISO}`],
+    };
 
     // Build dataSource - should be object format { type: 'table', name: '...' }
     let dataSource: any = { type: 'table', name: tableName };
@@ -234,15 +218,6 @@ const fetchDimensionValues = async (
 
     console.error('Dimension value auto-suggest: final JSON before sending to Druid', JSON.stringify(query, null, 2));
 
-    // Use panel range when available so auto-suggest searches only within the dashboard's time range
-    const range =
-      panelRange?.from != null && panelRange?.to != null
-        ? panelRange
-        : {
-            from: { valueOf: () => Date.now() - (365 * 24 * 60 * 60 * 1000) },
-            to: { valueOf: () => Date.now() },
-          };
-
     // This sends the query directly to Druid via the normal query execution flow
     // requestId is used by Grafana for request tracking - simple string is sufficient
     // datasource.query() returns an Observable, so we need to convert it to a Promise
@@ -255,7 +230,7 @@ const fetchDimensionValues = async (
       timezone: 'browser',
       app: 'dashboard',
       startTime: Date.now(),
-      range,
+      range: panelRange,
     } as any);
 
     // Convert Observable to Promise - get the first (and only) value
