@@ -73,6 +73,17 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       }
     );
 
+    // Helper: get variable value by name (from scopedVars or getVariables)
+    const ts = templateSrv as { getVariables?: () => Array<{ name?: string; current?: { value?: unknown } }> };
+    const variables = ts.getVariables?.() ?? [];
+    const scoped = scopedVars ?? {};
+    const getVariableValue = (name: string): unknown => {
+      const scopedVal = name && (scoped[name] as { value?: unknown } | undefined);
+      if (scopedVal?.value !== undefined) return scopedVal.value;
+      const varObj = variables.find((v) => v?.name === name);
+      return varObj?.current?.value;
+    };
+
     // Log variable names found in template and the value Grafana uses for each
     const variableRefPattern = /\$(\w+)|(?:\$\{(\w+)(?::[^}]*)?\})/g;
     const variableNames = new Set<string>();
@@ -80,19 +91,27 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     while ((m = variableRefPattern.exec(template)) !== null) {
       variableNames.add(m[1] || m[2] || '');
     }
-    const ts = templateSrv as { getVariables?: () => Array<{ name?: string; current?: { value?: unknown } }> };
-    const variables = ts.getVariables?.() ?? [];
-    const scoped = scopedVars ?? {};
     variableNames.forEach((name) => {
+      const valueUsed = getVariableValue(name);
       const scopedVal = name && (scoped[name] as { value?: unknown } | undefined);
       const varObj = variables.find((v) => v?.name === name);
-      const currentVal = varObj?.current?.value;
-      const valueUsed = scopedVal?.value !== undefined ? scopedVal.value : currentVal;
       console.error(`[Druid] variable $${name} → value:`, valueUsed, '(from scopedVars:', !!scopedVal, ', from getVariables:', !!varObj, ')');
     });
 
+    // Only for filter type = "json": replace "value":"$var" with properly JSON-escaped variable value so the template stays valid.
+    // (templateSrv.replace would insert the raw value and break JSON when the value is an object/string with quotes.)
+    // This pattern matches only filter objects with type "json" and a variable reference in value.
+    const jsonFilterValueOnlyPattern = /"type"\s*:\s*"json"\s*,\s*"value"\s*:\s*"(\$[\w]+)"/g;
+    template = template.replace(jsonFilterValueOnlyPattern, (_match, varRef: string) => {
+      const varName = varRef.startsWith('$') ? varRef.slice(1) : varRef;
+      const value = getVariableValue(varName);
+      const str = value != null && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+      const escaped = JSON.stringify(str).slice(1, -1);
+      return '"type":"json","value":"' + escaped + '"';
+    });
+
     const replaced = templateSrv.replace(template, scopedVars);
-    console.error('[Druid] template after replace (snippet with first 500 chars):', replaced.slice(0, 500));
+    console.error('[Druid] template after replace (snippet with first 2000 chars):', replaced.slice(0, 2000));
 
     let parsed = JSON.parse(replaced);
     if (parsed.builder) {
