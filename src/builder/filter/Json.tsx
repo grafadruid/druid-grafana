@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { InlineField, Select } from '@grafana/ui';
+import { ChangeEvent } from 'react';
+import { InlineField, Input as InputField, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { getTemplateSrv } from '@grafana/runtime';
 import { QueryBuilderProps } from '../types';
@@ -20,24 +21,33 @@ export const Json = (props: QueryBuilderProps) => {
       .filter((o): o is SelectableValue<string> => o != null);
   }, []);
 
-  const currentValue = valueProps.options.builder ?? '';
-  const valueOption: SelectableValue<string> =
-    variableOptions.find((o) => o.value === currentValue) ?? {
-      value: currentValue,
-      label: currentValue ? (currentValue.length > 60 ? currentValue.slice(0, 57) + '...' : currentValue) : 'Custom JSON or variable...',
-    };
+  const currentValue = (valueProps.options.builder ?? '') as string;
+
+  const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onBuilderChange(valueProps, event.target.value);
+  };
 
   return (
     <InlineField label={valueProps.label} tooltip={valueProps.description} grow>
-      <Select
-        options={variableOptions}
-        value={valueOption}
-        onChange={(option: SelectableValue<string> | null) => onBuilderChange(valueProps, option?.value ?? '')}
-        onCreateOption={(v) => onBuilderChange(valueProps, v)}
-        placeholder="JSON filter or variable (e.g. $variable_name)"
-        allowCustomValue
-        isClearable
-      />
+        <InputField
+          value={currentValue}
+          onChange={onInputChange}
+          placeholder="JSON filter or variable (e.g. $variable_name)"
+        />
+        {variableOptions.length > 0 && (
+          <Select
+            options={variableOptions}
+            value={null}
+            onChange={(option: SelectableValue<string> | null) => {
+              if (option?.value != null) {
+                onBuilderChange(valueProps, option.value);
+              }
+            }}
+            placeholder="Insert variable..."
+            width={24}
+            isClearable={false}
+          />
+        )}
     </InlineField>
   );
 };
