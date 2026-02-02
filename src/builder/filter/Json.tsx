@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ChangeEvent } from 'react';
 import { InlineField, Input as InputField, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
@@ -21,33 +21,45 @@ export const Json = (props: QueryBuilderProps) => {
       .filter((o): o is SelectableValue<string> => o != null);
   }, []);
 
-  const currentValue = (valueProps.options.builder ?? '') as string;
+  const builderValue = (valueProps.options.builder ?? '') as string;
+  const [inputValue, setInputValue] = useState(builderValue);
+
+  // Sync from builder when it changes (e.g. after picking a variable from dropdown)
+  useEffect(() => {
+    setInputValue(builderValue);
+  }, [builderValue]);
 
   const onInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onBuilderChange(valueProps, event.target.value);
+    const v = event.target.value;
+    setInputValue(v);
+    onBuilderChange(valueProps, v);
+  };
+
+  const onVariableSelect = (option: SelectableValue<string> | null) => {
+    if (option?.value != null) {
+      setInputValue(option.value);
+      onBuilderChange(valueProps, option.value);
+    }
   };
 
   return (
     <InlineField label={valueProps.label} tooltip={valueProps.description} grow>
-        <InputField
-          value={currentValue}
-          onChange={onInputChange}
-          placeholder="JSON filter or variable (e.g. $variable_name)"
+      <InputField
+        name="json-filter-value"
+        value={inputValue}
+        onChange={onInputChange}
+        placeholder="JSON filter or variable (e.g. $variable_name)"
+      />
+      {variableOptions.length > 0 && (
+        <Select
+          options={variableOptions}
+          value={null}
+          onChange={onVariableSelect}
+          placeholder="Insert variable..."
+          width={24}
+          isClearable={false}
         />
-        {variableOptions.length > 0 && (
-          <Select
-            options={variableOptions}
-            value={null}
-            onChange={(option: SelectableValue<string> | null) => {
-              if (option?.value != null) {
-                onBuilderChange(valueProps, option.value);
-              }
-            }}
-            placeholder="Insert variable..."
-            width={24}
-            isClearable={false}
-          />
-        )}
+      )}
     </InlineField>
   );
 };
