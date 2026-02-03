@@ -10,12 +10,16 @@ const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::dru
  * (whose value is a JSON string) is replaced as a string; later the backend parses it.
  */
 function getFilterSubstituteAttrs(filterType: string): string[] {
+  let attrList: string[];
   switch (filterType) {
     case 'json':
-      return ['value'];
+      attrList = ['value'];
+      break;
     default:
-      return [];
+      attrList = [];
   }
+  console.error('[Druid] getFilterSubstituteAttrs', { input: { filterType }, returned: { attrList } });
+  return attrList;
 }
 
 /**
@@ -29,12 +33,21 @@ function replaceTemplateValues(
   attrList: string[],
   templateSrv: { replace: (value: string, scopedVars?: ScopedVars) => string }
 ): void {
+  const inputValues: Record<string, unknown> = {};
+  const returnedValues: Record<string, unknown> = {};
   for (const attr of attrList) {
     const val = obj[attr];
+    inputValues[attr] = val;
     if (typeof val === 'string') {
-      obj[attr] = templateSrv.replace(val, scopedVars);
+      const replaced = templateSrv.replace(val, scopedVars);
+      obj[attr] = replaced;
+      returnedValues[attr] = replaced;
     }
   }
+  console.error('[Druid] replaceTemplateValues', {
+    input: { objType: obj['type'], attrList, valuesBefore: inputValues, scopedVars },
+    returned: { valuesAfter: returnedValues },
+  });
 }
 
 /**
@@ -46,7 +59,9 @@ function replaceFilterTreeTemplateValues(
   scopedVars: ScopedVars | undefined,
   templateSrv: { replace: (value: string, scopedVars?: ScopedVars) => string }
 ): void {
+  console.error('[Druid] replaceFilterTreeTemplateValues', { input: { filter, scopedVars } });
   if (filter == null || typeof filter !== 'object' || Array.isArray(filter)) {
+    console.error('[Druid] replaceFilterTreeTemplateValues', { returned: 'early (null/not-object/array)' });
     return;
   }
   const f = filter as Record<string, unknown>;
@@ -55,6 +70,10 @@ function replaceFilterTreeTemplateValues(
     const attrList = getFilterSubstituteAttrs(ftype);
     if (attrList.length > 0) {
       replaceTemplateValues(f, scopedVars, attrList, templateSrv);
+      console.error('[Druid] replaceFilterTreeTemplateValues', {
+        returned: 'after replaceTemplateValues',
+        filterAfter: JSON.parse(JSON.stringify(f)),
+      });
     }
     if (ftype === 'and' || ftype === 'or') {
       const fields = f['fields'];
