@@ -135,11 +135,12 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       }
     } else {
       payload = JSON.parse(JSON.stringify({ builder: templatedQuery.builder, settings: templatedQuery.settings }));
-      console.error('[Druid] applyTemplateVariables after filter replacement:', { builderAfter: builder });
+      console.error('[Druid] applyTemplateVariables (no expr) payload:', { builderAfter: payload.builder });
     }
     console.error('[Druid][payload] applyTemplateVariables before full replacement:', { payload });
     if (payload.builder?.filter != null) {
       replaceFilterTreeTemplateValues(payload.builder.filter, scopedVars, templateSrv);
+      console.error('[Druid] applyTemplateVariables after filter replacement:', { builderAfter: payload.builder });
     }
 
     let templateStr = JSON.stringify(payload).replace(
@@ -152,8 +153,11 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       }
     );
     const substitutedStr = templateSrv.replace(templateStr, scopedVars);
+    const substitutedPayload = JSON.parse(substitutedStr);
+    // Preserve query metadata (refId, datasource, hide, etc.) so Grafana can match the response to the panel.
     const result = {
-      ...JSON.parse(substitutedStr),
+      ...templatedQuery,
+      ...substitutedPayload,
       expr: templatedQuery.expr && templatedQuery.expr.trim() !== '' ? substitutedStr : templatedQuery.expr,
     };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
