@@ -111,7 +111,9 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     const builder = cloned.builder;
     if (builder != null && builder.filter != null) {
       replaceFilterTreeTemplateValues(builder.filter, scopedVars, templateSrv);
+      console.error('[Druid] applyTemplateVariables after filter replacement:', { builderAfter: builder });
     }
+    console.error('[Druid] applyTemplateVariables before full replacement:', { cloned });
     let template = JSON.stringify(cloned).replace(
       druidVariableRegex,
       (match, variable1, format1, variable2, format2) => {
@@ -121,6 +123,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         return match;
       }
     );
+    console.error('[Druid] applyTemplateVariables after json format handling:', { template });
     const result = { ...JSON.parse(templateSrv.replace(template, scopedVars)), expr: templatedQuery.expr };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
     return result;
