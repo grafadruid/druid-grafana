@@ -104,17 +104,26 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     });
 
     const templateSrv = getTemplateSrv();
-    // Clone so we don't mutate the original; for json filters we substitute only in 'value'
-    // so that a variable like $domain_filter (value = JSON string) becomes the string,
-    // and the backend later JSON.parse(filter.value).
-    const cloned = JSON.parse(JSON.stringify({ ...templatedQuery, expr: undefined }));
-    const builder = cloned.builder;
-    if (builder != null && builder.filter != null) {
-      replaceFilterTreeTemplateValues(builder.filter, scopedVars, templateSrv);
+
+    // Build the payload that will be sent (backend uses expr when set). We only substitute
+    // in this payload — never in query.builder state.
+    let payload: { builder?: { filter?: unknown }; settings?: unknown };
+    if (templatedQuery.expr && templatedQuery.expr.trim() !== '') {
+      try {
+        payload = JSON.parse(templatedQuery.expr);
+      } catch {
+        payload = { builder: templatedQuery.builder, settings: templatedQuery.settings };
+      }
+    } else {
+      payload = JSON.parse(JSON.stringify({ builder: templatedQuery.builder, settings: templatedQuery.settings }));
       console.error('[Druid] applyTemplateVariables after filter replacement:', { builderAfter: builder });
     }
-    console.error('[Druid] applyTemplateVariables before full replacement:', { cloned });
-    let template = JSON.stringify(cloned).replace(
+    console.error('[Druid][payload] applyTemplateVariables before full replacement:', { payload });
+    if (payload.builder?.filter != null) {
+      replaceFilterTreeTemplateValues(payload.builder.filter, scopedVars, templateSrv);
+    }
+
+    let templateStr = JSON.stringify(payload).replace(
       druidVariableRegex,
       (match, variable1, format1, variable2, format2) => {
         if (format1 || format2 === 'json') {
@@ -123,8 +132,11 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         return match;
       }
     );
-    console.error('[Druid] applyTemplateVariables after json format handling:', { template });
-    const result = { ...JSON.parse(templateSrv.replace(template, scopedVars)), expr: templatedQuery.expr };
+    const substitutedStr = templateSrv.replace(templateStr, scopedVars);
+    const result = {
+      ...JSON.parse(substitutedStr),
+      expr: templatedQuery.expr && templatedQuery.expr.trim() !== '' ? substitutedStr : templatedQuery.expr,
+    };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
     return result;
   }
