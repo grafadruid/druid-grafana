@@ -27,6 +27,21 @@ function getFilterSubstituteAttrs(filterType: string): string[] {
  * Used for json filters so that filter.value (e.g. "$domain_filter") is replaced
  * with the variable's value (e.g. the JSON string) without breaking the query structure.
  */
+/**
+ * Normalize a json filter value so it is a single-encoded JSON string.
+ * Grafana variables can return already-escaped strings (e.g. {\"type\":\"or\",...});
+ * parsing and re-stringifying avoids double-escaping when we JSON.stringify the payload.
+ */
+function normalizeJsonFilterValue(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') return value;
+  try {
+    return JSON.stringify(JSON.parse(trimmed));
+  } catch {
+    return value;
+  }
+}
+
 function replaceTemplateValues(
   obj: Record<string, unknown>,
   scopedVars: ScopedVars | undefined,
@@ -35,11 +50,15 @@ function replaceTemplateValues(
 ): void {
   const inputValues: Record<string, unknown> = {};
   const returnedValues: Record<string, unknown> = {};
+  const isJsonFilter = obj['type'] === 'json';
   for (const attr of attrList) {
     const val = obj[attr];
     inputValues[attr] = val;
     if (typeof val === 'string') {
-      const replaced = templateSrv.replace(val, scopedVars);
+      let replaced = templateSrv.replace(val, scopedVars);
+      if (isJsonFilter && attr === 'value') {
+        replaced = normalizeJsonFilterValue(replaced);
+      }
       obj[attr] = replaced;
       returnedValues[attr] = replaced;
     }
