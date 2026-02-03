@@ -4,107 +4,89 @@ import { DruidSettings, DruidQuery } from './types';
 
 const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::druid:(\w+))?}\"/g;
 
-/**
- * Returns which attributes of a filter should have template variables substituted.
- * For json filters only 'value' is substituted, so that a variable like $domain_filter
- * (whose value is a JSON string) is replaced as a string; later the backend parses it.
- */
-function getFilterSubstituteAttrs(filterType: string): string[] {
-  let attrList: string[];
-  switch (filterType) {
-    case 'json':
-      attrList = ['value'];
-      break;
-    default:
-      attrList = [];
-  }
-  console.error('[Druid] getFilterSubstituteAttrs', { input: { filterType }, returned: { attrList } });
-  return attrList;
-}
+const REMOVE_FILTER_VALUE = '_REMOVE_FILTER_';
 
 /**
- * Replaces template variables only in the given attributes of obj.
- * Used for json filters so that filter.value (e.g. "$domain_filter") is replaced
- * with the variable's value (e.g. the JSON string) without breaking the query structure.
+ * Recursively expand filter tree: replace any filter with type "json" by the parsed value
+ * so the filter list contains only the actual filter object (e.g. selector), not {"type":"json","value":"..."}.
  */
-/**
- * Normalize a json filter value so it is a single-encoded JSON string.
- * Grafana variables can return already-escaped strings (e.g. {\"type\":\"or\",...});
- * parsing and re-stringifying avoids double-escaping when we JSON.stringify the payload.
- */
-function normalizeJsonFilterValue(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === '') return value;
-  try {
-    return JSON.stringify(JSON.parse(trimmed));
-  } catch {
-    return value;
-  }
-}
-
-function replaceTemplateValues(
-  obj: Record<string, unknown>,
-  scopedVars: ScopedVars | undefined,
-  attrList: string[],
-  templateSrv: { replace: (value: string, scopedVars?: ScopedVars) => string }
-): void {
-  const inputValues: Record<string, unknown> = {};
-  const returnedValues: Record<string, unknown> = {};
-  const isJsonFilter = obj['type'] === 'json';
-  for (const attr of attrList) {
-    const val = obj[attr];
-    inputValues[attr] = val;
-    if (typeof val === 'string') {
-      let replaced = templateSrv.replace(val, scopedVars);
-      if (isJsonFilter && attr === 'value') {
-        replaced = normalizeJsonFilterValue(replaced);
-      }
-      obj[attr] = replaced;
-      returnedValues[attr] = replaced;
-    }
-  }
-  console.error('[Druid] replaceTemplateValues', {
-    input: { objType: obj['type'], attrList, valuesBefore: inputValues, scopedVars },
-    returned: { valuesAfter: returnedValues },
-  });
-}
-
-/**
- * Recursively walks the filter tree and replaces template variables only in
- * type-specific attributes (e.g. for type "json" only in "value").
- */
-function replaceFilterTreeTemplateValues(
-  filter: unknown,
-  scopedVars: ScopedVars | undefined,
-  templateSrv: { replace: (value: string, scopedVars?: ScopedVars) => string }
-): void {
-  console.error('[Druid] replaceFilterTreeTemplateValues', { input: { filter, scopedVars } });
-  if (filter == null || typeof filter !== 'object' || Array.isArray(filter)) {
-    console.error('[Druid] replaceFilterTreeTemplateValues', { returned: 'early (null/not-object/array)' });
-    return;
-  }
-  const f = filter as Record<string, unknown>;
-  const ftype = f['type'];
-  if (typeof ftype === 'string') {
-    const attrList = getFilterSubstituteAttrs(ftype);
-    if (attrList.length > 0) {
-      replaceTemplateValues(f, scopedVars, attrList, templateSrv);
-      console.error('[Druid] replaceFilterTreeTemplateValues', {
-        returned: 'after replaceTemplateValues',
-        filterAfter: JSON.parse(JSON.stringify(f)),
-      });
-    }
-    if (ftype === 'and' || ftype === 'or') {
-      const fields = f['fields'];
-      if (Array.isArray(fields)) {
-        for (const field of fields) {
-          replaceFilterTreeTemplateValues(field, scopedVars, templateSrv);
+function expandJsonFiltersInBuilder(obj: any): any {
+  if (obj == null) return obj;
+  if (typeof obj === 'object' && !Array.isArray(obj)) {
+    if (obj.type === 'json' && obj.value != null) {
+      const val = obj.value;
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed === '') return obj;
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed != null && typeof parsed === 'object') {
+            return parsed;
+          }
+        } catch {
+          return obj;
         }
       }
-    } else if (ftype === 'not') {
-      replaceFilterTreeTemplateValues(f['field'], scopedVars, templateSrv);
+      if (typeof val === 'object' && val !== null) return val;
+      return obj;
     }
+    if (obj.type === 'and' || obj.type === 'or') {
+      const fields = obj.fields;
+      if (Array.isArray(fields)) {
+        return { ...obj, fields: fields.map((f: any) => expandJsonFiltersInBuilder(f)) };
+      }
+    }
+    if (obj.type === 'not' && obj.field != null) {
+      return { ...obj, field: expandJsonFiltersInBuilder(obj.field) };
+    }
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = expandJsonFiltersInBuilder(v);
+    }
+    return out;
   }
+  if (Array.isArray(obj)) return obj.map((x) => expandJsonFiltersInBuilder(x));
+  return obj;
+}
+
+/**
+ * Returns true if the filter should be removed (template "All" / no filter sentinel).
+ * Matches: pattern === _REMOVE_FILTER_ (like/regex), value === _REMOVE_FILTER_ (selector/json), or values includes _REMOVE_FILTER_ (in).
+ */
+function shouldRemoveFilter(filter: any): boolean {
+  if (filter == null || typeof filter !== 'object') return false;
+  if (filter.pattern !== undefined && filter.pattern === REMOVE_FILTER_VALUE) return true;
+  if (filter.value !== undefined && filter.value === REMOVE_FILTER_VALUE) return true;
+  if (Array.isArray(filter.values) && filter.values.includes(REMOVE_FILTER_VALUE)) return true;
+  return false;
+}
+
+/**
+ * Recursively remove no-op filters (_REMOVE_FILTER_) from the filter tree.
+ * When a variable means "All" or "no filter", Grafana can fill in _REMOVE_FILTER_; we strip those so only real filters are sent to Druid.
+ */
+function remove_filter_recursively(obj: any): any {
+  if (obj == null) return obj;
+  if (typeof obj === 'object' && !Array.isArray(obj)) {
+    if (obj.fields != null && Array.isArray(obj.fields)) {
+      const fields = (obj.fields as any[]).map((f: any) => remove_filter_recursively(f)).filter((f: any) => !shouldRemoveFilter(f));
+      if (fields.length === 0) return { type: 'true' };
+      if (fields.length === 1) return fields[0];
+      return { ...obj, fields };
+    }
+    if (obj.type === 'not' && obj.field != null) {
+      const field = remove_filter_recursively(obj.field);
+      return shouldRemoveFilter(field) ? { type: 'true' } : { ...obj, field };
+    }
+    if (shouldRemoveFilter(obj)) return { type: 'true' };
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = remove_filter_recursively(v);
+    }
+    return out;
+  }
+  if (Array.isArray(obj)) return obj.map((x) => remove_filter_recursively(x));
+  return obj;
 }
 
 export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSettings> {
@@ -117,33 +99,8 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     return !query.hide;
   }
   applyTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
-    console.error('[Druid] applyTemplateVariables received from Grafana:', {
-      templatedQuery,
-      scopedVars,
-    });
-
     const templateSrv = getTemplateSrv();
-
-    // Build the payload that will be sent (backend uses expr when set). We only substitute
-    // in this payload — never in query.builder state.
-    let payload: { builder?: { filter?: unknown }; settings?: unknown };
-    if (templatedQuery.expr && templatedQuery.expr.trim() !== '') {
-      try {
-        payload = JSON.parse(templatedQuery.expr);
-      } catch {
-        payload = { builder: templatedQuery.builder, settings: templatedQuery.settings };
-      }
-    } else {
-      payload = JSON.parse(JSON.stringify({ builder: templatedQuery.builder, settings: templatedQuery.settings }));
-      console.error('[Druid] applyTemplateVariables (no expr) payload:', { builderAfter: payload.builder });
-    }
-    console.error('[Druid][payload] applyTemplateVariables before full replacement:', { payload });
-    if (payload.builder?.filter != null) {
-      replaceFilterTreeTemplateValues(payload.builder.filter, scopedVars, templateSrv);
-      console.error('[Druid] applyTemplateVariables after filter replacement:', { builderAfter: payload.builder });
-    }
-
-    let templateStr = JSON.stringify(payload).replace(
+    let template = JSON.stringify({ ...templatedQuery, expr: undefined }).replace(
       druidVariableRegex,
       (match, variable1, format1, variable2, format2) => {
         if (format1 || format2 === 'json') {
@@ -152,14 +109,40 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
         return match;
       }
     );
-    const substitutedStr = templateSrv.replace(templateStr, scopedVars);
-    const substitutedPayload = JSON.parse(substitutedStr);
-    // Preserve query metadata (refId, datasource, hide, etc.) so Grafana can match the response to the panel.
+
+    const ts = templateSrv as { getVariables?: () => Array<{ name?: string; current?: { value?: unknown } }> };
+    const variables = ts.getVariables?.() ?? [];
+    const scoped = scopedVars ?? {};
+    const getVariableValue = (name: string): unknown => {
+      const scopedVal = name && (scoped[name] as { value?: unknown } | undefined);
+      if (scopedVal?.value !== undefined) return scopedVal.value;
+      const varObj = variables.find((v) => v?.name === name);
+      return varObj?.current?.value;
+    };
+
+    // Only for filter type = "json": replace "value":"$var" with JSON-escaped variable value so the template stays valid.
+    const jsonFilterValuePattern = /"type"\s*:\s*"json"\s*,\s*"value"\s*:\s*"(\$[\w]+)"/g;
+    template = template.replace(jsonFilterValuePattern, (_match, varRef: string) => {
+      const varName = varRef.startsWith('$') ? varRef.slice(1) : varRef;
+      const value = getVariableValue(varName);
+      const str = value != null && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+      const escaped = JSON.stringify(str).slice(1, -1);
+      return '"type":"json","value":"' + escaped + '"';
+    });
+
+    const replaced = templateSrv.replace(template, scopedVars);
+    console.error('[Druid] template after replace (snippet with first 2000 chars):', replaced.slice(0, 2000));
+
+    let parsed = JSON.parse(replaced);
+    if (parsed.builder) {
+      let builder = expandJsonFiltersInBuilder(parsed.builder);
+      builder = remove_filter_recursively(builder);
+      parsed = { ...parsed, builder };
+    }
     const result = {
       ...templatedQuery,
-      ...substitutedPayload,
-      expr: templatedQuery.expr && templatedQuery.expr.trim() !== '' ? substitutedStr : templatedQuery.expr,
-    };
+      ...parsed,
+      expr: JSON.stringify(parsed) };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
     return result;
   }
