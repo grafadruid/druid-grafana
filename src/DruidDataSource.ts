@@ -4,6 +4,62 @@ import { DruidSettings, DruidQuery } from './types';
 
 const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::druid:(\w+))?}\"/g;
 
+/** Filter value that means "remove this filter" before sending to Druid. */
+const REMOVE_FILTER_VALUE = '_REMOVE_FILTER_';
+
+/**
+ * Returns true if this leaf filter should be removed (value or pattern is _REMOVE_FILTER_).
+ */
+function isFilterMarkedForRemoval(filter: unknown): boolean {
+  if (filter == null || typeof filter !== 'object' || Array.isArray(filter)) return false;
+  const f = filter as Record<string, unknown>;
+  if (f['value'] === REMOVE_FILTER_VALUE) return true;
+  if (f['pattern'] === REMOVE_FILTER_VALUE) return true;
+  const values = f['values'];
+  if (Array.isArray(values) && values.length === 1 && values[0] === REMOVE_FILTER_VALUE) return true;
+  if (Array.isArray(values) && values.every((v) => v === REMOVE_FILTER_VALUE)) return true;
+  // json filter: value is a string that parses to a filter; remove if that filter is _REMOVE_FILTER_
+  if (f['type'] === 'json' && typeof f['value'] === 'string') {
+    try {
+      const inner = JSON.parse(f['value'] as string) as Record<string, unknown>;
+      return inner['value'] === REMOVE_FILTER_VALUE || inner['pattern'] === REMOVE_FILTER_VALUE;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
+ * Removes filters with value _REMOVE_FILTER_ from the tree and collapses and/or.
+ * Returns the new filter tree, or null if the whole filter should be omitted.
+ */
+function removeFiltersMarkedForRemoval(filter: unknown): unknown {
+  if (filter == null || typeof filter !== 'object' || Array.isArray(filter)) return filter;
+  const f = filter as Record<string, unknown>;
+  const ftype = f['type'];
+  if (typeof ftype !== 'string') return filter;
+
+  if (ftype === 'and' || ftype === 'or') {
+    const fields = f['fields'];
+    if (!Array.isArray(fields)) return filter;
+    const kept = fields
+      .map((field) => removeFiltersMarkedForRemoval(field))
+      .filter((field) => field != null && !isFilterMarkedForRemoval(field));
+    if (kept.length === 0) return null;
+    if (kept.length === 1) return kept[0];
+    return { ...f, fields: kept };
+  }
+  if (ftype === 'not') {
+    const inner = removeFiltersMarkedForRemoval(f['field']);
+    if (inner == null || isFilterMarkedForRemoval(inner)) return null;
+    return { ...f, field: inner };
+  }
+
+  if (isFilterMarkedForRemoval(filter)) return null;
+  return filter;
+}
+
 /**
  * Returns which attributes of a filter should have template variables substituted.
  * For json filters only 'value' is substituted, so that a variable like $domain_filter
@@ -18,7 +74,6 @@ function getFilterSubstituteAttrs(filterType: string): string[] {
     default:
       attrList = [];
   }
-  console.error('[Druid] getFilterSubstituteAttrs', { input: { filterType }, returned: { attrList } });
   return attrList;
 }
 
@@ -44,10 +99,6 @@ function replaceTemplateValues(
       returnedValues[attr] = replaced;
     }
   }
-  console.error('[Druid] replaceTemplateValues', {
-    input: { objType: obj['type'], attrList, valuesBefore: inputValues, scopedVars },
-    returned: { valuesAfter: returnedValues },
-  });
 }
 
 /**
@@ -59,9 +110,7 @@ function replaceFilterTreeTemplateValues(
   scopedVars: ScopedVars | undefined,
   templateSrv: { replace: (value: string, scopedVars?: ScopedVars) => string }
 ): void {
-  console.error('[Druid] replaceFilterTreeTemplateValues', { input: { filter, scopedVars } });
   if (filter == null || typeof filter !== 'object' || Array.isArray(filter)) {
-    console.error('[Druid] replaceFilterTreeTemplateValues', { returned: 'early (null/not-object/array)' });
     return;
   }
   const f = filter as Record<string, unknown>;
@@ -70,10 +119,6 @@ function replaceFilterTreeTemplateValues(
     const attrList = getFilterSubstituteAttrs(ftype);
     if (attrList.length > 0) {
       replaceTemplateValues(f, scopedVars, attrList, templateSrv);
-      console.error('[Druid] replaceFilterTreeTemplateValues', {
-        returned: 'after replaceTemplateValues',
-        filterAfter: JSON.parse(JSON.stringify(f)),
-      });
     }
     if (ftype === 'and' || ftype === 'or') {
       const fields = f['fields'];
@@ -116,11 +161,13 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       }
     } else {
       payload = JSON.parse(JSON.stringify({ builder: templatedQuery.builder, settings: templatedQuery.settings }));
-      console.error('[Druid] applyTemplateVariables after filter replacement:', { builderAfter: builder });
+      console.error('[Druid] applyTemplateVariables (no expr) payload:', { builderAfter: payload.builder });
     }
     console.error('[Druid][payload] applyTemplateVariables before full replacement:', { payload });
     if (payload.builder?.filter != null) {
       replaceFilterTreeTemplateValues(payload.builder.filter, scopedVars, templateSrv);
+      const filterAfterRemoval = removeFiltersMarkedForRemoval(payload.builder.filter);
+      payload.builder.filter = filterAfterRemoval ?? undefined;
     }
 
     let templateStr = JSON.stringify(payload).replace(
