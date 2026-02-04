@@ -367,9 +367,20 @@ export const QueryEditor = (props: Props) => {
     }
 
     const granularityStr = builder.granularity;
-    // Convert day, week, month, quarter, year to period with timezone
+    // Convert second, minute, fifteen minute, thirty minute, hour, day, week, month, quarter, year to period with timezone
     // Use case-insensitive matching to handle both "day" and "DAY" formats
     const periodMap: Record<string, string> = {
+      second: 'PT1S',
+      minute: 'PT1M',
+      'fifteen minute': 'PT15M',
+      'fifteen_minute': 'PT15M',
+      '15 minute': 'PT15M',
+      '15minute': 'PT15M',
+      'thirty minute': 'PT30M',
+      'thirty_minute': 'PT30M',
+      '30 minute': 'PT30M',
+      '30minute': 'PT30M',
+      hour: 'PT1H',
       day: 'P1D',
       week: 'P1W',
       month: 'P1M',
@@ -377,7 +388,7 @@ export const QueryEditor = (props: Props) => {
       year: 'P1Y',
     };
 
-    const granularityLower = granularityStr.toLowerCase();
+    const granularityLower = granularityStr.toLowerCase().trim();
 
     if (tz && tz !== 'browser' && periodMap[granularityLower]) {
       const periodGranularity: any = {
