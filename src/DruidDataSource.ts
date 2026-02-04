@@ -139,22 +139,6 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     super(instanceSettings);
     this.settingsData = instanceSettings.jsonData;
   }
-  query(options: any) {
-    const observable = super.query(options);
-    return {
-      subscribe: (observer: { next?: (v: any) => void; error?: (e: any) => void; complete?: () => void }) => {
-        const sub = observable.subscribe({
-          next: (v) => {
-            console.error('[Druid] response from backend (data sent to panels):', v);
-            observer.next?.(v);
-          },
-          error: (e) => observer.error?.(e),
-          complete: () => observer.complete?.(),
-        });
-        return { unsubscribe: () => sub.unsubscribe() };
-      },
-    };
-  }
   filterQuery(query: DruidQuery) {
     return !query.hide;
   }
