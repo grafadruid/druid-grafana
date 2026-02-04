@@ -819,6 +819,7 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return r, err
 	}
+	log.DefaultLogger.Error("Druid raw response (executeRawQuery)", "ref", queryRef, "body", string(result))
 
 	// Process the result similar to executeQuery
 	election := func(values map[string]int) string {
@@ -1160,6 +1161,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	if err != nil {
 		return r, err
 	}
+	log.DefaultLogger.Error("Druid raw response (executeQuery)", "ref", queryRef, "body", string(result))
 	detectColumnType := func(c *struct {
 		Name string
 		Type string

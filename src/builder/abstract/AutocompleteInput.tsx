@@ -246,6 +246,7 @@ const fetchDimensionValues = async (
         },
       });
     });
+    console.error('[Druid] autocomplete response:', response);
 
     // Extract unique values from search query response
     // Search query returns frames with dimension values
