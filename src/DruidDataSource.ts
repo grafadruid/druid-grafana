@@ -191,10 +191,18 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     return result;
   }
   async metricFindQuery(query: DruidQuery, options?: any): Promise<MetricFindValue[]> {
-    return this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
-      console.error('[Druid] response from Druid (query-variable):', response);
-      return response as MetricFindValue[];
-    });
+    const payload = this.applyTemplateVariables(query);
+    console.error('[Druid] metricFindQuery called, posting query-variable', { query, payload });
+    return this.postResource('query-variable', payload)
+      .then((response) => {
+        console.error('[Druid] response from Druid (query-variable):', response);
+        console.error('[Druid] response from Druid (query-variable) JSON:', JSON.stringify(response));
+        return response as MetricFindValue[];
+      })
+      .catch((err) => {
+        console.error('[Druid] query-variable request failed:', err);
+        throw err;
+      });
   }
 
   async getDatasourceMetadata(datasourceName: string): Promise<any> {
