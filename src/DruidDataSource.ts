@@ -188,7 +188,17 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       expr: templatedQuery.expr && templatedQuery.expr.trim() !== '' ? substitutedStr : templatedQuery.expr,
     };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
+    this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
+          console.error('[Druid] response from Druid (query-variable):', response);
+          });
     return result;
+  }
+
+  // grafana calls applyTemplateVariables directly on the backend datasource, so this method is never called.
+  async metricFindQuery(query: DruidQuery, options?: any): Promise<MetricFindValue[]> {
+    return this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
+      return response as MetricFindValue[];
+    });
   }
 
   async getDatasourceMetadata(datasourceName: string): Promise<any> {
