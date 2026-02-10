@@ -233,9 +233,14 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	case "query-variable":
 		switch req.Method {
 		case "POST":
-			body, err = ds.QueryVariableData(ctx, req)
+			var variableBody []grafanaMetricFindValue
+			variableBody, err = ds.QueryVariableData(ctx, req)
 			if err == nil {
 				code = 200
+				body = variableBody
+			} else {
+				log.DefaultLogger.Error("query-variable failed", "error", err.Error())
+				body = map[string]string{"error": err.Error()}
 			}
 		default:
 			body = "Method not supported"

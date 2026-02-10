@@ -188,9 +188,16 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       expr: templatedQuery.expr && templatedQuery.expr.trim() !== '' ? substitutedStr : templatedQuery.expr,
     };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
-    this.postResource('query-variable', result).then((response) => {
-          console.error('[Druid] response from Druid (query-variable):', response);
-          });
+    this.postResource('query-variable', result)
+      .then((response) => {
+        console.error('[Druid] response from Druid (query-variable):', response);
+      })
+      .catch((err: { response?: { status?: number; data?: unknown }; status?: number; data?: unknown }) => {
+        const status = err.response?.status ?? err.status;
+        const body = err.response?.data ?? err.data ?? err;
+        console.error('[Druid] query-variable failed:', status, body);
+        console.error('[Druid] query-variable full error:', err);
+      });
     return result;
   }
 
