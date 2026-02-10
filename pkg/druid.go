@@ -730,7 +730,7 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	}
 
 	// Expand json filters: replace filter type "json" with parsed value (template variables already replaced by Grafana)
-	expandJsonFiltersInBuilder(builder)
+	//expandJsonFiltersInBuilder(builder)
 
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
