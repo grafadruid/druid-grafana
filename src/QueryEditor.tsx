@@ -367,11 +367,9 @@ export const QueryEditor = (props: Props) => {
     }
 
     const granularityStr = builder.granularity;
-    // Convert day, week, month, quarter, year, hour, minute to period for backend (Go client can't unmarshal these).
-    // Use case-insensitive matching to handle both "day" and "DAY" formats.
+    // Convert day, week, month, quarter, year to period with timezone
+    // Use case-insensitive matching to handle both "day" and "DAY" formats
     const periodMap: Record<string, string> = {
-      minute: 'PT1M',
-      hour: 'PT1H',
       day: 'P1D',
       week: 'P1W',
       month: 'P1M',
