@@ -204,6 +204,67 @@ func mergeSettings(settings ...map[string]any) map[string]any {
 	return stg
 }
 
+// cellToString converts a Druid response cell (interface{}) to string. Druid/JSON can return numbers as float64.
+func cellToString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return x
+	case float64:
+		return strconv.FormatFloat(x, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(x)
+	case int64:
+		return strconv.FormatInt(x, 10)
+	case bool:
+		return strconv.FormatBool(x)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// cellToFloat64 converts a cell to float64 (Druid often returns numbers as float64; JSON may give int).
+func cellToFloat64(v any) float64 {
+	if v == nil {
+		return 0
+	}
+	switch x := v.(type) {
+	case float64:
+		return x
+	case int:
+		return float64(x)
+	case int64:
+		return float64(x)
+	case string:
+		f, _ := strconv.ParseFloat(x, 64)
+		return f
+	default:
+		return 0
+	}
+}
+
+// cellToInt64 converts a cell to int64 (value may be string, float64, or int from JSON).
+func cellToInt64(v any) int64 {
+	if v == nil {
+		return 0
+	}
+	switch x := v.(type) {
+	case float64:
+		return int64(x)
+	case int:
+		return int64(x)
+	case int64:
+		return x
+	case string:
+		i, _ := strconv.ParseInt(x, 10, 64)
+		return i
+	default:
+		return 0
+	}
+}
+
 func newDatasource(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 	inst, err := newDataSourceInstance(ctx, settings)
 	if err != nil {
@@ -412,29 +473,24 @@ func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings
 			switch c.Type {
 			case "string":
 				if r[ic] != nil {
-					response = append(response, grafanaMetricFindValue{Value: r[ic].(string), Text: r[ic].(string)})
+					s := cellToString(r[ic])
+					response = append(response, grafanaMetricFindValue{Value: s, Text: s})
 				}
 			case "float":
 				if r[ic] != nil {
-					response = append(response, grafanaMetricFindValue{Value: r[ic].(float64), Text: fmt.Sprintf("%f", r[ic].(float64))})
+					f := cellToFloat64(r[ic])
+					response = append(response, grafanaMetricFindValue{Value: f, Text: fmt.Sprintf("%f", f)})
 				}
 			case "int":
 				if r[ic] != nil {
-					i, err := strconv.Atoi(r[ic].(string))
-					if err != nil {
-						i = 0
-					}
-					response = append(response, grafanaMetricFindValue{Value: i, Text: r[ic].(string)})
+					i := cellToInt64(r[ic])
+					response = append(response, grafanaMetricFindValue{Value: i, Text: strconv.FormatInt(i, 10)})
 				}
 			case "bool":
 				var b bool
-				var err error
 				b, ok := r[ic].(bool)
 				if !ok {
-					b, err = strconv.ParseBool(r[ic].(string))
-					if err != nil {
-						b = false
-					}
+					b, _ = strconv.ParseBool(cellToString(r[ic]))
 				}
 				var i int
 				if b {
@@ -730,7 +786,7 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	}
 
 	// Expand json filters: replace filter type "json" with parsed value (template variables already replaced by Grafana)
-	//expandJsonFiltersInBuilder(builder)
+	expandJsonFiltersInBuilder(builder)
 
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
@@ -1586,51 +1642,38 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 			}
 			switch c.Type {
 			case "string":
-				if r[ic] == nil {
-					r[ic] = ""
-				}
-				ff = append(ff.([]string), r[ic].(string))
+				ff = append(ff.([]string), cellToString(r[ic]))
 			case "float":
-				if r[ic] == nil {
-					r[ic] = 0.0
-				}
-				ff = append(ff.([]float64), r[ic].(float64))
+				ff = append(ff.([]float64), cellToFloat64(r[ic]))
 			case "int":
-				if r[ic] == nil {
-					r[ic] = "0"
-				}
-				i, err := strconv.Atoi(r[ic].(string))
-				if err != nil {
-					i = 0
-				}
-				ff = append(ff.([]int64), int64(i))
+				ff = append(ff.([]int64), cellToInt64(r[ic]))
 			case "bool":
 				var b bool
-				var err error
 				b, ok := r[ic].(bool)
 				if !ok {
-					b, err = strconv.ParseBool(r[ic].(string))
-					if err != nil {
-						b = false
-					}
+					b, _ = strconv.ParseBool(cellToString(r[ic]))
 				}
 				ff = append(ff.([]bool), b)
 			case "nil":
 				ff = append(ff.([]string), "nil")
 			case "time":
 				if r[ic] == nil {
-					r[ic] = 0.0
+					continue
 				}
-				switch r[ic].(type) {
+				switch x := r[ic].(type) {
 				case string:
-					t, err := parseTime(r[ic].(string))
+					t, err := parseTime(x)
 					if err != nil {
 						t = time.Now()
 					}
 					ff = append(ff.([]time.Time), t)
 				case float64:
-					sec, dec := math.Modf(r[ic].(float64) / 1000)
+					sec, dec := math.Modf(x / 1000)
 					ff = append(ff.([]time.Time), time.Unix(int64(sec), int64(dec*(1e9))))
+				case int64:
+					ff = append(ff.([]time.Time), time.Unix(x/1000, 0))
+				case int:
+					ff = append(ff.([]time.Time), time.Unix(int64(x)/1000, 0))
 				}
 			}
 		}
