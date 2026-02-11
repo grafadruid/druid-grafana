@@ -889,6 +889,9 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		}
 		var ss []kv
 		for k, v := range values {
+			if k == "nil" {
+				continue
+			}
 			ss = append(ss, kv{k, v})
 		}
 		sort.Slice(ss, func(i, j int) bool {
@@ -897,7 +900,7 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		if len(ss) > 0 {
 			return ss[0].Key
 		}
-		return "double"
+		return "float"
 	}
 
 	detectColumnType := func(c *struct {
@@ -908,6 +911,9 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		t := map[string]int{"nil": 0}
 		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
 			r := rr[i]
+			if r[pos] == nil {
+				continue
+			}
 			switch r[pos].(type) {
 			case string:
 				v := r[pos].(string)
@@ -1226,6 +1232,9 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		t := map[string]int{"nil": 0}
 		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
 			r := rr[i]
+			if r[pos] == nil {
+				continue
+			}
 			switch r[pos].(type) {
 			case string:
 				v := r[pos].(string)
@@ -1265,6 +1274,9 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 			var ss []kv
 			for k, v := range values {
+				if k == "nil" {
+					continue
+				}
 				ss = append(ss, kv{k, v})
 			}
 			sort.Slice(ss, func(i, j int) bool {
@@ -1273,7 +1285,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			if len(ss) > 0 {
 				return ss[0].Key
 			}
-			return "double"
+			return "float"
 		}
 		c.Type = election(t)
 	}
@@ -1640,7 +1652,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 			switch c.Type {
 			case "string":
 				ff = append(ff.([]string), cellToString(r[ic]))
-			case "float":
+			case "float", "double":
 				ff = append(ff.([]float64), cellToFloat64(r[ic]))
 			case "int":
 				ff = append(ff.([]int64), cellToInt64(r[ic]))
