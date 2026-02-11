@@ -407,6 +407,8 @@ export const AutocompleteInput = (props: Props) => {
     if (option !== null) {
       onBuilderChange(props, option.value);
       setInputValue(option.value ?? '');
+      // Stop controlling input after selection so the select shows the value natively (menu close may not blur)
+      requestAnimationFrame(() => setIsFocused(false));
     } else {
       onBuilderChange(props, '');
       setInputValue('');
@@ -436,8 +438,19 @@ export const AutocompleteInput = (props: Props) => {
       <AsyncSelect
         key={selectKey}
         value={currentValue}
-        inputValue={inputValue}
-        onInputChange={(value) => setInputValue(value ?? '')}
+        {...(isFocused
+          ? {
+              inputValue,
+              onInputChange: (value: string) => {
+                const next = value ?? '';
+                if (next === '' && props.options.builder) {
+                  setInputValue(String(props.options.builder));
+                  return;
+                }
+                setInputValue(next);
+              },
+            }
+          : {})}
         onFocus={() => {
           setIsFocused(true);
           if (props.options.builder) {
