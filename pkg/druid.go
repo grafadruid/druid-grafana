@@ -894,10 +894,10 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		sort.Slice(ss, func(i, j int) bool {
 			return ss[i].Value > ss[j].Value
 		})
-		if len(ss) == 2 {
+		if len(ss) > 0 {
 			return ss[0].Key
 		}
-		return "string"
+		return "double"
 	}
 
 	detectColumnType := func(c *struct {
@@ -937,9 +937,6 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 				continue
 			case bool:
 				t["bool"]++
-				continue
-			case nil:
-				t["nil"]++
 				continue
 			}
 		}
@@ -1273,10 +1270,10 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			sort.Slice(ss, func(i, j int) bool {
 				return ss[i].Value > ss[j].Value
 			})
-			if len(ss) == 2 {
+			if len(ss) > 0 {
 				return ss[0].Key
 			}
-			return "string"
+			return "double"
 		}
 		c.Type = election(t)
 	}
