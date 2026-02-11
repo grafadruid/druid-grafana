@@ -301,6 +301,8 @@ const fetchDimensionValues = async (
 export const AutocompleteInput = (props: Props) => {
   const { datasource, type, debounceTime = 300 } = props;
   const [isLoading, setIsLoading] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
 
   // Get table name from the query builder
   const tableName = useMemo(() => {
@@ -395,8 +397,18 @@ export const AutocompleteInput = (props: Props) => {
   const onChange = (option: SelectableValue<string> | null) => {
     if (option !== null) {
       onBuilderChange(props, option.value);
+      setInputValue(option.value ?? '');
     } else {
       onBuilderChange(props, '');
+      setInputValue('');
+    }
+  };
+
+  const onBlur = () => {
+    setIsFocused(false);
+    const currentBuilder = props.options.builder ? String(props.options.builder) : '';
+    if (inputValue.trim() !== currentBuilder) {
+      onBuilderChange(props, inputValue.trim());
     }
   };
 
@@ -415,11 +427,20 @@ export const AutocompleteInput = (props: Props) => {
       <AsyncSelect
         key={selectKey}
         value={currentValue}
+        inputValue={inputValue}
+        onInputChange={(value) => setInputValue(value ?? '')}
+        onFocus={() => {
+          setIsFocused(true);
+          if (props.options.builder) {
+            setInputValue(String(props.options.builder));
+          }
+        }}
+        onBlur={onBlur}
         loadOptions={loadOptions}
         onChange={onChange}
         placeholder={props.description}
         defaultOptions={true}
-        allowCustomValue={false}
+        allowCustomValue={true}
         isClearable={true}
         isLoading={isLoading}
         cacheOptions={true}
