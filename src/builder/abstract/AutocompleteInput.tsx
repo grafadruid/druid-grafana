@@ -403,11 +403,13 @@ export const AutocompleteInput = (props: Props) => {
     }
   }, [dimensionName, type, props]);
 
+  const justSelectedRef = useRef(false);
+
   const onChange = (option: SelectableValue<string> | null) => {
     if (option !== null) {
       onBuilderChange(props, option.value);
       setInputValue(option.value ?? '');
-      // Stop controlling input after selection so the select shows the value natively (menu close may not blur)
+      justSelectedRef.current = true;
       requestAnimationFrame(() => setIsFocused(false));
     } else {
       onBuilderChange(props, '');
@@ -443,10 +445,12 @@ export const AutocompleteInput = (props: Props) => {
               inputValue,
               onInputChange: (value: string) => {
                 const next = value ?? '';
-                if (next === '' && props.options.builder) {
+                if (next === '' && props.options.builder && justSelectedRef.current) {
+                  justSelectedRef.current = false;
                   setInputValue(String(props.options.builder));
                   return;
                 }
+                justSelectedRef.current = false;
                 setInputValue(next);
               },
             }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { InlineField, AsyncSelect } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { getTemplateSrv } from '@grafana/runtime';
@@ -10,6 +10,7 @@ export const Json = (props: QueryBuilderProps) => {
   const valueProps = scopedProps('value');
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const justSelectedRef = useRef(false);
 
   const variableOptions = useMemo(() => {
     const templateSrv = getTemplateSrv();
@@ -42,6 +43,7 @@ export const Json = (props: QueryBuilderProps) => {
     if (option !== null) {
       onBuilderChange(valueProps, option.value);
       setInputValue(option.value ?? '');
+      justSelectedRef.current = true;
       requestAnimationFrame(() => setIsFocused(false));
     } else {
       onBuilderChange(valueProps, '');
@@ -71,10 +73,12 @@ export const Json = (props: QueryBuilderProps) => {
               inputValue,
               onInputChange: (value: string) => {
                 const next = value ?? '';
-                if (next === '' && valueProps.options.builder) {
+                if (next === '' && valueProps.options.builder && justSelectedRef.current) {
+                  justSelectedRef.current = false;
                   setInputValue(String(valueProps.options.builder));
                   return;
                 }
+                justSelectedRef.current = false;
                 setInputValue(next);
               },
             }
