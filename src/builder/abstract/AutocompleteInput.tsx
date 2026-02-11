@@ -376,6 +376,15 @@ export const AutocompleteInput = (props: Props) => {
     }
   };
 
+  // Keep input display in sync with selected value (e.g. after selecting from dropdown, the library may clear the input)
+  useEffect(() => {
+    if (props.options.builder != null && props.options.builder !== '') {
+      setInputValue(String(props.options.builder));
+    } else {
+      setInputValue('');
+    }
+  }, [props.options.builder]);
+
   // Clear value when dimension changes (for dimensionValue type)
   // This prevents showing cached values from the previous dimension
   const prevDimensionNameRef = useRef<string | null>(null);
