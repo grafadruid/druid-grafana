@@ -79,10 +79,25 @@ const isFilterComplete = (filter: any): boolean => {
   }
 };
 
+// Aggregation types that support optional "expression" (Druid allows fieldName OR expression)
+const AGGREGATION_TYPES_WITH_EXPRESSION = new Set([
+  'longSum',
+  'longMin',
+  'longMax',
+  'doubleSum',
+  'doubleMin',
+  'doubleMax',
+  'floatSum',
+  'floatMin',
+  'floatMax',
+]);
+
 /**
  * Checks if an aggregation is complete. An aggregation is complete only if its
  * 3 fields are non-empty: type, name, and fieldName (for types that require it).
- * For "filtered" type, the nested filter and aggregator must also be complete.
+ * For types that support expression (e.g. longSum, doubleSum), either fieldName
+ * or expression is sufficient. For "filtered" type, the nested filter and
+ * aggregator must also be complete.
  */
 const isAggregationComplete = (agg: any): boolean => {
   if (!agg || typeof agg !== 'object') {
@@ -98,12 +113,21 @@ const isAggregationComplete = (agg: any): boolean => {
   if (!name || typeof name !== 'string' || name.trim() === '') {
     return false;
   }
-  // 3. fieldName must be present and non-empty for types that require it (all except count and filtered)
-  // Treat undefined, null, or empty string as incomplete so we never send fieldName: null to Druid
+  // 3. fieldName or expression (for types that support it) must be present
   if (type !== 'count' && type !== 'filtered') {
     const fn = agg.fieldName;
-    if (fn === undefined || fn === null || typeof fn !== 'string' || fn.trim() === '') {
-      return false;
+    const hasFieldName = fn !== undefined && fn !== null && typeof fn === 'string' && fn.trim() !== '';
+    if (AGGREGATION_TYPES_WITH_EXPRESSION.has(type)) {
+      const expr = agg.expression;
+      const hasExpression =
+        expr !== undefined && expr !== null && typeof expr === 'string' && expr.trim() !== '';
+      if (!hasFieldName && !hasExpression) {
+        return false;
+      }
+    } else {
+      if (!hasFieldName) {
+        return false;
+      }
     }
   }
   // filtered aggregation: nested filter and aggregator must be complete
@@ -135,6 +159,32 @@ const sanitizeAggregationsForBackend = (builder: any): any => {
     return builder;
   }
   return { ...builder, aggregations: complete };
+};
+
+/**
+ * Removes empty optional fields from aggregations so Druid is not sent invalid
+ * payload (e.g. "expression": "" on doubleSum/longSum causes Druid 500).
+ */
+const stripEmptyAggregationFields = (builder: any): any => {
+  if (!builder || typeof builder !== 'object' || !Array.isArray(builder.aggregations)) {
+    return builder;
+  }
+  const cleanAgg = (agg: any): any => {
+    if (!agg || typeof agg !== 'object') return agg;
+    const out = { ...agg };
+    if (out.expression === '' || out.expression === undefined || out.expression === null) {
+      delete out.expression;
+    }
+    if (out.fieldName === '' || out.fieldName === undefined || out.fieldName === null) {
+      delete out.fieldName;
+    }
+    if (agg.type === 'filtered' && agg.aggregator) {
+      out.aggregator = cleanAgg(agg.aggregator);
+    }
+    return out;
+  };
+  const cleaned = builder.aggregations.map(cleanAgg);
+  return { ...builder, aggregations: cleaned };
 };
 
 /**
@@ -425,7 +475,9 @@ export const QueryEditor = (props: Props) => {
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeFilterForBackend(sanitizeAggregationsForBackend(converted));
+    const builderForBackend = sanitizeFilterForBackend(
+      stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+    );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Store original builder for UI, but use builder with only complete aggregations in expr for backend
@@ -451,7 +503,9 @@ export const QueryEditor = (props: Props) => {
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeFilterForBackend(sanitizeAggregationsForBackend(converted));
+    const builderForBackend = sanitizeFilterForBackend(
+      stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+    );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     // Use builder with only complete aggregations in expr for backend
