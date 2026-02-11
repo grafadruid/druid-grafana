@@ -1,45 +1,15 @@
-import React, { useMemo } from 'react';
-import { InlineField, Select, useStyles2 } from '@grafana/ui';
-import { SelectableValue, GrafanaTheme2 } from '@grafana/data';
+import React, { useMemo, useState, useEffect } from 'react';
+import { InlineField, AsyncSelect } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
 import { getTemplateSrv } from '@grafana/runtime';
-import { css } from '@emotion/css';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderFieldProps, onBuilderChange } from '../abstract';
-
-const getInputStyles = (theme: GrafanaTheme2) => ({
-  wrapper: css({
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
-    minWidth: 0,
-  }),
-  input: css({
-    flex: 1,
-    minWidth: 0,
-    height: 32,
-    padding: '0 12px',
-    fontSize: 14,
-    background: theme.colors.background.canvas,
-    border: `1px solid ${theme.colors.border.medium}`,
-    borderRadius: theme.shape.radius.default,
-    color: theme.colors.text.primary,
-    '&:focus': {
-      outline: 'none',
-      borderColor: theme.colors.primary.border,
-      boxShadow: `0 0 0 1px ${theme.colors.primary.border}`,
-    },
-    '&::placeholder': {
-      color: theme.colors.text.disabled,
-    },
-  }),
-});
 
 export const Json = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Json);
   const valueProps = scopedProps('value');
-  const styles = useStyles2(getInputStyles);
+  const [inputValue, setInputValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
 
   const variableOptions = useMemo(() => {
     const templateSrv = getTemplateSrv();
@@ -52,34 +22,79 @@ export const Json = (props: QueryBuilderProps) => {
       .filter((o): o is SelectableValue<string> => o != null);
   }, []);
 
-  const currentValue = (valueProps.options.builder ?? '') as string;
+  const loadOptions = (search: string): Promise<SelectableValue[]> => {
+    const q = (search ?? '').toLowerCase();
+    const filtered = variableOptions.filter(
+      (o) => !q || (o.label ?? o.value ?? '').toString().toLowerCase().includes(q)
+    );
+    return Promise.resolve(filtered.slice(0, 20));
+  };
+
+  useEffect(() => {
+    if (valueProps.options.builder != null && valueProps.options.builder !== '') {
+      setInputValue(String(valueProps.options.builder));
+    } else {
+      setInputValue('');
+    }
+  }, [valueProps.options.builder]);
+
+  const onChange = (option: SelectableValue<string> | null) => {
+    if (option !== null) {
+      onBuilderChange(valueProps, option.value);
+      setInputValue(option.value ?? '');
+      requestAnimationFrame(() => setIsFocused(false));
+    } else {
+      onBuilderChange(valueProps, '');
+      setInputValue('');
+    }
+  };
+
+  const onBlur = () => {
+    setIsFocused(false);
+    const currentBuilder = valueProps.options.builder ? String(valueProps.options.builder) : '';
+    if (inputValue.trim() !== currentBuilder) {
+      onBuilderChange(valueProps, inputValue.trim());
+    }
+  };
+
+  const currentValue =
+    valueProps.options.builder != null && valueProps.options.builder !== ''
+      ? { value: valueProps.options.builder, label: valueProps.options.builder }
+      : null;
 
   return (
     <InlineField label={valueProps.label} tooltip={valueProps.description} grow>
-      <div className={styles.wrapper}>
-        <input
-          type="text"
-          className={styles.input}
-          value={currentValue}
-          onChange={(e) => onBuilderChange(valueProps, e.target.value)}
-          placeholder="JSON filter or variable (e.g. $variable_name)"
-          spellCheck={false}
-        />
-        {variableOptions.length > 0 && (
-          <Select
-            options={variableOptions}
-            value={null}
-            onChange={(option: SelectableValue<string> | null) => {
-              if (option?.value != null) {
-                onBuilderChange(valueProps, option.value);
-              }
-            }}
-            placeholder="Insert variable..."
-            width={24}
-            isClearable={false}
-          />
-        )}
-      </div>
+      <AsyncSelect
+        value={currentValue}
+        {...(isFocused
+          ? {
+              inputValue,
+              onInputChange: (value: string) => {
+                const next = value ?? '';
+                if (next === '' && valueProps.options.builder) {
+                  setInputValue(String(valueProps.options.builder));
+                  return;
+                }
+                setInputValue(next);
+              },
+            }
+          : {})}
+        onFocus={() => {
+          setIsFocused(true);
+          if (valueProps.options.builder) {
+            setInputValue(String(valueProps.options.builder));
+          }
+        }}
+        onBlur={onBlur}
+        loadOptions={loadOptions}
+        onChange={onChange}
+        placeholder="JSON filter or variable (e.g. $variable_name)"
+        defaultOptions={true}
+        allowCustomValue={true}
+        isClearable={true}
+        cacheOptions={true}
+        noOptionsMessage={variableOptions.length === 0 ? 'No variables defined' : 'No matching variables'}
+      />
     </InlineField>
   );
 };
