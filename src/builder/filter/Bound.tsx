@@ -1,13 +1,19 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Checkbox, Select } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Checkbox, Input, Select } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
 
 export const Bound = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Bound);
   return (
     <>
-      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension to filter on" type="text" />
+      <AutocompleteInput
+        {...scopedProps('dimension')}
+        label="Dimension"
+        description="The dimension to filter on"
+        type="dimension"
+        datasource={props.datasource}
+      />
       <Input {...scopedProps('lower')} label="Lower" description="The lower bound for the filter" type="text" />
       <Checkbox
         {...scopedProps('lowerStrict')}

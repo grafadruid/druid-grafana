@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
 import { SearchQuerySpec } from '../searchqueryspec';
 
@@ -8,7 +8,13 @@ export const Search = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Search);
   return (
     <>
-      <Input {...scopedProps('dimension')} label="Dimension" description="the dimension name" type="text" />
+      <AutocompleteInput
+        {...scopedProps('dimension')}
+        label="Dimension"
+        description="the dimension name"
+        type="dimension"
+        datasource={props.datasource}
+      />
       <SearchQuerySpec {...scopedProps('query')} />
       <ExtractionFn {...scopedProps('extractionFn')} />
     </>

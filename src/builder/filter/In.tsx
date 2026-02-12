@@ -1,26 +1,42 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Multiple } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Multiple, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
 
 export const In = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, In);
+  const dimensionScopedProps = scopedProps('dimension');
+  const dimensionName = useMemo(
+    () => dimensionScopedProps.options.builder || null,
+    [dimensionScopedProps.options.builder]
+  );
   return (
-    <>
-      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
+    <Row>
+      <AutocompleteInput
+        {...dimensionScopedProps}
+        label="Dimension"
+        description="The dimension name"
+        type="dimension"
+        datasource={props.datasource}
+      />
       <Multiple
         {...scopedProps('values')}
         label="Values"
         description="The values"
-        component={Input}
+        component={AutocompleteInput}
         componentExtraProps={{
           label: 'Value',
           description: 'A value',
-          type: 'text',
+          type: 'dimensionValue',
+          datasource: props.datasource,
+          dimensionName,
+          rootBuilder: (props as any).rootBuilder,
+          range: (props as any).range,
         }}
+        inline
       />
       <ExtractionFn {...scopedProps('extractionFn')} />
-    </>
+    </Row>
   );
 };
 In.type = 'in';

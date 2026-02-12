@@ -1,13 +1,19 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Input } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
 
 export const Like = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Like);
   return (
     <>
-      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension to filter on." type="text" />
+      <AutocompleteInput
+        {...scopedProps('dimension')}
+        label="Dimension"
+        description="The dimension to filter on."
+        type="dimension"
+        datasource={props.datasource}
+      />
       <Input
         {...scopedProps('pattern')}
         label="Pattern"
