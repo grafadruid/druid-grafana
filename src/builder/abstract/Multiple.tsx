@@ -7,8 +7,8 @@ import { onBuilderChange, Row } from '.';
 interface Props extends QueryBuilderFieldProps {
   component: ComponentType<any>;
   componentExtraProps: any;
-  /** When true, render all items in the same row (no Row wrapper per item). Used by In filter only. */
-  inline?: boolean;
+  /** When true, render all items in the same row (no Row wrapper per item). Used by In filter only. Named to avoid collision with query builder's inline prop. */
+  inlineItems?: boolean;
 }
 
 const useProxyBuilder = (props: Props): any => {
@@ -62,7 +62,7 @@ export const Multiple = (props: Props) => {
         {props.label}
       </InlineLabel>
       {Object.entries(proxyBuilder).map((builderEntry: any, index: number) =>
-        props.inline ? (
+        props.inlineItems ? (
           <Fragment key={index}>{itemContent(builderEntry, index)}</Fragment>
         ) : (
           <Row key={index}>{itemContent(builderEntry, index)}</Row>

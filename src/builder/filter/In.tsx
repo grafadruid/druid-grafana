@@ -33,7 +33,7 @@ export const In = (props: QueryBuilderProps) => {
           rootBuilder: (props as any).rootBuilder,
           range: (props as any).range,
         }}
-        inline
+        inlineItems
       />
       <ExtractionFn {...scopedProps('extractionFn')} />
     </>
