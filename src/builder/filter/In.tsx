@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, AutocompleteInput, Multiple } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Multiple, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
 
 export const In = (props: QueryBuilderProps) => {
@@ -33,6 +33,7 @@ export const In = (props: QueryBuilderProps) => {
           rootBuilder: (props as any).rootBuilder,
           range: (props as any).range,
         }}
+        inline
       />
       <ExtractionFn {...scopedProps('extractionFn')} />
     </>

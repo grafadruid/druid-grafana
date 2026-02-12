@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { InlineField, AsyncSelect } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
+import { getTemplateSrv } from '@grafana/runtime';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
 import { DruidDataSource } from '../../DruidDataSource';
@@ -328,9 +329,32 @@ export const AutocompleteInput = (props: Props) => {
     return null;
   }, [type, props.dimensionName]);
 
+  // Grafana variables for dimensionValue type (In/Selector filters) - same as Json filter
+  const variableOptions = useMemo(() => {
+    if (type !== 'dimensionValue') return [];
+    const templateSrv = getTemplateSrv();
+    const variables = (templateSrv as { getVariables?: () => Array<{ name?: string }> }).getVariables?.() ?? [];
+    return variables
+      .map((v) => {
+        const name = v?.name ?? '';
+        return name ? { value: `$${name}`, label: `$${name}` } : null;
+      })
+      .filter((o): o is SelectableValue<string> => o != null);
+  }, [type]);
+
   const loadOptions = async (inputValue: string): Promise<SelectableValue[]> => {
+    const search = (inputValue ?? '').trim().toLowerCase();
+
+    // For dimensionValue, include Grafana variables (filtered by search)
+    const matchedVariables =
+      type === 'dimensionValue'
+        ? variableOptions.filter(
+            (o) => !search || (o.label ?? o.value ?? '').toString().toLowerCase().includes(search)
+          )
+        : [];
+
     if (!datasource) {
-      return [];
+      return matchedVariables.slice(0, 20);
     }
 
     // For table names, we don't need a table name
@@ -345,12 +369,12 @@ export const AutocompleteInput = (props: Props) => {
 
     // For other types, we need a table name
     if (!tableName) {
-      return [];
+      return type === 'dimensionValue' ? matchedVariables.slice(0, 20) : [];
     }
 
-    // For dimension values, we need a dimension name
+    // For dimension values, we need a dimension name (but still return variables if any)
     if (type === 'dimensionValue' && !dimensionName) {
-      return [];
+      return matchedVariables.slice(0, 20);
     }
 
     setIsLoading(true);
@@ -362,7 +386,7 @@ export const AutocompleteInput = (props: Props) => {
       } else {
         const rootBuilder = (props as any).rootBuilder || props.options.builder;
         const panelRange = (props as any).range ?? null;
-        return await fetchDimensionValues(
+        const dimensionValues = await fetchDimensionValues(
           datasource,
           tableName,
           dimensionName,
@@ -370,6 +394,8 @@ export const AutocompleteInput = (props: Props) => {
           rootBuilder,
           panelRange
         );
+        // Merge variables first, then dimension values (variables capped at 20, dimension values as returned)
+        return [...matchedVariables.slice(0, 10), ...dimensionValues];
       }
     } finally {
       setIsLoading(false);
@@ -464,7 +490,11 @@ export const AutocompleteInput = (props: Props) => {
         onBlur={onBlur}
         loadOptions={loadOptions}
         onChange={onChange}
-        placeholder={props.description}
+        placeholder={
+          type === 'dimensionValue' && variableOptions.length > 0
+            ? 'Dimension value or variable (e.g. $variable_name)'
+            : props.description
+        }
         defaultOptions={true}
         allowCustomValue={true}
         isClearable={true}
