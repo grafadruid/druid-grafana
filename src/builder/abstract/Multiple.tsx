@@ -1,4 +1,4 @@
-import React, { ComponentType, Fragment } from 'react';
+import React, { ComponentType } from 'react';
 import { InlineLabel, Button, Icon } from '@grafana/ui';
 import { QueryBuilderFieldProps } from './types';
 import { QueryBuilderOptions } from '../types';
@@ -7,8 +7,6 @@ import { onBuilderChange, Row } from '.';
 interface Props extends QueryBuilderFieldProps {
   component: ComponentType<any>;
   componentExtraProps: any;
-  /** When true, render all items in the same row (no Row wrapper per item) */
-  inline?: boolean;
 }
 
 const useProxyBuilder = (props: Props): any => {
@@ -32,41 +30,34 @@ export const Multiple = (props: Props) => {
   const onComponentOptionsChange = (name: string, options: QueryBuilderOptions) => {
     setProxyBuilder({ ...proxyBuilder, [name]: options.builder });
   };
-  const itemContent = (builderEntry: any, index: number) => (
-    <>
-      <Component
-        {...props}
-        {...props.componentExtraProps}
-        name={builderEntry[0]}
-        options={{ ...props.options, builder: builderEntry[1] }}
-        onOptionsChange={onComponentOptionsChange.bind(this, builderEntry[0])}
-      />
-      <Button
-        variant="secondary"
-        size="xs"
-        onClick={(event) => {
-          setProxyBuilder(
-            Object.fromEntries(Object.entries(proxyBuilder).filter((_: any, i: number) => i !== index))
-          );
-          event.preventDefault();
-        }}
-      >
-        <Icon name="trash-alt" />
-      </Button>
-    </>
-  );
   return (
     <>
       <InlineLabel width="auto" tooltip={props.description}>
         {props.label}
       </InlineLabel>
-      {Object.entries(proxyBuilder).map((builderEntry: any, index: number) =>
-        props.inline ? (
-          <Fragment key={index}>{itemContent(builderEntry, index)}</Fragment>
-        ) : (
-          <Row key={index}>{itemContent(builderEntry, index)}</Row>
-        )
-      )}
+      {Object.entries(proxyBuilder).map((builderEntry: any, index: number) => (
+        <Row key={index}>
+          <Component
+            {...props}
+            {...props.componentExtraProps}
+            name={builderEntry[0]}
+            options={{ ...props.options, builder: builderEntry[1] }}
+            onOptionsChange={onComponentOptionsChange.bind(this, builderEntry[0])}
+          />
+          <Button
+            variant="secondary"
+            size="xs"
+            onClick={(event) => {
+              setProxyBuilder(
+                Object.fromEntries(Object.entries(proxyBuilder).filter((_: any, i: number) => i !== index))
+              );
+              event.preventDefault();
+            }}
+          >
+            <Icon name="trash-alt" />
+          </Button>
+        </Row>
+      ))}
       <Button
         variant="secondary"
         icon="plus"

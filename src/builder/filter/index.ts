@@ -2,7 +2,6 @@ export { And } from './And';
 export { Bound } from './Bound';
 export { ColumnComparison } from './ColumnComparison';
 export { Expression } from './Expression';
-export { Extraction } from './Extraction';
 export { False } from './False';
 export { Filter } from './Filter';
 export { FilterTuning } from './FilterTuning';
