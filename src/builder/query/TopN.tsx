@@ -4,7 +4,7 @@ import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, 
 import { DataSource } from '../datasource';
 import { Intervals } from '../querysegmentspec';
 import { Granularity } from '../granularity';
-import { Filter } from '../filter';
+import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { Dimension } from '../dimension';
@@ -26,7 +26,7 @@ export const TopN = (props: QueryBuilderProps) => {
         <Granularity {...scopedComponentProps('granularity')} />
       </Row>
       <Row>
-        <Filter {...scopedComponentProps('filter')} />
+        <RootFilter {...scopedComponentProps('filter')} />
       </Row>
       <Row>
         <Multiple

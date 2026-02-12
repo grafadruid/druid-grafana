@@ -3,7 +3,7 @@ import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, Input, Row } from '../abstract';
 import { DataSource } from '../datasource';
 import { Granularity } from '../granularity';
-import { Filter } from '../filter';
+import { RootFilter } from '../filter';
 import { Intervals } from '../querysegmentspec';
 import { Dimension } from '../dimension';
 import { SearchQuerySpec } from '../searchqueryspec';
@@ -24,7 +24,7 @@ export const Search = (props: QueryBuilderProps) => {
         <Granularity {...scopedComponentProps('granularity')} />
       </Row>
       <Row>
-        <Filter {...scopedComponentProps('filter')} />
+        <RootFilter {...scopedComponentProps('filter')} />
       </Row>
       <Row>
         <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />

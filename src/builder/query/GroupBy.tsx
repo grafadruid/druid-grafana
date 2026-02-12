@@ -6,7 +6,7 @@ import { Dimension } from '../dimension';
 import { LimitSpec } from '../limitspec';
 import { HavingSpec } from '../havingspec';
 import { Granularity } from '../granularity';
-import { Filter } from '../filter';
+import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { Intervals } from '../querysegmentspec';
@@ -42,7 +42,7 @@ export const GroupBy = (props: QueryBuilderProps) => {
         <Granularity {...scopedComponentProps('granularity')} />
       </Row>
       <Row>
-        <Filter {...scopedComponentProps('filter')} />
+        <RootFilter {...scopedComponentProps('filter')} />
       </Row>
       <Row>
         <Multiple

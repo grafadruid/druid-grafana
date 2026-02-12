@@ -2,7 +2,7 @@ import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Select, Row } from '../abstract';
 import { DataSource } from '../datasource';
-import { Filter } from '../filter';
+import { RootFilter } from '../filter';
 import { Intervals } from '../querysegmentspec';
 
 export const TimeBoundary = (props: QueryBuilderProps) => {
@@ -28,7 +28,7 @@ export const TimeBoundary = (props: QueryBuilderProps) => {
         />
       </Row>
       <Row>
-        <Filter {...scopedComponentProps('filter')} />
+        <RootFilter {...scopedComponentProps('filter')} />
       </Row>
     </>
   );

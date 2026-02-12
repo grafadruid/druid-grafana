@@ -10,7 +10,7 @@ import {
 } from '../abstract';
 import { DataSource } from '../datasource';
 import { Granularity } from '../granularity';
-import { Filter } from '../filter';
+import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { VirtualColumn } from '../virtualcolumn';
@@ -29,7 +29,7 @@ export const Timeseries = (props: QueryBuilderProps & { inline?: boolean }) => {
         </Row>
       )}
       <Row>
-        <Filter {...scopedComponentProps('filter')} />
+        <RootFilter {...scopedComponentProps('filter')} />
       </Row>
       <Multiple
         {...scopedProps('aggregations')}

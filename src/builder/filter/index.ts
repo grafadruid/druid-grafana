@@ -4,6 +4,7 @@ export { ColumnComparison } from './ColumnComparison';
 export { Expression } from './Expression';
 export { False } from './False';
 export { Filter } from './Filter';
+export { RootFilter } from './RootFilter';
 export { FilterTuning } from './FilterTuning';
 export { Interval } from './Interval';
 export { In } from './In';
