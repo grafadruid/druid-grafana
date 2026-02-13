@@ -12,155 +12,6 @@ import { QueryBuilderOptions } from './builder/types';
 
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
-/** Returns true if a value is empty (null, undefined, or blank string/array). */
-const isEmpty = (v: any): boolean => {
-  if (v === null || v === undefined) return true;
-  if (typeof v === 'string') return String(v).trim() === '';
-  if (Array.isArray(v)) return v.length === 0;
-  return false;
-};
-
-/**
- * Checks if a filter is complete (used for filtered aggregation and for main query filter).
- * Any filter with required fields that are null/empty is incomplete and must not be sent to Druid.
- */
-const isFilterComplete = (filter: any): boolean => {
-  if (filter === null || filter === undefined) {
-    return true;
-  }
-  if (typeof filter !== 'object' || !filter.type || String(filter.type).trim() === '') {
-    return false;
-  }
-  if (filter.type === 'and' || filter.type === 'or') {
-    const fields = filter.fields;
-    if (!Array.isArray(fields) || fields.length === 0) {
-      return false;
-    }
-    return fields.every((f: any) => isFilterComplete(f));
-  }
-  if (filter.type === 'not') {
-    return filter.field != null && isFilterComplete(filter.field);
-  }
-  // Any filter that has a dimension field requires it to be non-empty
-  if (filter.dimension !== undefined && isEmpty(filter.dimension)) {
-    return false;
-  }
-  // Type-specific required fields (must be non-empty)
-  switch (filter.type) {
-    case 'selector':
-      return !isEmpty(filter.value);
-    case 'like':
-      return !isEmpty(filter.pattern);
-    case 'regex':
-      return !isEmpty(filter.pattern);
-    case 'in':
-      return Array.isArray(filter.values) && filter.values.length > 0;
-    case 'bound':
-      return !isEmpty(filter.lower) || !isEmpty(filter.upper);
-    case 'expression':
-      return !isEmpty(filter.expression);
-    case 'interval':
-      return !isEmpty(filter.intervals);
-    case 'javascript':
-      return !isEmpty(filter.function);
-    case 'json':
-      return !isEmpty(filter.value);
-    case 'columnComparison':
-      return Array.isArray(filter.dimensions) && filter.dimensions.length > 0;
-    case 'true':
-    case 'false':
-      return true;
-    default:
-      // For unknown types, treat common value-like fields as required if present
-      if (filter.value !== undefined && isEmpty(filter.value)) return false;
-      if (filter.pattern !== undefined && isEmpty(filter.pattern)) return false;
-      if (filter.values !== undefined && isEmpty(filter.values)) return false;
-      return true;
-  }
-};
-
-// Aggregation types that support optional "expression" (Druid allows fieldName OR expression)
-const AGGREGATION_TYPES_WITH_EXPRESSION = new Set([
-  'longSum',
-  'longMin',
-  'longMax',
-  'doubleSum',
-  'doubleMin',
-  'doubleMax',
-  'floatSum',
-  'floatMin',
-  'floatMax',
-]);
-
-/**
- * Checks if an aggregation is complete. An aggregation is complete only if its
- * 3 fields are non-empty: type, name, and fieldName (for types that require it).
- * For types that support expression (e.g. longSum, doubleSum), either fieldName
- * or expression is sufficient. For "filtered" type, the nested filter and
- * aggregator must also be complete.
- */
-const isAggregationComplete = (agg: any): boolean => {
-  if (!agg || typeof agg !== 'object') {
-    return false;
-  }
-  // 1. type must be non-empty
-  const type = agg.type;
-  if (!type || typeof type !== 'string' || type.trim() === '') {
-    return false;
-  }
-  // 2. name must be non-empty
-  const name = agg.name;
-  if (!name || typeof name !== 'string' || name.trim() === '') {
-    return false;
-  }
-  // 3. fieldName or expression (for types that support it) must be present
-  if (type !== 'count' && type !== 'filtered') {
-    const fn = agg.fieldName;
-    const hasFieldName = fn !== undefined && fn !== null && typeof fn === 'string' && fn.trim() !== '';
-    if (AGGREGATION_TYPES_WITH_EXPRESSION.has(type)) {
-      const expr = agg.expression;
-      const hasExpression =
-        expr !== undefined && expr !== null && typeof expr === 'string' && expr.trim() !== '';
-      if (!hasFieldName && !hasExpression) {
-        return false;
-      }
-    } else {
-      if (!hasFieldName) {
-        return false;
-      }
-    }
-  }
-  // filtered aggregation: nested filter and aggregator must be complete
-  if (type === 'filtered') {
-    if (!isFilterComplete(agg.filter)) {
-      return false;
-    }
-    if (!isAggregationComplete(agg.aggregator)) {
-      return false;
-    }
-  }
-  return true;
-};
-
-/**
- * Returns a copy of the builder with only complete aggregations. Incomplete
- * aggregations (e.g. newly added empty row) are omitted so Druid is not sent
- * partial config.
- */
-const sanitizeAggregationsForBackend = (builder: any): any => {
-  if (!builder || typeof builder !== 'object') {
-    return builder;
-  }
-  if (!Array.isArray(builder.aggregations)) {
-    return builder;
-  }
-  const complete = builder.aggregations.filter((agg: any) => isAggregationComplete(agg));
-  if (complete.length === builder.aggregations.length) {
-    return builder;
-  }
-  return { ...builder, aggregations: complete };
-};
-
 /**
  * Removes empty optional fields from aggregations so Druid is not sent invalid
  * payload (e.g. "expression": "" on doubleSum/longSum causes Druid 500).
@@ -185,232 +36,6 @@ const stripEmptyAggregationFields = (builder: any): any => {
   };
   const cleaned = builder.aggregations.map(cleanAgg);
   return { ...builder, aggregations: cleaned };
-};
-
-/**
- * Returns a copy of the builder with only complete filters. Any filter with
- * empty required fields (e.g. selector value null, like pattern empty) is
- * omitted so Druid is never sent incomplete filter config.
- */
-const sanitizeFilterForBackend = (builder: any): any => {
-  if (!builder || typeof builder !== 'object' || !builder.filter) {
-    return builder;
-  }
-  const filter = builder.filter;
-  if (filter.type === 'and' && Array.isArray(filter.fields)) {
-    const validFields = filter.fields.filter((f: any) => isFilterComplete(f));
-    if (validFields.length === filter.fields.length) {
-      return builder;
-    }
-    if (validFields.length === 0) {
-      const { filter: _f, ...rest } = builder;
-      return rest;
-    }
-    if (validFields.length === 1) {
-      return { ...builder, filter: validFields[0] };
-    }
-    return { ...builder, filter: { type: 'and', fields: validFields } };
-  }
-  if (filter.type === 'or' && Array.isArray(filter.fields)) {
-    const validFields = filter.fields.filter((f: any) => isFilterComplete(f));
-    if (validFields.length === filter.fields.length) {
-      return builder;
-    }
-    if (validFields.length === 0) {
-      const { filter: _f, ...rest } = builder;
-      return rest;
-    }
-    if (validFields.length === 1) {
-      return { ...builder, filter: validFields[0] };
-    }
-    return { ...builder, filter: { type: 'or', fields: validFields } };
-  }
-  if (!isFilterComplete(filter)) {
-    const { filter: _f, ...rest } = builder;
-    return rest;
-  }
-  return builder;
-};
-
-/**
- * Checks if a post-aggregation is complete. All post-aggregation types require
- * type and name; type-specific required fields (e.g. fieldName, fields, fn) must be non-empty.
- * Nested post-aggregations (e.g. arithmetic.fields) are checked recursively.
- */
-const isPostAggregationComplete = (pa: any): boolean => {
-  if (pa == null || typeof pa !== 'object') {
-    return true; // no post-agg is valid
-  }
-  const type = pa.type;
-  if (!type || typeof type !== 'string' || type.trim() === '') {
-    return false;
-  }
-  const name = pa.name;
-  if (!name || typeof name !== 'string' || name.trim() === '') {
-    return false;
-  }
-  switch (type) {
-    case 'fieldAccess':
-    case 'finalizingFieldAccess':
-    case 'hyperUniqueCardinality':
-      return !isEmpty(pa.fieldName);
-    case 'constant':
-      return pa.value !== undefined && pa.value !== null;
-    case 'arithmetic':
-      if (isEmpty(pa.fn)) return false;
-      const arithFields = pa.fields;
-      if (!Array.isArray(arithFields) || arithFields.length === 0) return false;
-      return arithFields.every((f: any) => isPostAggregationComplete(f));
-    case 'longGreatest':
-    case 'longLeast':
-    case 'doubleGreatest':
-    case 'doubleLeast':
-      const minMaxFields = pa.fields;
-      if (!Array.isArray(minMaxFields) || minMaxFields.length === 0) return false;
-      return minMaxFields.every((f: any) => isPostAggregationComplete(f));
-    case 'javascript':
-      if (isEmpty(pa.function)) return false;
-      const fieldNames = pa.fieldNames;
-      return Array.isArray(fieldNames) && fieldNames.length > 0 && fieldNames.every((s: any) => !isEmpty(s));
-    case 'quantilesDoublesSketchToQuantile':
-      if (pa.fraction === undefined || pa.fraction === null) return false;
-      return isPostAggregationComplete(pa.field);
-    default:
-      return true;
-  }
-};
-
-/**
- * Returns a copy of the builder with only complete post-aggregations.
- * Incomplete post-aggregations (e.g. newly added empty row) are omitted so Druid is not sent partial config.
- */
-const sanitizePostAggregationsForBackend = (builder: any): any => {
-  if (!builder || typeof builder !== 'object') {
-    return builder;
-  }
-  if (!Array.isArray(builder.postAggregations) || builder.postAggregations.length === 0) {
-    return builder;
-  }
-  const complete = builder.postAggregations.filter((pa: any) => isPostAggregationComplete(pa));
-  if (complete.length === builder.postAggregations.length) {
-    return builder;
-  }
-  return { ...builder, postAggregations: complete };
-};
-
-/**
- * Validates if a query is complete enough to be executed.
- * Returns true if the query has all required fields, false otherwise.
- */
-const isQueryComplete = (builder: any): boolean => {
-  if (!builder || typeof builder !== 'object') {
-    return false;
-  }
-
-  const queryType = builder.queryType;
-  if (!queryType || typeof queryType !== 'string') {
-    return false;
-  }
-
-  // Check if dataSource exists and is valid
-  const dataSource = builder.dataSource;
-  if (!dataSource) {
-    return false;
-  }
-
-  // dataSource can be a string or an object with a name property
-  const tableName = typeof dataSource === 'string'
-    ? dataSource
-    : (dataSource.name || (dataSource.type === 'table' ? dataSource.name : null));
-
-  if (!tableName || typeof tableName !== 'string' || tableName.trim() === '') {
-    return false;
-  }
-
-  // Query type-specific validation
-  switch (queryType) {
-    case 'timeseries':
-      // Timeseries requires at least one complete aggregation (type, name, and fieldName when present non-empty)
-      const aggregations = builder.aggregations;
-      if (!aggregations || !Array.isArray(aggregations) || aggregations.length === 0) {
-        return false;
-      }
-      const validAggregations = aggregations.filter((agg: any) => isAggregationComplete(agg));
-      if (validAggregations.length === 0) {
-        return false;
-      }
-      // If postAggregations present, all must be complete before sending to Druid
-      const tsPostAggs = builder.postAggregations;
-      if (Array.isArray(tsPostAggs) && tsPostAggs.length > 0) {
-        if (tsPostAggs.some((pa: any) => !isPostAggregationComplete(pa))) {
-          return false;
-        }
-      }
-      return true;
-
-    case 'groupBy':
-      // GroupBy requires at least one dimension and one complete aggregation
-      const dimensions = builder.dimensions;
-      const groupByAggregations = builder.aggregations;
-      if (!dimensions || !Array.isArray(dimensions) || dimensions.length === 0) {
-        return false;
-      }
-      if (!groupByAggregations || !Array.isArray(groupByAggregations) || groupByAggregations.length === 0) {
-        return false;
-      }
-      if (groupByAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) {
-        return false;
-      }
-      const groupByPostAggs = builder.postAggregations;
-      if (Array.isArray(groupByPostAggs) && groupByPostAggs.length > 0) {
-        if (groupByPostAggs.some((pa: any) => !isPostAggregationComplete(pa))) {
-          return false;
-        }
-      }
-      return true;
-
-    case 'topN':
-      // TopN requires dimension, metric, threshold, and at least one complete aggregation
-      if (!builder.dimension || !builder.metric || builder.threshold === undefined) {
-        return false;
-      }
-      const topNAggregations = builder.aggregations;
-      if (!topNAggregations || !Array.isArray(topNAggregations) || topNAggregations.length === 0) {
-        return false;
-      }
-      if (topNAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) {
-        return false;
-      }
-      const topNPostAggs = builder.postAggregations;
-      if (Array.isArray(topNPostAggs) && topNPostAggs.length > 0) {
-        if (topNPostAggs.some((pa: any) => !isPostAggregationComplete(pa))) {
-          return false;
-        }
-      }
-      return true;
-
-    case 'scan':
-      // Scan queries are simpler - just need dataSource
-      return true;
-
-    case 'search':
-      // Search requires query and searchDimensions
-      if (!builder.query || !builder.searchDimensions) {
-        return false;
-      }
-      return true;
-
-    case 'sql':
-      // SQL queries need the query string
-      if (!builder.query || typeof builder.query !== 'string') {
-        return false;
-      }
-      return true;
-
-    default:
-      // For unknown query types, be permissive but still require dataSource
-      return true;
-  }
 };
 
 export const QueryEditor = (props: Props) => {
@@ -454,13 +79,7 @@ export const QueryEditor = (props: Props) => {
   // Track if we've initialized defaults to avoid infinite loops
   const hasInitializedDefaults = useRef(false);
 
-  // Track last payload we ran so we don't re-send the same query while user fills an incomplete aggregation
   const lastRunPayloadRef = useRef<string | null>(null);
-  // Ref to the builder DOM container: run query only when focus is outside (e.g. after blur), not while typing
-  const builderContainerRef = useRef<HTMLDivElement>(null);
-  // Latest builder + settings so blur handler can run with current state without re-running onChange
-  const lastQueryOptionsRef = useRef<{ builder: any; settings: any }>({ builder, settings: props.query.settings });
-  lastQueryOptionsRef.current = { builder: props.query.builder, settings: props.query.settings };
 
   // Persist defaults when they're first set (only if builder is empty or missing required fields)
   useEffect(() => {
@@ -479,21 +98,15 @@ export const QueryEditor = (props: Props) => {
     }
   }, [builder, defaultBuilder, props]);
 
-  /** Run query only if payload is complete and different from last run. Returns true if ran. */
-  const tryRunQueryIfComplete = (builderOpts: any, settingsOpts: any): boolean => {
+  /** Run query with current builder. Sends query to backend/Druid when "Apply and run" is clicked. */
+  const runQuery = (builderOpts: any, settingsOpts: any): boolean => {
     const converted = convertGranularityForBackend(
       builderOpts,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeFilterForBackend(
-      sanitizePostAggregationsForBackend(
-        stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
-      )
-    );
-    const filterComplete = !builderOpts?.filter || isFilterComplete(builderOpts.filter);
-    const isComplete = isQueryComplete(builderForBackend);
+    const builderForBackend = stripEmptyAggregationFields(converted);
     const payloadStr = JSON.stringify(builderForBackend);
-    if (filterComplete && isComplete && payloadStr !== lastRunPayloadRef.current) {
+    if (payloadStr !== lastRunPayloadRef.current) {
       lastRunPayloadRef.current = payloadStr;
       props.onRunQuery();
       return true;
@@ -582,54 +195,47 @@ export const QueryEditor = (props: Props) => {
       }
     }
 
-    // Convert granularity for backend, then include only complete aggregations and complete filters
     const converted = convertGranularityForBackend(
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeFilterForBackend(
-      sanitizePostAggregationsForBackend(
-        stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
-      )
-    );
+    const builderForBackend = stripEmptyAggregationFields(converted);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Store original builder for UI, but use builder with only complete aggregations in expr for backend
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Only run when complete and payload changed, and only when no builder input is focused
-    // (so we don't send on every keystroke; user must blur out of the input first)
-    const focusInBuilder = builderContainerRef.current?.contains(document.activeElement);
-    if (!focusInBuilder) {
-      tryRunQueryIfComplete(queryBuilderOptions.builder, queryBuilderOptions.settings);
-    }
+    // Do not auto-run on builder change; run only when user clicks "Apply and run" or changes settings
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
-    const { query, onChange, onRunQuery } = props;
+    const { query, onChange } = props;
 
-    // Convert granularity for backend, then include only complete aggregations and complete filters
     const converted = convertGranularityForBackend(
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeFilterForBackend(
-      sanitizePostAggregationsForBackend(
-        stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
-      )
-    );
+    const builderForBackend = stripEmptyAggregationFields(converted);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
-    // Use builder with only complete aggregations in expr for backend
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    tryRunQueryIfComplete(query.builder, querySettingsOptions);
+    runQuery(query.builder, querySettingsOptions);
   };
   const [showDrawer, setShowDrawer] = useState(false);
   return (
     <>
       <ToolbarButtonRow className={cx(styles.toolbar)}>
+        <ToolbarButton
+          variant="primary"
+          icon="play"
+          onClick={(event) => {
+            event.preventDefault();
+            runQuery(props.query.builder, props.query.settings || {});
+          }}
+        >
+          Apply and run
+        </ToolbarButton>
         <ToolbarButton
           icon="cog"
           onClick={(event) => {
@@ -654,26 +260,13 @@ export const QueryEditor = (props: Props) => {
           <DruidQuerySettings options={settingsOptions} onOptionsChange={onSettingsOptionsChange} />
         </Drawer>
       )}
-      <div
-        ref={builderContainerRef}
-        onBlur={(e) => {
-          // Run query when focus leaves the builder (e.g. user clicked out of an input)
-          const next = e.relatedTarget as Node | null;
-          if (next != null && builderContainerRef.current?.contains(next)) {
-            return;
-          }
-          const opts = lastQueryOptionsRef.current;
-          setTimeout(() => tryRunQueryIfComplete(opts.builder, opts.settings), 0);
-        }}
-      >
-        <DruidQueryBuilder
-          options={builderOptions}
-          onOptionsChange={onBuilderOptionsChange}
-          datasource={props.datasource}
-          rootBuilder={builderOptions.builder}
-          range={props.range}
-        />
-      </div>
+      <DruidQueryBuilder
+        options={builderOptions}
+        onOptionsChange={onBuilderOptionsChange}
+        datasource={props.datasource}
+        rootBuilder={builderOptions.builder}
+        range={props.range}
+      />
     </>
   );
 };
