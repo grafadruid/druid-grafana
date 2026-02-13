@@ -233,6 +233,72 @@ const sanitizeFilterForBackend = (builder: any): any => {
 };
 
 /**
+ * Checks if a post-aggregation is complete. All post-aggregation types require
+ * type and name; type-specific required fields (e.g. fieldName, fields, fn) must be non-empty.
+ * Nested post-aggregations (e.g. arithmetic.fields) are checked recursively.
+ */
+const isPostAggregationComplete = (pa: any): boolean => {
+  if (pa == null || typeof pa !== 'object') {
+    return true; // no post-agg is valid
+  }
+  const type = pa.type;
+  if (!type || typeof type !== 'string' || type.trim() === '') {
+    return false;
+  }
+  const name = pa.name;
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return false;
+  }
+  switch (type) {
+    case 'fieldAccess':
+    case 'finalizingFieldAccess':
+    case 'hyperUniqueCardinality':
+      return !isEmpty(pa.fieldName);
+    case 'constant':
+      return pa.value !== undefined && pa.value !== null;
+    case 'arithmetic':
+      if (isEmpty(pa.fn)) return false;
+      const arithFields = pa.fields;
+      if (!Array.isArray(arithFields) || arithFields.length === 0) return false;
+      return arithFields.every((f: any) => isPostAggregationComplete(f));
+    case 'longGreatest':
+    case 'longLeast':
+    case 'doubleGreatest':
+    case 'doubleLeast':
+      const minMaxFields = pa.fields;
+      if (!Array.isArray(minMaxFields) || minMaxFields.length === 0) return false;
+      return minMaxFields.every((f: any) => isPostAggregationComplete(f));
+    case 'javascript':
+      if (isEmpty(pa.function)) return false;
+      const fieldNames = pa.fieldNames;
+      return Array.isArray(fieldNames) && fieldNames.length > 0 && fieldNames.every((s: any) => !isEmpty(s));
+    case 'quantilesDoublesSketchToQuantile':
+      if (pa.fraction === undefined || pa.fraction === null) return false;
+      return isPostAggregationComplete(pa.field);
+    default:
+      return true;
+  }
+};
+
+/**
+ * Returns a copy of the builder with only complete post-aggregations.
+ * Incomplete post-aggregations (e.g. newly added empty row) are omitted so Druid is not sent partial config.
+ */
+const sanitizePostAggregationsForBackend = (builder: any): any => {
+  if (!builder || typeof builder !== 'object') {
+    return builder;
+  }
+  if (!Array.isArray(builder.postAggregations) || builder.postAggregations.length === 0) {
+    return builder;
+  }
+  const complete = builder.postAggregations.filter((pa: any) => isPostAggregationComplete(pa));
+  if (complete.length === builder.postAggregations.length) {
+    return builder;
+  }
+  return { ...builder, postAggregations: complete };
+};
+
+/**
  * Validates if a query is complete enough to be executed.
  * Returns true if the query has all required fields, false otherwise.
  */
@@ -273,6 +339,13 @@ const isQueryComplete = (builder: any): boolean => {
       if (validAggregations.length === 0) {
         return false;
       }
+      // If postAggregations present, all must be complete before sending to Druid
+      const tsPostAggs = builder.postAggregations;
+      if (Array.isArray(tsPostAggs) && tsPostAggs.length > 0) {
+        if (tsPostAggs.some((pa: any) => !isPostAggregationComplete(pa))) {
+          return false;
+        }
+      }
       return true;
 
     case 'groupBy':
@@ -288,6 +361,12 @@ const isQueryComplete = (builder: any): boolean => {
       if (groupByAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) {
         return false;
       }
+      const groupByPostAggs = builder.postAggregations;
+      if (Array.isArray(groupByPostAggs) && groupByPostAggs.length > 0) {
+        if (groupByPostAggs.some((pa: any) => !isPostAggregationComplete(pa))) {
+          return false;
+        }
+      }
       return true;
 
     case 'topN':
@@ -301,6 +380,12 @@ const isQueryComplete = (builder: any): boolean => {
       }
       if (topNAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) {
         return false;
+      }
+      const topNPostAggs = builder.postAggregations;
+      if (Array.isArray(topNPostAggs) && topNPostAggs.length > 0) {
+        if (topNPostAggs.some((pa: any) => !isPostAggregationComplete(pa))) {
+          return false;
+        }
       }
       return true;
 
@@ -371,6 +456,11 @@ export const QueryEditor = (props: Props) => {
 
   // Track last payload we ran so we don't re-send the same query while user fills an incomplete aggregation
   const lastRunPayloadRef = useRef<string | null>(null);
+  // Ref to the builder DOM container: run query only when focus is outside (e.g. after blur), not while typing
+  const builderContainerRef = useRef<HTMLDivElement>(null);
+  // Latest builder + settings so blur handler can run with current state without re-running onChange
+  const lastQueryOptionsRef = useRef<{ builder: any; settings: any }>({ builder, settings: props.query.settings });
+  lastQueryOptionsRef.current = { builder: props.query.builder, settings: props.query.settings };
 
   // Persist defaults when they're first set (only if builder is empty or missing required fields)
   useEffect(() => {
@@ -388,6 +478,28 @@ export const QueryEditor = (props: Props) => {
       });
     }
   }, [builder, defaultBuilder, props]);
+
+  /** Run query only if payload is complete and different from last run. Returns true if ran. */
+  const tryRunQueryIfComplete = (builderOpts: any, settingsOpts: any): boolean => {
+    const converted = convertGranularityForBackend(
+      builderOpts,
+      timezone && timezone !== 'browser' ? timezone : undefined
+    );
+    const builderForBackend = sanitizeFilterForBackend(
+      sanitizePostAggregationsForBackend(
+        stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+      )
+    );
+    const filterComplete = !builderOpts?.filter || isFilterComplete(builderOpts.filter);
+    const isComplete = isQueryComplete(builderForBackend);
+    const payloadStr = JSON.stringify(builderForBackend);
+    if (filterComplete && isComplete && payloadStr !== lastRunPayloadRef.current) {
+      lastRunPayloadRef.current = payloadStr;
+      props.onRunQuery();
+      return true;
+    }
+    return false;
+  };
 
   const builderOptions = { builder: defaultBuilder, settings: settings || {} };
   const datasourceQuerySettings = normalizeData(props.datasource.settingsData, false, 'query');
@@ -476,7 +588,9 @@ export const QueryEditor = (props: Props) => {
       timezone && timezone !== 'browser' ? timezone : undefined
     );
     const builderForBackend = sanitizeFilterForBackend(
-      stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+      sanitizePostAggregationsForBackend(
+        stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+      )
     );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
@@ -484,15 +598,11 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Only run when the payload we send is complete, the filter (if any) is complete, and the payload changed.
-    // Don't fire at all while the user is editing an incomplete filter (e.g. selected type/dimension but no value).
-    const filterComplete = !queryBuilderOptions.builder?.filter || isFilterComplete(queryBuilderOptions.builder.filter);
-    const isComplete = isQueryComplete(builderForBackend);
-    const payloadStr = JSON.stringify(builderForBackend);
-    if (filterComplete && isComplete && payloadStr !== lastRunPayloadRef.current) {
-      lastRunPayloadRef.current = payloadStr;
-      console.error('Druid query (final payload before sending):', JSON.stringify(builderForBackend, null, 2));
-      onRunQuery();
+    // Only run when complete and payload changed, and only when no builder input is focused
+    // (so we don't send on every keystroke; user must blur out of the input first)
+    const focusInBuilder = builderContainerRef.current?.contains(document.activeElement);
+    if (!focusInBuilder) {
+      tryRunQueryIfComplete(queryBuilderOptions.builder, queryBuilderOptions.settings);
     }
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
@@ -504,7 +614,9 @@ export const QueryEditor = (props: Props) => {
       timezone && timezone !== 'browser' ? timezone : undefined
     );
     const builderForBackend = sanitizeFilterForBackend(
-      stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+      sanitizePostAggregationsForBackend(
+        stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+      )
     );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
@@ -512,13 +624,7 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    // Only run when the payload we send is complete, the filter (if any) is complete, and the payload changed
-    const filterComplete = !query.builder?.filter || isFilterComplete(query.builder.filter);
-    const payloadStr = JSON.stringify(builderForBackend);
-    if (filterComplete && isQueryComplete(builderForBackend) && payloadStr !== lastRunPayloadRef.current) {
-      lastRunPayloadRef.current = payloadStr;
-      onRunQuery();
-    }
+    tryRunQueryIfComplete(query.builder, querySettingsOptions);
   };
   const [showDrawer, setShowDrawer] = useState(false);
   return (
@@ -548,13 +654,26 @@ export const QueryEditor = (props: Props) => {
           <DruidQuerySettings options={settingsOptions} onOptionsChange={onSettingsOptionsChange} />
         </Drawer>
       )}
-      <DruidQueryBuilder
-        options={builderOptions}
-        onOptionsChange={onBuilderOptionsChange}
-        datasource={props.datasource}
-        rootBuilder={builderOptions.builder}
-        range={props.range}
-      />
+      <div
+        ref={builderContainerRef}
+        onBlur={(e) => {
+          // Run query when focus leaves the builder (e.g. user clicked out of an input)
+          const next = e.relatedTarget as Node | null;
+          if (next != null && builderContainerRef.current?.contains(next)) {
+            return;
+          }
+          const opts = lastQueryOptionsRef.current;
+          setTimeout(() => tryRunQueryIfComplete(opts.builder, opts.settings), 0);
+        }}
+      >
+        <DruidQueryBuilder
+          options={builderOptions}
+          onOptionsChange={onBuilderOptionsChange}
+          datasource={props.datasource}
+          rootBuilder={builderOptions.builder}
+          range={props.range}
+        />
+      </div>
     </>
   );
 };
