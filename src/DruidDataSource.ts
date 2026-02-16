@@ -18,13 +18,17 @@ function isFilterMarkedForRemoval(filter: unknown): boolean {
   const values = f['values'];
   if (Array.isArray(values) && values.length === 1 && values[0] === REMOVE_FILTER_VALUE) return true;
   if (Array.isArray(values) && values.every((v) => v === REMOVE_FILTER_VALUE)) return true;
-  // json filter: value is a string that parses to a filter; remove if that filter is _REMOVE_FILTER_
-  if (f['type'] === 'json' && typeof f['value'] === 'string') {
+  // value is a string that parses to a filter; remove if that filter tree contains _REMOVE_FILTER_ at top level
+  if (typeof f['value'] === 'string') {
     try {
       const inner = JSON.parse(f['value'] as string) as Record<string, unknown>;
-      return inner['value'] === REMOVE_FILTER_VALUE || inner['pattern'] === REMOVE_FILTER_VALUE;
+      if (inner != null && typeof inner === 'object' && typeof inner['type'] === 'string') {
+        if (inner['value'] === REMOVE_FILTER_VALUE || inner['pattern'] === REMOVE_FILTER_VALUE) return true;
+        const innerValues = inner['values'];
+        if (Array.isArray(innerValues) && innerValues.includes(REMOVE_FILTER_VALUE)) return true;
+      }
     } catch {
-      return false;
+      // ignore
     }
   }
   return false;
@@ -54,6 +58,21 @@ function removeFiltersMarkedForRemoval(filter: unknown): unknown {
     const inner = removeFiltersMarkedForRemoval(f['field']);
     if (inner == null || isFilterMarkedForRemoval(inner)) return null;
     return { ...f, field: inner };
+  }
+
+  // Any filter with a string value that parses to a nested filter tree: recurse into it and re-serialize
+  const val = f['value'];
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val) as Record<string, unknown>;
+      if (parsed != null && typeof parsed === 'object' && typeof parsed['type'] === 'string') {
+        const cleaned = removeFiltersMarkedForRemoval(parsed);
+        if (cleaned == null || isFilterMarkedForRemoval(cleaned)) return null;
+        return { ...f, value: JSON.stringify(cleaned) };
+      }
+    } catch {
+      // not valid JSON or not a filter tree, fall through
+    }
   }
 
   if (isFilterMarkedForRemoval(filter)) return null;
