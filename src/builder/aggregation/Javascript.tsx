@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Multiple, Code } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, Multiple, Code, Checkbox } from '../abstract';
 
 export const Javascript = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Javascript);
@@ -38,8 +38,13 @@ export const Javascript = (props: QueryBuilderProps) => {
         description="The javascript reset function. e.g: function() { return <initial value>; }"
         lang="javascript"
       />
+      <Checkbox
+        {...scopedProps('hidden')}
+        label="Hidden"
+        description="If set, this aggregation is still sent to Druid and can be used by post-aggregations, but is not shown as a series in the panel"
+      />
     </>
   );
 };
 Javascript.type = 'javascript';
-Javascript.fields = ['name', 'fieldNames', 'fnAggregate', 'fnCombine', 'fnReset'];
+Javascript.fields = ['name', 'fieldNames', 'fnAggregate', 'fnCombine', 'fnReset', 'hidden'];

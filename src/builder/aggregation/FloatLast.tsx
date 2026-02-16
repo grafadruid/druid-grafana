@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Checkbox } from '../abstract';
 
 export const FloatLast = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, FloatLast);
@@ -14,8 +14,13 @@ export const FloatLast = (props: QueryBuilderProps) => {
         type="metric"
         datasource={props.datasource}
       />
+      <Checkbox
+        {...scopedProps('hidden')}
+        label="Hidden"
+        description="If set, this aggregation is still sent to Druid and can be used by post-aggregations, but is not shown as a series in the panel"
+      />
     </>
   );
 };
 FloatLast.type = 'floatLast';
-FloatLast.fields = ['name', 'fieldName'];
+FloatLast.fields = ['name', 'fieldName', 'hidden'];

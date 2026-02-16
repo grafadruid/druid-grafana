@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Multiple } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Multiple, Checkbox } from '../abstract';
 
 export const Histogram = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Histogram);
@@ -25,8 +25,13 @@ export const Histogram = (props: QueryBuilderProps) => {
           type: 'number',
         }}
       />
+      <Checkbox
+        {...scopedProps('hidden')}
+        label="Hidden"
+        description="If set, this aggregation is still sent to Druid and can be used by post-aggregations, but is not shown as a series in the panel"
+      />
     </>
   );
 };
 Histogram.type = 'histogram';
-Histogram.fields = ['name', 'fieldName', 'breaks'];
+Histogram.fields = ['name', 'fieldName', 'breaks', 'hidden'];

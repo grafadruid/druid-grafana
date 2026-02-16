@@ -28,8 +28,13 @@ export const Cardinality = (props: QueryBuilderProps) => {
         label="Round"
         description="Set to true to round off estimated values to whole numbers"
       />
+      <Checkbox
+        {...scopedProps('hidden')}
+        label="Hidden"
+        description="If set, this aggregation is still sent to Druid and can be used by post-aggregations, but is not shown as a series in the panel"
+      />
     </>
   );
 };
 Cardinality.type = 'cardinality';
-Cardinality.fields = ['name', 'fields', 'byRow', 'round'];
+Cardinality.fields = ['name', 'fields', 'byRow', 'round', 'hidden'];

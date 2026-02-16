@@ -660,6 +660,33 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
+// extractHiddenMetricsAndStripFromBuilder collects names of aggregations marked hidden
+// and removes the "hidden" key from each aggregation so the query sent to Druid is valid.
+// Returns the list of hidden metric names for use when building the response frame.
+func extractHiddenMetricsAndStripFromBuilder(builder map[string]any) []string {
+	if builder == nil {
+		return nil
+	}
+	aggs, ok := builder["aggregations"].([]any)
+	if !ok || len(aggs) == 0 {
+		return nil
+	}
+	var hidden []string
+	for _, a := range aggs {
+		m, ok := a.(map[string]any)
+		if !ok {
+			continue
+		}
+		if h, _ := m["hidden"].(bool); h {
+			if name, _ := m["name"].(string); name != "" {
+				hidden = append(hidden, name)
+			}
+		}
+		delete(m, "hidden")
+	}
+	return hidden
+}
+
 // expandJsonFiltersInBuilder walks the builder's filter tree and replaces any filter
 // with type "json" by parsing filter.value as JSON. Template variables (e.g. $variable_name)
 // are already replaced by Grafana before the query reaches the backend.
@@ -787,6 +814,11 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 
 	// Expand json filters: replace filter type "json" with parsed value (template variables already replaced by Grafana)
 	expandJsonFiltersInBuilder(builder)
+
+	// Extract hidden aggregation names for response filtering and strip "hidden" from builder so Druid query is valid
+	if hiddenNames := extractHiddenMetricsAndStripFromBuilder(builder); len(hiddenNames) > 0 {
+		settings["_hiddenMetricNames"] = hiddenNames
+	}
 
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
@@ -1631,12 +1663,24 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	} else {
 		format = format.(string)
 	}
+	// Hidden aggregations: still in query and computed by Druid, but not shown as panel series
+	hiddenMetricNames := make(map[string]bool)
+	if names, ok := settings["_hiddenMetricNames"].([]any); ok {
+		for _, n := range names {
+			if s, ok := n.(string); ok {
+				hiddenMetricNames[s] = true
+			}
+		}
+	}
 	// turn druid response into grafana long frame
 	if responseLimit > 0 && len(resp.Rows) > int(responseLimit) {
 		resp.Rows = resp.Rows[:int(responseLimit)]
 		response.Error = fmt.Errorf("query response limit exceeded (> %d rows): consider adding filters and/or reducing the query time range", int(responseLimit))
 	}
 	for ic, c := range resp.Columns {
+		if hiddenMetricNames[c.Name] {
+			continue
+		}
 		var ff any
 		columnIsEmpty := true
 		switch c.Type {
