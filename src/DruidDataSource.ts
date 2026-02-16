@@ -181,11 +181,20 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     );
     const substitutedStr = templateSrv.replace(templateStr, scopedVars);
     const substitutedPayload = JSON.parse(substitutedStr);
+    // Remove filters that had variables replaced with _REMOVE_FILTER_ (removal above runs before
+    // full-string substitution, so those filters are still present here after parse).
+    if (substitutedPayload.builder?.filter != null) {
+      const filterAfterRemoval = removeFiltersMarkedForRemoval(substitutedPayload.builder.filter);
+      substitutedPayload.builder.filter = filterAfterRemoval ?? undefined;
+    }
     // Preserve query metadata (refId, datasource, hide, etc.) so Grafana can match the response to the panel.
     const result = {
       ...templatedQuery,
       ...substitutedPayload,
-      expr: templatedQuery.expr && templatedQuery.expr.trim() !== '' ? substitutedStr : templatedQuery.expr,
+      expr:
+        templatedQuery.expr && templatedQuery.expr.trim() !== ''
+          ? JSON.stringify({ builder: substitutedPayload.builder, settings: substitutedPayload.settings })
+          : templatedQuery.expr,
     };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
     this.postResource('query-variable', result)
