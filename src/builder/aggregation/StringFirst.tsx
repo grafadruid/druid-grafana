@@ -15,7 +15,7 @@ export const StringFirst = (props: QueryBuilderProps) => {
         datasource={props.datasource}
       />
       <Input {...scopedProps('maxStringBytes')} label="Max string bytes" description="Max string bytes" type="number" />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

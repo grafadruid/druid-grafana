@@ -14,7 +14,7 @@ export const DoubleMean = (props: QueryBuilderProps) => {
         type="metric"
         datasource={props.datasource}
       />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

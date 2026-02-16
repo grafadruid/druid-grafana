@@ -19,7 +19,7 @@ export const HyperUnique = (props: QueryBuilderProps) => {
         label="Round"
         description="Set to true to round off estimated lues to whole numbers"
       />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

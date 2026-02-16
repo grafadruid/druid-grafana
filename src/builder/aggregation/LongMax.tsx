@@ -15,7 +15,7 @@ export const LongMax = (props: QueryBuilderProps) => {
         datasource={props.datasource}
       />
       <Input {...scopedProps('expression')} label="Expression" description="The expression" type="text" />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

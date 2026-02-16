@@ -15,7 +15,7 @@ export const QuantilesDoublesSketch = (props: QueryBuilderProps) => {
         datasource={props.datasource}
       />
       <Input {...scopedProps('k')} label="k" description="Parameter that controls size and accuracy" type="number" />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

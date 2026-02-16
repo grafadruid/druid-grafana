@@ -25,7 +25,7 @@ export const Histogram = (props: QueryBuilderProps) => {
           type: 'number',
         }}
       />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

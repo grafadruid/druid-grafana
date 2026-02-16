@@ -28,7 +28,7 @@ export const Cardinality = (props: QueryBuilderProps) => {
         label="Round"
         description="Set to true to round off estimated values to whole numbers"
       />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

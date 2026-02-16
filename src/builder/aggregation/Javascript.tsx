@@ -38,7 +38,7 @@ export const Javascript = (props: QueryBuilderProps) => {
         description="The javascript reset function. e.g: function() { return <initial value>; }"
         lang="javascript"
       />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

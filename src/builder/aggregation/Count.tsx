@@ -7,7 +7,7 @@ export const Count = (props: QueryBuilderProps) => {
   return (
     <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };

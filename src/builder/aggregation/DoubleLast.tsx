@@ -14,7 +14,7 @@ export const DoubleLast = (props: QueryBuilderProps) => {
         type="metric"
         datasource={props.datasource}
       />
-      <Checkbox {...scopedProps('hidden')} label="Hidden" />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
     </>
   );
 };
