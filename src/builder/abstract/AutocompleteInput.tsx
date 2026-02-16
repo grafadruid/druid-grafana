@@ -496,7 +496,7 @@ export const AutocompleteInput = (props: Props) => {
             : props.description
         }
         defaultOptions={true}
-        allowCustomValue={true}
+        allowCustomValue={false}
         isClearable={true}
         isLoading={isLoading}
         cacheOptions={true}
