@@ -565,16 +565,19 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		if rawJSON, ok := stg["_rawQueryJSON"].(string); ok {
 			// Remove the marker from settings
 			delete(stg, "_rawQueryJSON")
+			log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_query", rawJSON)
 			// Send raw JSON directly to Druid for period granularity queries
 			r, err := ds.executeRawQuery(qry.RefID, []byte(rawJSON), s, stg)
 			if err != nil {
 				response.Error = err
 				return response
 			}
+			log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_response", r)
 			response, err = ds.prepareResponse(r, stg)
 			if err != nil {
 				response.Error = err
 			}
+			log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_response", response)
 			return response
 		}
 		// prepareQuery returned nil (invalid query), return empty response
