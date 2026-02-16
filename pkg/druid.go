@@ -1155,30 +1155,34 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		var s []map[string]any
 		err := json.Unmarshal(result, &s)
 		if err == nil && len(s) > 0 {
-			columns := []string{"timestamp"}
-			for c := range s[0]["result"].([]map[string]any)[0] {
-				columns = append(columns, c)
-			}
-			for _, result := range s {
-				var row []any
-				t := result["timestamp"]
-				row = append(row, t)
-				colResults := result["result"].([]map[string]any)
-				if len(colResults) > 0 {
-					for _, c := range columns[1:] {
-						row = append(row, colResults[0][c])
-					}
+			colResults0, _ := s[0]["result"].([]map[string]any)
+			if len(colResults0) > 0 {
+				columns := []string{"timestamp"}
+				for c := range colResults0[0] {
+					columns = append(columns, c)
 				}
-				r.Rows = append(r.Rows, row)
+				for _, result := range s {
+					var row []any
+					t := result["timestamp"]
+					row = append(row, t)
+					colResults := result["result"].([]map[string]any)
+					if len(colResults) > 0 {
+						for _, c := range columns[1:] {
+							row = append(row, colResults[0][c])
+						}
+					}
+					r.Rows = append(r.Rows, row)
+				}
+				for i, c := range columns {
+					col := struct {
+						Name string
+						Type string
+					}{Name: c}
+					detectColumnType(&col, i, r.Rows)
+					r.Columns = append(r.Columns, col)
+				}
 			}
-			for i, c := range columns {
-				col := struct {
-					Name string
-					Type string
-				}{Name: c}
-				detectColumnType(&col, i, r.Rows)
-				r.Columns = append(r.Columns, col)
-			}
+			// empty result array: r stays with zero Rows/Columns, return success
 		}
 	default:
 		// For unknown query types, try to parse as generic JSON
@@ -1416,29 +1420,33 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		var s []map[string]any
 		err := json.Unmarshal(result, &s)
 		if err == nil && len(s) > 0 {
-			columns := []string{"timestamp"}
-			for c := range s[0]["result"].([]any)[0].(map[string]any) {
-				columns = append(columns, c)
-			}
-			for _, result := range s {
-				for _, record := range result["result"].([]any) {
-					var row []any
-					row = append(row, result["timestamp"])
-					o := record.(map[string]any)
-					for _, c := range columns[1:] {
-						row = append(row, o[c])
+			resultArr, _ := s[0]["result"].([]any)
+			if len(resultArr) > 0 {
+				columns := []string{"timestamp"}
+				for c := range resultArr[0].(map[string]any) {
+					columns = append(columns, c)
+				}
+				for _, resultItem := range s {
+					for _, record := range resultItem["result"].([]any) {
+						var row []any
+						row = append(row, resultItem["timestamp"])
+						o := record.(map[string]any)
+						for _, c := range columns[1:] {
+							row = append(row, o[c])
+						}
+						r.Rows = append(r.Rows, row)
 					}
-					r.Rows = append(r.Rows, row)
+				}
+				for i, c := range columns {
+					col := struct {
+						Name string
+						Type string
+					}{Name: c}
+					detectColumnType(&col, i, r.Rows)
+					r.Columns = append(r.Columns, col)
 				}
 			}
-			for i, c := range columns {
-				col := struct {
-					Name string
-					Type string
-				}{Name: c}
-				detectColumnType(&col, i, r.Rows)
-				r.Columns = append(r.Columns, col)
-			}
+			// empty result array: r stays with zero Rows/Columns, return success
 		}
 	case "timeBoundary":
 		var tb []map[string]any

@@ -509,6 +509,8 @@ export const AutocompleteInput = (props: Props) => {
             ? 'Please select a table first'
             : type === 'dimensionValue' && !dimensionName
             ? 'Please select a dimension first'
+            : type === 'dimensionValue'
+            ? 'No dimension value available for the selected time range'
             : 'No options found'
         }
       />
