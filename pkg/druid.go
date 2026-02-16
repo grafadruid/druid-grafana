@@ -817,7 +817,11 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 
 	// Extract hidden aggregation names for response filtering and strip "hidden" from builder so Druid query is valid
 	if hiddenNames := extractHiddenMetricsAndStripFromBuilder(builder); len(hiddenNames) > 0 {
-		settings["_hiddenMetricNames"] = hiddenNames
+		hiddenNamesAny := make([]any, len(hiddenNames))
+		for i, s := range hiddenNames {
+			hiddenNamesAny[i] = s
+		}
+		settings["_hiddenMetricNames"] = hiddenNamesAny
 	}
 
 	var defaultQueryContext map[string]any
@@ -1665,6 +1669,12 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	}
 	// Hidden aggregations: still in query and computed by Druid, but not shown as panel series
 	hiddenMetricNames := make(map[string]bool)
+	if names, ok := settings["_hiddenMetricNames"].([]string); ok {
+		for _, s := range names {
+			hiddenMetricNames[s] = true
+		}
+	}
+	// JSON-unmarshaled query may have []any for the slice
 	if names, ok := settings["_hiddenMetricNames"].([]any); ok {
 		for _, n := range names {
 			if s, ok := n.(string); ok {
