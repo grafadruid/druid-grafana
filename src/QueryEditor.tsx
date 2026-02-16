@@ -12,30 +12,182 @@ import { QueryBuilderOptions } from './builder/types';
 
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
+/** Returns true if a value is empty (null, undefined, or blank string/array). */
+const isEmpty = (v: any): boolean => {
+  if (v === null || v === undefined) return true;
+  if (typeof v === 'string') return String(v).trim() === '';
+  if (Array.isArray(v)) return v.length === 0;
+  return false;
+};
+
 /**
- * Removes empty optional fields from aggregations so Druid is not sent invalid
- * payload (e.g. "expression": "" on doubleSum/longSum causes Druid 500).
+ * Checks if a filter is complete (used for filtered aggregation and for main query filter).
+ * Any filter with required fields that are null/empty is incomplete and must not be sent to Druid.
+ */
+const isFilterComplete = (filter: any): boolean => {
+  if (filter === null || filter === undefined) {
+    return true;
+  }
+  if (typeof filter !== 'object' || !filter.type || String(filter.type).trim() === '') {
+    return false;
+  }
+  if (filter.type === 'and' || filter.type === 'or') {
+    const fields = filter.fields;
+    if (!Array.isArray(fields) || fields.length === 0) {
+      return false;
+    }
+    return fields.every((f: any) => isFilterComplete(f));
+  }
+  if (filter.type === 'not') {
+    return filter.field != null && isFilterComplete(filter.field);
+  }
+  if (filter.dimension !== undefined && isEmpty(filter.dimension)) {
+    return false;
+  }
+  switch (filter.type) {
+    case 'selector':
+      return !isEmpty(filter.value);
+    case 'like':
+    case 'regex':
+      return !isEmpty(filter.pattern);
+    case 'in':
+      return Array.isArray(filter.values) && filter.values.length > 0;
+    case 'bound':
+      return !isEmpty(filter.lower) || !isEmpty(filter.upper);
+    case 'expression':
+      return !isEmpty(filter.expression);
+    case 'interval':
+      return !isEmpty(filter.intervals);
+    case 'javascript':
+      return !isEmpty(filter.function);
+    case 'json':
+      return !isEmpty(filter.value);
+    case 'columnComparison':
+      return Array.isArray(filter.dimensions) && filter.dimensions.length > 0;
+    case 'true':
+    case 'false':
+      return true;
+    default:
+      if (filter.value !== undefined && isEmpty(filter.value)) return false;
+      if (filter.pattern !== undefined && isEmpty(filter.pattern)) return false;
+      if (filter.values !== undefined && isEmpty(filter.values)) return false;
+      return true;
+  }
+};
+
+const AGGREGATION_TYPES_WITH_EXPRESSION = new Set([
+  'longSum', 'longMin', 'longMax', 'doubleSum', 'doubleMin', 'doubleMax',
+  'floatSum', 'floatMin', 'floatMax',
+]);
+
+const isAggregationComplete = (agg: any): boolean => {
+  if (!agg || typeof agg !== 'object') return false;
+  const type = agg.type;
+  if (!type || typeof type !== 'string' || type.trim() === '') return false;
+  const name = agg.name;
+  if (!name || typeof name !== 'string' || name.trim() === '') return false;
+  if (type !== 'count' && type !== 'filtered') {
+    const fn = agg.fieldName;
+    const hasFieldName = fn !== undefined && fn !== null && typeof fn === 'string' && fn.trim() !== '';
+    if (AGGREGATION_TYPES_WITH_EXPRESSION.has(type)) {
+      const expr = agg.expression;
+      const hasExpression = expr !== undefined && expr !== null && typeof expr === 'string' && expr.trim() !== '';
+      if (!hasFieldName && !hasExpression) return false;
+    } else {
+      if (!hasFieldName) return false;
+    }
+  }
+  if (type === 'filtered') {
+    if (!isFilterComplete(agg.filter)) return false;
+    if (!isAggregationComplete(agg.aggregator)) return false;
+  }
+  return true;
+};
+
+const sanitizeAggregationsForBackend = (builder: any): any => {
+  if (!builder || typeof builder !== 'object' || !Array.isArray(builder.aggregations)) return builder;
+  const complete = builder.aggregations.filter((agg: any) => isAggregationComplete(agg));
+  if (complete.length === builder.aggregations.length) return builder;
+  return { ...builder, aggregations: complete };
+};
+
+/**
+ * Removes empty optional fields from aggregations so Druid is not sent invalid payload.
  */
 const stripEmptyAggregationFields = (builder: any): any => {
-  if (!builder || typeof builder !== 'object' || !Array.isArray(builder.aggregations)) {
-    return builder;
-  }
+  if (!builder || typeof builder !== 'object' || !Array.isArray(builder.aggregations)) return builder;
   const cleanAgg = (agg: any): any => {
     if (!agg || typeof agg !== 'object') return agg;
     const out = { ...agg };
-    if (out.expression === '' || out.expression === undefined || out.expression === null) {
-      delete out.expression;
-    }
-    if (out.fieldName === '' || out.fieldName === undefined || out.fieldName === null) {
-      delete out.fieldName;
-    }
-    if (agg.type === 'filtered' && agg.aggregator) {
-      out.aggregator = cleanAgg(agg.aggregator);
-    }
+    if (out.expression === '' || out.expression === undefined || out.expression === null) delete out.expression;
+    if (out.fieldName === '' || out.fieldName === undefined || out.fieldName === null) delete out.fieldName;
+    if (agg.type === 'filtered' && agg.aggregator) out.aggregator = cleanAgg(agg.aggregator);
     return out;
   };
-  const cleaned = builder.aggregations.map(cleanAgg);
-  return { ...builder, aggregations: cleaned };
+  return { ...builder, aggregations: builder.aggregations.map(cleanAgg) };
+};
+
+const sanitizeFilterForBackend = (builder: any): any => {
+  if (!builder || typeof builder !== 'object' || !builder.filter) return builder;
+  const filter = builder.filter;
+  if (filter.type === 'and' && Array.isArray(filter.fields)) {
+    const validFields = filter.fields.filter((f: any) => isFilterComplete(f));
+    if (validFields.length === filter.fields.length) return builder;
+    if (validFields.length === 0) { const { filter: _f, ...rest } = builder; return rest; }
+    if (validFields.length === 1) return { ...builder, filter: validFields[0] };
+    return { ...builder, filter: { type: 'and', fields: validFields } };
+  }
+  if (filter.type === 'or' && Array.isArray(filter.fields)) {
+    const validFields = filter.fields.filter((f: any) => isFilterComplete(f));
+    if (validFields.length === filter.fields.length) return builder;
+    if (validFields.length === 0) { const { filter: _f, ...rest } = builder; return rest; }
+    if (validFields.length === 1) return { ...builder, filter: validFields[0] };
+    return { ...builder, filter: { type: 'or', fields: validFields } };
+  }
+  if (!isFilterComplete(filter)) { const { filter: _f, ...rest } = builder; return rest; }
+  return builder;
+};
+
+const isQueryComplete = (builder: any): boolean => {
+  if (!builder || typeof builder !== 'object') return false;
+  const queryType = builder.queryType;
+  if (!queryType || typeof queryType !== 'string') return false;
+  const dataSource = builder.dataSource;
+  if (!dataSource) return false;
+  const tableName = typeof dataSource === 'string'
+    ? dataSource
+    : (dataSource.name || (dataSource.type === 'table' ? dataSource.name : null));
+  if (!tableName || typeof tableName !== 'string' || tableName.trim() === '') return false;
+  switch (queryType) {
+    case 'timeseries': {
+      const aggregations = builder.aggregations;
+      if (!aggregations || !Array.isArray(aggregations) || aggregations.length === 0) return false;
+      if (aggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) return false;
+      return true;
+    }
+    case 'groupBy': {
+      const dimensions = builder.dimensions;
+      const groupByAggregations = builder.aggregations;
+      if (!dimensions || !Array.isArray(dimensions) || dimensions.length === 0) return false;
+      if (!groupByAggregations || !Array.isArray(groupByAggregations) || groupByAggregations.length === 0) return false;
+      if (groupByAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) return false;
+      return true;
+    }
+    case 'topN':
+      if (!builder.dimension || !builder.metric || builder.threshold === undefined) return false;
+      const topNAggregations = builder.aggregations;
+      if (!topNAggregations || !Array.isArray(topNAggregations) || topNAggregations.length === 0) return false;
+      if (topNAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) return false;
+      return true;
+    case 'scan':
+      return true;
+    case 'search':
+      return !!(builder.query && builder.searchDimensions);
+    case 'sql':
+      return !!(builder.query && typeof builder.query === 'string');
+    default:
+      return true;
+  }
 };
 
 export const QueryEditor = (props: Props) => {
@@ -97,22 +249,6 @@ export const QueryEditor = (props: Props) => {
       });
     }
   }, [builder, defaultBuilder, props]);
-
-  /** Run query with current builder. Sends query to backend/Druid when "Apply and run" is clicked. */
-  const runQuery = (builderOpts: any, settingsOpts: any): boolean => {
-    const converted = convertGranularityForBackend(
-      builderOpts,
-      timezone && timezone !== 'browser' ? timezone : undefined
-    );
-    const builderForBackend = stripEmptyAggregationFields(converted);
-    const payloadStr = JSON.stringify(builderForBackend);
-    if (payloadStr !== lastRunPayloadRef.current) {
-      lastRunPayloadRef.current = payloadStr;
-      props.onRunQuery();
-      return true;
-    }
-    return false;
-  };
 
   const builderOptions = { builder: defaultBuilder, settings: settings || {} };
   const datasourceQuerySettings = normalizeData(props.datasource.settingsData, false, 'query');
@@ -199,43 +335,48 @@ export const QueryEditor = (props: Props) => {
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = stripEmptyAggregationFields(converted);
+    const builderForBackend = sanitizeFilterForBackend(
+      stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+    );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Do not auto-run on builder change; run only when user clicks "Apply and run" or changes settings
+    const filterComplete = !queryBuilderOptions.builder?.filter || isFilterComplete(queryBuilderOptions.builder.filter);
+    const isComplete = isQueryComplete(builderForBackend);
+    const payloadStr = JSON.stringify(builderForBackend);
+    if (filterComplete && isComplete && payloadStr !== lastRunPayloadRef.current) {
+      lastRunPayloadRef.current = payloadStr;
+      onRunQuery();
+    }
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
-    const { query, onChange } = props;
+    const { query, onChange, onRunQuery } = props;
 
     const converted = convertGranularityForBackend(
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = stripEmptyAggregationFields(converted);
+    const builderForBackend = sanitizeFilterForBackend(
+      stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
+    );
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    runQuery(query.builder, querySettingsOptions);
+    const filterComplete = !query.builder?.filter || isFilterComplete(query.builder.filter);
+    const payloadStr = JSON.stringify(builderForBackend);
+    if (filterComplete && isQueryComplete(builderForBackend) && payloadStr !== lastRunPayloadRef.current) {
+      lastRunPayloadRef.current = payloadStr;
+      onRunQuery();
+    }
   };
   const [showDrawer, setShowDrawer] = useState(false);
   return (
     <>
       <ToolbarButtonRow className={cx(styles.toolbar)}>
-        <ToolbarButton
-          variant="primary"
-          icon="play"
-          onClick={(event) => {
-            event.preventDefault();
-            runQuery(props.query.builder, props.query.settings || {});
-          }}
-        >
-          Apply and run
-        </ToolbarButton>
         <ToolbarButton
           icon="cog"
           onClick={(event) => {
