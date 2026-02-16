@@ -166,8 +166,6 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     console.error('[Druid][payload] applyTemplateVariables before full replacement:', { payload });
     if (payload.builder?.filter != null) {
       replaceFilterTreeTemplateValues(payload.builder.filter, scopedVars, templateSrv);
-      const filterAfterRemoval = removeFiltersMarkedForRemoval(payload.builder.filter);
-      payload.builder.filter = filterAfterRemoval ?? undefined;
     }
 
     let templateStr = JSON.stringify(payload).replace(
@@ -181,8 +179,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     );
     const substitutedStr = templateSrv.replace(templateStr, scopedVars);
     const substitutedPayload = JSON.parse(substitutedStr);
-    // Remove filters that had variables replaced with _REMOVE_FILTER_ (removal above runs before
-    // full-string substitution, so those filters are still present here after parse).
+    // Remove filters marked with _REMOVE_FILTER_ once after variable substitution is done.
     if (substitutedPayload.builder?.filter != null) {
       const filterAfterRemoval = removeFiltersMarkedForRemoval(substitutedPayload.builder.filter);
       substitutedPayload.builder.filter = filterAfterRemoval ?? undefined;
