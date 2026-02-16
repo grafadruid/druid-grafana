@@ -112,6 +112,56 @@ const sanitizeAggregationsForBackend = (builder: any): any => {
 };
 
 /**
+ * Returns true if a post-aggregation is complete (all required fields set).
+ * Used so we only send the query to Druid when every post-aggregation is fully configured.
+ */
+const isPostAggregationComplete = (pa: any): boolean => {
+  if (!pa || typeof pa !== 'object') return false;
+  const type = pa.type;
+  if (!type || typeof type !== 'string' || type.trim() === '') return false;
+  const name = pa.name;
+  if (!name || typeof name !== 'string' || name.trim() === '') return false;
+
+  switch (type) {
+    case 'arithmetic':
+      if (!pa.fn || typeof pa.fn !== 'string' || pa.fn.trim() === '') return false;
+      if (!Array.isArray(pa.fields) || pa.fields.length === 0) return false;
+      return pa.fields.every((f: any) => isPostAggregationComplete(f));
+    case 'constant':
+      return pa.value !== undefined && pa.value !== null && (typeof pa.value === 'number' || String(pa.value).trim() !== '');
+    case 'doubleGreatest':
+    case 'doubleLeast':
+    case 'longGreatest':
+    case 'longLeast':
+      if (!Array.isArray(pa.fields) || pa.fields.length === 0) return false;
+      return pa.fields.every((f: any) => isPostAggregationComplete(f));
+    case 'fieldAccess':
+    case 'finalizingFieldAccess':
+    case 'hyperUniqueCardinality':
+      return !isEmpty(pa.fieldName);
+    case 'javascript':
+      if (!Array.isArray(pa.fieldNames) || pa.fieldNames.length === 0) return false;
+      if (pa.fieldNames.some((fn: any) => isEmpty(fn))) return false;
+      return !isEmpty(pa.function);
+    case 'quantilesDoublesSketchToQuantile':
+      if (!pa.field || !isPostAggregationComplete(pa.field)) return false;
+      return pa.fraction !== undefined && pa.fraction !== null && (typeof pa.fraction === 'number' || String(pa.fraction).trim() !== '');
+    default:
+      return true;
+  }
+};
+
+/**
+ * Keeps only complete post-aggregations in the builder so Druid is not sent invalid payload.
+ */
+const sanitizePostAggregationsForBackend = (builder: any): any => {
+  if (!builder || typeof builder !== 'object' || !Array.isArray(builder.postAggregations)) return builder;
+  const complete = builder.postAggregations.filter((pa: any) => isPostAggregationComplete(pa));
+  if (complete.length === builder.postAggregations.length) return builder;
+  return { ...builder, postAggregations: complete };
+};
+
+/**
  * Removes empty optional fields from aggregations so Druid is not sent invalid payload.
  */
 const stripEmptyAggregationFields = (builder: any): any => {
@@ -158,6 +208,13 @@ const isQueryComplete = (builder: any): boolean => {
     ? dataSource
     : (dataSource.name || (dataSource.type === 'table' ? dataSource.name : null));
   if (!tableName || typeof tableName !== 'string' || tableName.trim() === '') return false;
+
+  // If there are post-aggregations, all must be complete before sending the query to Druid
+  const postAggregations = builder.postAggregations;
+  if (Array.isArray(postAggregations) && postAggregations.length > 0) {
+    if (postAggregations.some((pa: any) => !isPostAggregationComplete(pa))) return false;
+  }
+
   switch (queryType) {
     case 'timeseries': {
       const aggregations = builder.aggregations;
@@ -335,16 +392,18 @@ export const QueryEditor = (props: Props) => {
       queryBuilderOptions.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeFilterForBackend(
+    const builderBeforePostAgg = sanitizeFilterForBackend(
       stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
     );
+    const builderForBackend = sanitizePostAggregationsForBackend(builderBeforePostAgg);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: builderForBackend });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
     const filterComplete = !queryBuilderOptions.builder?.filter || isFilterComplete(queryBuilderOptions.builder.filter);
-    const isComplete = isQueryComplete(builderForBackend);
+    // Use builder before post-agg sanitization so we only run when every post-aggregation is complete
+    const isComplete = isQueryComplete(builderBeforePostAgg);
     const payloadStr = JSON.stringify(builderForBackend);
     if (filterComplete && isComplete && payloadStr !== lastRunPayloadRef.current) {
       lastRunPayloadRef.current = payloadStr;
@@ -358,9 +417,10 @@ export const QueryEditor = (props: Props) => {
       query.builder,
       timezone && timezone !== 'browser' ? timezone : undefined
     );
-    const builderForBackend = sanitizeFilterForBackend(
+    const builderBeforePostAgg = sanitizeFilterForBackend(
       stripEmptyAggregationFields(sanitizeAggregationsForBackend(converted))
     );
+    const builderForBackend = sanitizePostAggregationsForBackend(builderBeforePostAgg);
 
     //workaround: https://github.com/grafana/grafana/issues/30013
     const expr = JSON.stringify({ builder: builderForBackend, ...querySettingsOptions });
@@ -368,7 +428,8 @@ export const QueryEditor = (props: Props) => {
 
     const filterComplete = !query.builder?.filter || isFilterComplete(query.builder.filter);
     const payloadStr = JSON.stringify(builderForBackend);
-    if (filterComplete && isQueryComplete(builderForBackend) && payloadStr !== lastRunPayloadRef.current) {
+    // Use builder before post-agg sanitization so we only run when every post-aggregation is complete
+    if (filterComplete && isQueryComplete(builderBeforePostAgg) && payloadStr !== lastRunPayloadRef.current) {
       lastRunPayloadRef.current = payloadStr;
       onRunQuery();
     }
