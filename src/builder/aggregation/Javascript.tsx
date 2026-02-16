@@ -38,11 +38,7 @@ export const Javascript = (props: QueryBuilderProps) => {
         description="The javascript reset function. e.g: function() { return <initial value>; }"
         lang="javascript"
       />
-      <Checkbox
-        {...scopedProps('hidden')}
-        label="Hidden"
-        description="If set, this aggregation is still sent to Druid and can be used by post-aggregations, but is not shown as a series in the panel"
-      />
+      <Checkbox {...scopedProps('hidden')} label="Hidden" />
     </>
   );
 };
