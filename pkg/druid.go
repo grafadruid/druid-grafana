@@ -549,48 +549,9 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	return response, nil
 }
 
-// timeRangeOverrideKey is the key injected by the frontend when the request has a range
-// (e.g. meta-queries timeshift passes a shifted range). When present, we use it for
-// __from/__to interpolation so Druid receives the correct intervals for timeshift queries.
-const timeRangeOverrideKey = "__timeRangeOverride"
-
-// extractTimeRangeOverride parses the query JSON, extracts __timeRangeOverride if present,
-// removes it from the payload, and returns the cleaned JSON string and the effective
-// time range to use for variable interpolation (override if present, else qry.TimeRange).
-func extractTimeRangeOverride(queryJSON []byte, defaultRange backend.TimeRange) (cleanedJSON []byte, effective backend.TimeRange) {
-	var payload map[string]any
-	if err := json.Unmarshal(queryJSON, &payload); err != nil {
-		return queryJSON, defaultRange
-	}
-	override, ok := payload[timeRangeOverrideKey].(map[string]any)
-	if !ok {
-		return queryJSON, defaultRange
-	}
-	delete(payload, timeRangeOverrideKey)
-	fromStr, _ := override["from"].(string)
-	toStr, _ := override["to"].(string)
-	if fromStr == "" || toStr == "" {
-		cleaned, _ := json.Marshal(payload)
-		return cleaned, defaultRange
-	}
-	from, errFrom := time.Parse(time.RFC3339, fromStr)
-	to, errTo := time.Parse(time.RFC3339, toStr)
-	if errFrom != nil || errTo != nil {
-		cleaned, _ := json.Marshal(payload)
-		return cleaned, defaultRange
-	}
-	effective = backend.TimeRange{From: from, To: to}
-	cleaned, err := json.Marshal(payload)
-	if err != nil {
-		return queryJSON, defaultRange
-	}
-	return cleaned, effective
-}
-
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
-	cleanedJSON, timeRange := extractTimeRangeOverride(qry.JSON, qry.TimeRange)
-	rawQuery := interpolateVariables(string(cleanedJSON), qry.Interval, timeRange)
+	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange)
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}

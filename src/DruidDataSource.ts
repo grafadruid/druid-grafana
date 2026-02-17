@@ -82,6 +82,51 @@ function removeFiltersMarkedForRemoval(filter: unknown): unknown {
 }
 
 /**
+ * By default we use options.range for the query interval. This updates expr and builder
+ * so intervals always reflect the request range (dashboard or e.g. MetaQueries timeshift).
+ */
+function applyRequestRangeToQuery(
+  target: { expr?: string; builder?: any; [key: string]: unknown },
+  range?: { from: Date | string; to: Date | string }
+): typeof target {
+  if (range?.from == null || range?.to == null) return target;
+  const fromISO =
+    typeof range.from === 'string'
+      ? range.from
+      : typeof (range.from as Date).toISOString === 'function'
+        ? (range.from as Date).toISOString()
+        : new Date(range.from as string).toISOString();
+  const toISO =
+    typeof range.to === 'string'
+      ? range.to
+      : typeof (range.to as Date).toISOString === 'function'
+        ? (range.to as Date).toISOString()
+        : new Date(range.to as string).toISOString();
+  const intervalStr = `${fromISO}/${toISO}`;
+  const intervalsPayload = { type: 'intervals' as const, intervals: [intervalStr] };
+
+  let expr = target.expr;
+  if (expr && typeof expr === 'string' && expr.trim() !== '') {
+    try {
+      const payload = JSON.parse(expr) as { builder?: { intervals?: unknown }; settings?: unknown };
+      if (payload.builder) {
+        payload.builder.intervals = intervalsPayload;
+        expr = JSON.stringify(payload);
+      }
+    } catch {
+      // leave expr unchanged if parse fails
+    }
+  }
+
+  const builder =
+    target.builder && typeof target.builder === 'object'
+      ? { ...target.builder, intervals: intervalsPayload }
+      : target.builder;
+
+  return { ...target, expr: expr ?? target.expr, builder };
+}
+
+/**
  * Returns which attributes of a filter should have template variables substituted.
  * For json filters only 'value' is substituted, so that a variable like $domain_filter
  * (whose value is a JSON string) is replaced as a string; later the backend parses it.
@@ -177,22 +222,9 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   query(options: any) {
     const uniqueRequestId =
       (options?.requestId ?? 'query') + '-' + Math.random().toString(36).slice(2, 11);
-    // Inject request range into each target so the backend uses it for __from/__to interpolation.
-    // When meta-queries runs a timeshift child, it calls us with options.range = shifted range;
-    // without this, the backend would use the panel range and both base and timeshift would get the same intervals.
+    // By default use options.range for the interval; bake it into expr/builder before sending.
     const targetsWithRange =
-      options?.targets?.map((t: any) => {
-        if (options.range?.from == null || options.range?.to == null) return t;
-        const from =
-          typeof options.range.from.toISOString === 'function'
-            ? options.range.from.toISOString()
-            : new Date(options.range.from).toISOString();
-        const to =
-          typeof options.range.to.toISOString === 'function'
-            ? options.range.to.toISOString()
-            : new Date(options.range.to).toISOString();
-        return { ...t, __timeRangeOverride: { from, to } };
-      }) ?? options?.targets;
+      options?.targets?.map((t: any) => applyRequestRangeToQuery(t, options.range)) ?? options?.targets;
     const uniqueOptions = {
       ...options,
       requestId: uniqueRequestId,
