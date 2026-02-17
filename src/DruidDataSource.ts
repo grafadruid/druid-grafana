@@ -171,9 +171,12 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
    */
   query(options: any) {
     return super.query(options).pipe(
-      map((response: { data?: unknown[]; frames?: unknown[]; [key: string]: unknown }) =>
-        ensureMetaqueriesCompatibleResponse(response)
-      )
+      map((response: { data?: unknown[]; frames?: unknown[]; [key: string]: unknown }) => {
+        console.error('[Druid] query: response received from backend (before metaqueries compat)', response);
+        const out = ensureMetaqueriesCompatibleResponse(response);
+        console.error('[Druid] query: output sent to Grafana / metaqueries (after metaqueries compat)', out);
+        return out;
+      })
     );
   }
   applyTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
@@ -228,16 +231,14 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
           : templatedQuery.expr,
     };
     console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
-    this.postResource('query-variable', result)
-      .then((response) => {
-        console.error('[Druid] response from Druid (query-variable):', response);
-      })
+    /* this.postResource('query-variable', result)
+      .then((response) => {console.error('[Druid] response from Druid (query-variable):', response)})
       .catch((err: { response?: { status?: number; data?: unknown }; status?: number; data?: unknown }) => {
         const status = err.response?.status ?? err.status;
         const body = err.response?.data ?? err.data ?? err;
         console.error('[Druid] query-variable failed:', status, body);
         console.error('[Druid] query-variable full error:', err);
-      });
+      }); */
     return result;
   }
 
