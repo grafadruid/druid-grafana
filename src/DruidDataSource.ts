@@ -1,6 +1,8 @@
 import { DataSourceInstanceSettings, MetricFindValue, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
+import { map } from 'rxjs/operators';
 import { DruidSettings, DruidQuery } from './types';
+import { ensureMetaqueriesCompatibleResponse } from './metaqueriesCompat';
 
 const druidVariableRegex = /\"\[\[(\w+)(?::druid:(\w+))?\]\]\"|\"\${(\w+)(?::druid:(\w+))?}\"/g;
 
@@ -160,6 +162,19 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   }
   filterQuery(query: DruidQuery) {
     return !query.hide;
+  }
+
+  /**
+   * Override query so the response shape is compatible with the grafana-meta-queries plugin:
+   * result.data (not only result.frames), each series with target/name and datapoints (and
+   * fields with Vector-like .values.get(i) for the DataFrame path).
+   */
+  query(options: any) {
+    return super.query(options).pipe(
+      map((response: { data?: unknown[]; frames?: unknown[]; [key: string]: unknown }) =>
+        ensureMetaqueriesCompatibleResponse(response)
+      )
+    );
   }
   applyTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
     console.error('[Druid] applyTemplateVariables received from Grafana:', {
