@@ -177,7 +177,27 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   query(options: any) {
     const uniqueRequestId =
       (options?.requestId ?? 'query') + '-' + Math.random().toString(36).slice(2, 11);
-    const uniqueOptions = { ...options, requestId: uniqueRequestId };
+    // Inject request range into each target so the backend uses it for __from/__to interpolation.
+    // When meta-queries runs a timeshift child, it calls us with options.range = shifted range;
+    // without this, the backend would use the panel range and both base and timeshift would get the same intervals.
+    const targetsWithRange =
+      options?.targets?.map((t: any) => {
+        if (options.range?.from == null || options.range?.to == null) return t;
+        const from =
+          typeof options.range.from.toISOString === 'function'
+            ? options.range.from.toISOString()
+            : new Date(options.range.from).toISOString();
+        const to =
+          typeof options.range.to.toISOString === 'function'
+            ? options.range.to.toISOString()
+            : new Date(options.range.to).toISOString();
+        return { ...t, __timeRangeOverride: { from, to } };
+      }) ?? options?.targets;
+    const uniqueOptions = {
+      ...options,
+      requestId: uniqueRequestId,
+      targets: targetsWithRange,
+    };
     return super.query(uniqueOptions).pipe(
       map((response: { data?: unknown[]; frames?: unknown[]; [key: string]: unknown }) => {
         console.error('[Druid] query: response received from backend (before metaqueries compat)', response);
