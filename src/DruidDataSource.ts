@@ -168,9 +168,17 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
    * Override query so the response shape is compatible with the grafana-meta-queries plugin:
    * result.data (not only result.frames), each series with target/name and datapoints (and
    * fields with Vector-like .values.get(i) for the DataFrame path).
+   *
+   * When metaqueries is the parent and has multiple child datasources (e.g. grafana-druid +
+   * metaqueries for timeshift), it calls this datasource multiple times with the same requestId.
+   * Grafana cancels the first in-flight request when a second with the same requestId is sent.
+   * We give each call a unique requestId so simultaneous requests are not cancelled.
    */
   query(options: any) {
-    return super.query(options).pipe(
+    const uniqueRequestId =
+      (options?.requestId ?? 'query') + '-' + Math.random().toString(36).slice(2, 11);
+    const uniqueOptions = { ...options, requestId: uniqueRequestId };
+    return super.query(uniqueOptions).pipe(
       map((response: { data?: unknown[]; frames?: unknown[]; [key: string]: unknown }) => {
         console.error('[Druid] query: response received from backend (before metaqueries compat)', response);
         const out = ensureMetaqueriesCompatibleResponse(response);
