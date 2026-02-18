@@ -105,12 +105,12 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
   const indices = findTimeAndValueFieldIndices(frame);
   const fields = frame.fields || [];
   const len = frame.length ?? (fields[0] ? getFieldLength(fields[0]) : 0);
+  const targetLabel = frame.refId ?? frame.name ?? 'series';
 
   if (!indices || len === 0) {
-    const seriesName = frame.name ?? frame.refId ?? 'series';
     const datum: Record<string, unknown> = {
-      target: seriesName,
-      name: seriesName,
+      target: targetLabel,
+      name: frame.name ?? frame.refId ?? 'series',
       datapoints: [],
       refId: frame.refId,
       length: 0,
@@ -139,7 +139,7 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
       }
     }
     const datum: Record<string, unknown> = {
-      target: seriesName,
+      target: targetLabel,
       name: seriesName,
       datapoints,
       refId: frame.refId,
