@@ -105,9 +105,11 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
   const indices = findTimeAndValueFieldIndices(frame);
   const fields = frame.fields || [];
   const len = frame.length ?? (fields[0] ? getFieldLength(fields[0]) : 0);
+  const target = frame.refId ?? frame.name ?? 'series';
 
   if (!indices || len === 0) {
     const datum: Record<string, unknown> = {
+      target,
       datapoints: [],
       refId: frame.refId,
       length: 0,
@@ -135,6 +137,7 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
       }
     }
     const datum: Record<string, unknown> = {
+      target,
       datapoints,
       refId: frame.refId,
       length: datapoints.length,
@@ -152,7 +155,7 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
 /**
  * Transform backend/frontend response so it has result.data in a shape metaqueries expects.
  * - Ensures response.data exists (copy from response.frames if needed).
- * - Each item in data gets refId, datapoints, and fields (metric name in fields[1].name).
+ * - Each item in data gets target, refId, datapoints, and fields (metric name in fields[1].name).
  */
 export function ensureMetaqueriesCompatibleResponse(response: {
   data?: unknown[];
