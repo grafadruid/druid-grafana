@@ -1,7 +1,7 @@
 /**
  * Ensures query response shape is compatible with the grafana-meta-queries plugin.
- * Metaqueries expects result.data (not result.frames), each datum with refId, datapoints,
- * and fields (metric name in fields[1].name); fields[].values with .length and .get(i) (Vector API).
+ * Metaqueries expects result.data (not result.frames), each datum with target/name and
+ * either datapoints (legacy) or fields[].values with .length and .get(i) (Vector API).
  */
 
 import { FieldType } from '@grafana/data';
@@ -105,11 +105,12 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
   const indices = findTimeAndValueFieldIndices(frame);
   const fields = frame.fields || [];
   const len = frame.length ?? (fields[0] ? getFieldLength(fields[0]) : 0);
-  const target = frame.refId ?? frame.name ?? 'series';
 
   if (!indices || len === 0) {
+    const seriesName = frame.name ?? frame.refId ?? 'series';
     const datum: Record<string, unknown> = {
-      target,
+      target: seriesName,
+      name: seriesName,
       datapoints: [],
       refId: frame.refId,
       length: 0,
@@ -126,6 +127,7 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
 
   for (const valueIdx of valueIndices) {
     const valueField = fields[valueIdx];
+    const seriesName = valueField.name ?? frame.name ?? frame.refId ?? 'series';
     const datapoints: [number, number][] = [];
     for (let i = 0; i < len; i++) {
       const t = getFieldValue(timeField, i);
@@ -137,7 +139,8 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
       }
     }
     const datum: Record<string, unknown> = {
-      target,
+      target: seriesName,
+      name: seriesName,
       datapoints,
       refId: frame.refId,
       length: datapoints.length,
@@ -155,7 +158,7 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
 /**
  * Transform backend/frontend response so it has result.data in a shape metaqueries expects.
  * - Ensures response.data exists (copy from response.frames if needed).
- * - Each item in data gets target, refId, datapoints, and fields (metric name in fields[1].name).
+ * - Each item in data gets target, name, and datapoints; keeps fields for DataFrame path.
  */
 export function ensureMetaqueriesCompatibleResponse(response: {
   data?: unknown[];
