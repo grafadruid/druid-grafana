@@ -690,6 +690,53 @@ func extractHiddenMetricsAndStripFromBuilder(builder map[string]any) []string {
 	return hidden
 }
 
+// extractGroupBySeriesOpts extracts dimension and metric names from a groupBy query builder
+// for use when building "groupName:metric" series (old plugin compatibility). Returns
+// dimension names (as they appear in the response event), metric names, and true if this is groupBy.
+func extractGroupBySeriesOpts(builder map[string]any) (dimensions []string, metrics []string, ok bool) {
+	if builder == nil {
+		return nil, nil, false
+	}
+	if qt, _ := builder["queryType"].(string); qt != "groupBy" {
+		return nil, nil, false
+	}
+	// Dimensions: string = dimension name; object may have "outputName" or "dimension"
+	if dims, _ := builder["dimensions"].([]any); dims != nil {
+		for _, d := range dims {
+			switch v := d.(type) {
+			case string:
+				if v != "" {
+					dimensions = append(dimensions, v)
+				}
+			case map[string]any:
+				if name, _ := v["outputName"].(string); name != "" {
+					dimensions = append(dimensions, name)
+				} else if name, _ := v["dimension"].(string); name != "" {
+					dimensions = append(dimensions, name)
+				}
+			}
+		}
+	}
+	// Metrics: aggregation "name" (excluding hidden)
+	hidden := make(map[string]bool)
+	for _, s := range extractHiddenMetricsAndStripFromBuilder(builder) {
+		hidden[s] = true
+	}
+	if aggs, _ := builder["aggregations"].([]any); aggs != nil {
+		for _, a := range aggs {
+			m, _ := a.(map[string]any)
+			if m == nil {
+				continue
+			}
+			name, _ := m["name"].(string)
+			if name != "" && !hidden[name] {
+				metrics = append(metrics, name)
+			}
+		}
+	}
+	return dimensions, metrics, len(dimensions) > 0 && len(metrics) > 0
+}
+
 // expandJsonFiltersInBuilder walks the builder's filter tree and replaces any filter
 // with type "json" by parsing filter.value as JSON. Template variables (e.g. $variable_name)
 // are already replaced by Grafana before the query reaches the backend.
@@ -825,6 +872,19 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 			hiddenNamesAny[i] = s
 		}
 		settings["_hiddenMetricNames"] = hiddenNamesAny
+	}
+	// Extract groupBy dimensions and metrics for "groupName:metric" series
+	if dims, metrics, ok := extractGroupBySeriesOpts(builder); ok {
+		dimsAny := make([]any, len(dims))
+		for i, s := range dims {
+			dimsAny[i] = s
+		}
+		metricsAny := make([]any, len(metrics))
+		for i, s := range metrics {
+			metricsAny[i] = s
+		}
+		settings["_groupByDimensions"] = dimsAny
+		settings["_groupByMetrics"] = metricsAny
 	}
 
 	var defaultQueryContext map[string]any
@@ -1657,6 +1717,136 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	return r, nil
 }
 
+// buildGroupBySeriesFrame builds a wide frame with Time + one column per "groupName:metric" series
+func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data.Frame {
+	var dims, metrics []string
+	for _, d := range asStringSlice(settings["_groupByDimensions"]) {
+		dims = append(dims, d)
+	}
+	for _, m := range asStringSlice(settings["_groupByMetrics"]) {
+		metrics = append(metrics, m)
+	}
+	if len(dims) == 0 || len(metrics) == 0 || len(resp.Rows) == 0 {
+		return nil
+	}
+	colIdx := make(map[string]int)
+	for i, c := range resp.Columns {
+		colIdx[c.Name] = i
+	}
+	timeIdx := 0
+	if _, ok := colIdx["timestamp"]; ok {
+		timeIdx = colIdx["timestamp"]
+	}
+	dimIndices := make([]int, 0, len(dims))
+	for _, d := range dims {
+		if i, ok := colIdx[d]; ok {
+			dimIndices = append(dimIndices, i)
+		}
+	}
+	metricIndices := make([]int, 0, len(metrics))
+	for _, m := range metrics {
+		if i, ok := colIdx[m]; ok {
+			metricIndices = append(metricIndices, i)
+		}
+	}
+	if len(dimIndices) == 0 || len(metricIndices) == 0 {
+		return nil
+	}
+	// Build (time, seriesName, value) and collect unique times and series for wide format
+	type key struct{ t int64; s string }
+	points := make(map[key]float64)
+	var timeOrder []int64
+	timeSeen := make(map[int64]bool)
+	var seriesOrder []string
+	seriesSeen := make(map[string]bool)
+	for _, r := range resp.Rows {
+		parts := make([]string, 0, len(dimIndices))
+		for _, di := range dimIndices {
+			parts = append(parts, cellToString(r[di]))
+		}
+		groupName := strings.Join(parts, "-")
+		t := parseRowTime(r[timeIdx])
+		ts := t.UnixMilli()
+		if !timeSeen[ts] {
+			timeSeen[ts] = true
+			timeOrder = append(timeOrder, ts)
+		}
+		for _, mi := range metricIndices {
+			metricName := resp.Columns[mi].Name
+			s := groupName + ":" + metricName
+			if !seriesSeen[s] {
+				seriesSeen[s] = true
+				seriesOrder = append(seriesOrder, s)
+			}
+			points[key{t: ts, s: s}] = cellToFloat64(r[mi])
+		}
+	}
+	if len(timeOrder) == 0 || len(seriesOrder) == 0 {
+		return nil
+	}
+	sort.Slice(timeOrder, func(i, j int) bool { return timeOrder[i] < timeOrder[j] })
+	// Build wide frame: Time + one column per series
+	times := make([]time.Time, len(timeOrder))
+	for i, ts := range timeOrder {
+		times[i] = time.UnixMilli(ts)
+	}
+	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
+	for _, s := range seriesOrder {
+		vals := make([]float64, len(timeOrder))
+		for i, ts := range timeOrder {
+			if v, ok := points[key{t: ts, s: s}]; ok {
+				vals[i] = v
+			} else {
+				vals[i] = math.NaN()
+			}
+		}
+		frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+	}
+	return frame
+}
+
+func asStringSlice(v any) []string {
+	if v == nil {
+		return nil
+	}
+	if ss, ok := v.([]string); ok {
+		return ss
+	}
+	aa, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for _, a := range aa {
+		if s, ok := a.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func parseRowTime(v any) time.Time {
+	if v == nil {
+		return time.Time{}
+	}
+	switch x := v.(type) {
+	case string:
+		t, err := parseTime(x)
+		if err != nil {
+			return time.Now()
+		}
+		return t
+	case float64:
+		sec, dec := math.Modf(x / 1000)
+		return time.Unix(int64(sec), int64(dec*(1e9)))
+	case int64:
+		return time.Unix(x/1000, 0)
+	case int:
+		return time.Unix(int64(x)/1000, 0)
+	}
+	return time.Time{}
+}
+
 func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]any) (backend.DataResponse, error) {
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
@@ -1690,6 +1880,13 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		resp.Rows = resp.Rows[:int(responseLimit)]
 		response.Error = fmt.Errorf("query response limit exceeded (> %d rows): consider adding filters and/or reducing the query time range", int(responseLimit))
 	}
+
+	// groupBy: build "groupName:metric" series (old plugin compatibility)
+	if groupByFrame := buildGroupBySeriesFrame(resp, settings); groupByFrame != nil {
+		response.Frames = append(response.Frames, groupByFrame)
+		return response, nil
+	}
+
 	for ic, c := range resp.Columns {
 		if hiddenMetricNames[c.Name] {
 			continue
