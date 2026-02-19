@@ -1830,6 +1830,7 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 	for i, ts := range timeOrder {
 		times[i] = time.UnixMilli(ts)
 	}
+	var zero float64 = 0
 	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
 	for _, s := range seriesOrder {
 		vals := make([]*float64, len(timeOrder))
@@ -1838,7 +1839,7 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 				vCopy := v
 				vals[i] = &vCopy
 			} else {
-				vals[i] = nil
+				vals[i] = &zero
 			}
 		}
 		frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
@@ -1893,6 +1894,7 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 	for i, ts := range timeOrder {
 		times[i] = time.UnixMilli(ts)
 	}
+	var zero float64 = 0
 	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
 	for _, s := range seriesOrder {
 		vals := make([]*float64, len(timeOrder))
@@ -1901,7 +1903,7 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 				vCopy := v
 				vals[i] = &vCopy
 			} else {
-				vals[i] = nil
+				vals[i] = &zero
 			}
 		}
 		frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
