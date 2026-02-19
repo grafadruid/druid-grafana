@@ -1792,12 +1792,13 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 	}
 	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
 	for _, s := range seriesOrder {
-		vals := make([]float64, len(timeOrder))
+		vals := make([]*float64, len(timeOrder))
 		for i, ts := range timeOrder {
 			if v, ok := points[key{t: ts, s: s}]; ok {
-				vals[i] = v
+				vCopy := v
+				vals[i] = &vCopy
 			} else {
-				vals[i] = math.NaN()
+				vals[i] = nil
 			}
 		}
 		frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
