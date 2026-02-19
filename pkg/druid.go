@@ -1048,6 +1048,26 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		c.Type = election(t)
 	}
 
+	// asResultSlice converts topN "result" (either []map[string]any or []interface{}) to []map[string]any.
+	asResultSlice := func(v any) ([]map[string]any, bool) {
+		if v == nil {
+			return nil, false
+		}
+		switch s := v.(type) {
+		case []map[string]any:
+			return s, true
+		case []interface{}:
+			out := make([]map[string]any, 0, len(s))
+			for _, item := range s {
+				if m, ok := item.(map[string]any); ok {
+					out = append(out, m)
+				}
+			}
+			return out, true
+		}
+		return nil, false
+	}
+
 	switch queryType {
 	case "sql":
 		var sqlr []any
@@ -1103,15 +1123,16 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		err := json.Unmarshal(result, &tn)
 		if err == nil && len(tn) > 0 {
 			columns := []string{"timestamp"}
-			for c := range tn[0]["result"].([]map[string]any)[0] {
-				columns = append(columns, c)
+			if colResults, ok := asResultSlice(tn[0]["result"]); ok && len(colResults) > 0 {
+				for c := range colResults[0] {
+					columns = append(columns, c)
+				}
 			}
 			for _, result := range tn {
 				var row []any
 				t := result["timestamp"]
 				row = append(row, t)
-				colResults := result["result"].([]map[string]any)
-				if len(colResults) > 0 {
+				if colResults, ok := asResultSlice(result["result"]); ok && len(colResults) > 0 {
 					for _, c := range columns[1:] {
 						row = append(row, colResults[0][c])
 					}
