@@ -1123,9 +1123,13 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		err := json.Unmarshal(result, &tn)
 		if err == nil && len(tn) > 0 {
 			columns := []string{"timestamp"}
-			if colResults, ok := asResultSlice(tn[0]["result"]); ok && len(colResults) > 0 {
-				for c := range colResults[0] {
-					columns = append(columns, c)
+			// Derive dimension/metric columns from the first bucket that has a non-empty result
+			for _, bucket := range tn {
+				if colResults, ok := asResultSlice(bucket["result"]); ok && len(colResults) > 0 {
+					for c := range colResults[0] {
+						columns = append(columns, c)
+					}
+					break
 				}
 			}
 			for _, result := range tn {
@@ -1136,6 +1140,10 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 					for _, c := range columns[1:] {
 						row = append(row, colResults[0][c])
 					}
+				}
+				// Pad with nil so row length matches columns when this bucket has no result
+				for len(row) < len(columns) {
+					row = append(row, nil)
 				}
 				r.Rows = append(r.Rows, row)
 			}
