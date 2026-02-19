@@ -886,6 +886,19 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 		settings["_groupByDimensions"] = dimsAny
 		settings["_groupByMetrics"] = metricsAny
 	}
+	// Extract topN dimension and metric for series-style response (stacked charts, old plugin compatibility)
+	if qt, _ := builder["queryType"].(string); qt == "topN" {
+		if dim, ok := builder["dimension"].(map[string]any); ok {
+			if d, ok := dim["dimension"].(string); ok {
+				settings["_topNDimension"] = d
+			}
+		}
+		if met, ok := builder["metric"].(map[string]any); ok {
+			if m, ok := met["metric"].(string); ok {
+				settings["_topNMetric"] = m
+			}
+		}
+	}
 
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
@@ -1048,26 +1061,6 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		c.Type = election(t)
 	}
 
-	// asResultSlice converts topN "result" (either []map[string]any or []interface{}) to []map[string]any.
-	asResultSlice := func(v any) ([]map[string]any, bool) {
-		if v == nil {
-			return nil, false
-		}
-		switch s := v.(type) {
-		case []map[string]any:
-			return s, true
-		case []interface{}:
-			out := make([]map[string]any, 0, len(s))
-			for _, item := range s {
-				if m, ok := item.(map[string]any); ok {
-					out = append(out, m)
-				}
-			}
-			return out, true
-		}
-		return nil, false
-	}
-
 	switch queryType {
 	case "sql":
 		var sqlr []any
@@ -1133,20 +1126,27 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 				}
 			}
 			for _, result := range tn {
-				var row []any
 				t := result["timestamp"]
-				row = append(row, t)
 				if colResults, ok := asResultSlice(result["result"]); ok && len(colResults) > 0 {
-					for _, c := range columns[1:] {
-						row = append(row, colResults[0][c])
+					for _, entry := range colResults {
+						var row []any
+						row = append(row, t)
+						for _, c := range columns[1:] {
+							row = append(row, entry[c])
+						}
+						r.Rows = append(r.Rows, row)
 					}
+				} else {
+					// Empty bucket: one row with timestamp and nils
+					row := []any{t}
+					for len(row) < len(columns) {
+						row = append(row, nil)
+					}
+					r.Rows = append(r.Rows, row)
 				}
-				// Pad with nil so row length matches columns when this bucket has no result
-				for len(row) < len(columns) {
-					row = append(row, nil)
-				}
-				r.Rows = append(r.Rows, row)
 			}
+			// Fill missing dimension values per timestamp (for stacked charts, old plugin compatibility)
+			fillTopNMissingDimensionValues(&r.Rows, columns, settings)
 			for i, c := range columns {
 				col := struct {
 					Name string
@@ -1473,26 +1473,37 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		var tn []map[string]any
 		err := json.Unmarshal(result, &tn)
 		if err == nil && len(tn) > 0 {
-			var columns []string
-			for _, result := range tn {
-				if columns == nil && len(result["result"].([]any)) > 0 {
-					columns = append(columns, "timestamp")
-					for c := range result["result"].([]any)[0].(map[string]any) {
-						columns = append(columns, c)
+			columns := []string{"timestamp"}
+			for _, bucket := range tn {
+				if colResults, ok := asResultSlice(bucket["result"]); ok && len(colResults) > 0 {
+					if len(columns) == 1 {
+						for c := range colResults[0] {
+							columns = append(columns, c)
+						}
 					}
+					break
 				}
-				for _, record := range result["result"].([]any) {
-					var row []any
-					row = append(row, result["timestamp"])
-					o, ok := record.(map[string]any)
-					if ok {
+			}
+			for _, result := range tn {
+				t := result["timestamp"]
+				if colResults, ok := asResultSlice(result["result"]); ok && len(colResults) > 0 {
+					for _, entry := range colResults {
+						var row []any
+						row = append(row, t)
 						for _, c := range columns[1:] {
-							row = append(row, o[c])
+							row = append(row, entry[c])
 						}
 						r.Rows = append(r.Rows, row)
 					}
+				} else {
+					row := []any{t}
+					for len(row) < len(columns) {
+						row = append(row, nil)
+					}
+					r.Rows = append(r.Rows, row)
 				}
 			}
+			fillTopNMissingDimensionValues(&r.Rows, columns, settings)
 			for i, c := range columns {
 				col := struct {
 					Name string
@@ -1835,6 +1846,69 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 	return frame
 }
 
+// buildTopNSeriesFrame builds a wide frame with Time + one column per dimension value (topN series, old plugin compatibility).
+// Uses filled rows (missing dimension values per timestamp already have nil metric) so stacked charts sum correctly.
+func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Frame {
+	dimName, _ := settings["_topNDimension"].(string)
+	metricName, _ := settings["_topNMetric"].(string)
+	if dimName == "" || metricName == "" || len(resp.Rows) == 0 {
+		return nil
+	}
+	colIdx := make(map[string]int)
+	for i, c := range resp.Columns {
+		colIdx[c.Name] = i
+	}
+	timeIdx, hasTime := colIdx["timestamp"]
+	dimIdx, hasDim := colIdx[dimName]
+	metricIdx, hasMetric := colIdx[metricName]
+	if !hasTime || !hasDim || !hasMetric {
+		return nil
+	}
+	type key struct{ t int64; s string }
+	points := make(map[key]float64)
+	var timeOrder []int64
+	timeSeen := make(map[int64]bool)
+	var seriesOrder []string
+	seriesSeen := make(map[string]bool)
+	for _, r := range resp.Rows {
+		ts := parseRowTime(r[timeIdx]).UnixMilli()
+		if !timeSeen[ts] {
+			timeSeen[ts] = true
+			timeOrder = append(timeOrder, ts)
+		}
+		s := cellToString(r[dimIdx])
+		if !seriesSeen[s] {
+			seriesSeen[s] = true
+			seriesOrder = append(seriesOrder, s)
+		}
+		if r[metricIdx] != nil {
+			points[key{t: ts, s: s}] = cellToFloat64(r[metricIdx])
+		}
+	}
+	if len(timeOrder) == 0 || len(seriesOrder) == 0 {
+		return nil
+	}
+	sort.Slice(timeOrder, func(i, j int) bool { return timeOrder[i] < timeOrder[j] })
+	times := make([]time.Time, len(timeOrder))
+	for i, ts := range timeOrder {
+		times[i] = time.UnixMilli(ts)
+	}
+	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
+	for _, s := range seriesOrder {
+		vals := make([]*float64, len(timeOrder))
+		for i, ts := range timeOrder {
+			if v, ok := points[key{t: ts, s: s}]; ok {
+				vCopy := v
+				vals[i] = &vCopy
+			} else {
+				vals[i] = nil
+			}
+		}
+		frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+	}
+	return frame
+}
+
 func asStringSlice(v any) []string {
 	if v == nil {
 		return nil
@@ -1853,6 +1927,84 @@ func asStringSlice(v any) []string {
 		}
 	}
 	return out
+}
+
+// asResultSlice converts topN "result" (either []map[string]any or []interface{}) to []map[string]any.
+func asResultSlice(v any) ([]map[string]any, bool) {
+	if v == nil {
+		return nil, false
+	}
+	switch s := v.(type) {
+	case []map[string]any:
+		return s, true
+	case []interface{}:
+		out := make([]map[string]any, 0, len(s))
+		for _, item := range s {
+			if m, ok := item.(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+		return out, true
+	}
+	return nil, false
+}
+
+// fillTopNMissingDimensionValues appends rows for (timestamp, dimension value) pairs that are missing,
+// with metric = nil, so stacked charts have a consistent set of series (old plugin compatibility).
+func fillTopNMissingDimensionValues(rows *[][]any, columns []string, settings map[string]any) {
+	dimName, _ := settings["_topNDimension"].(string)
+	metricName, _ := settings["_topNMetric"].(string)
+	colIdx := make(map[string]int)
+	for i, c := range columns {
+		colIdx[c] = i
+	}
+	if dimName == "" && len(columns) >= 2 {
+		dimName = columns[1]
+	}
+	if metricName == "" && len(columns) >= 3 {
+		metricName = columns[2]
+	}
+	if dimName == "" || metricName == "" {
+		return
+	}
+	dimIdx := colIdx[dimName]
+	metricIdx := colIdx[metricName]
+	timeIdx := colIdx["timestamp"]
+	allDimVals := make([]string, 0)
+	seenDim := make(map[string]bool)
+	for _, row := range *rows {
+		if dimIdx < len(row) && row[dimIdx] != nil {
+			s := cellToString(row[dimIdx])
+			if s != "" && !seenDim[s] {
+				seenDim[s] = true
+				allDimVals = append(allDimVals, s)
+			}
+		}
+	}
+	type timeDimKey struct{ t int64; d string }
+	present := make(map[timeDimKey]bool)
+	timeVals := make(map[int64]any)
+	for _, row := range *rows {
+		if timeIdx >= len(row) {
+			continue
+		}
+		ts := parseRowTime(row[timeIdx]).UnixMilli()
+		timeVals[ts] = row[timeIdx]
+		present[timeDimKey{ts, cellToString(row[dimIdx])}] = true
+	}
+	for ts, tVal := range timeVals {
+		for _, d := range allDimVals {
+			if present[timeDimKey{ts, d}] {
+				continue
+			}
+			present[timeDimKey{ts, d}] = true
+			newRow := make([]any, len(columns))
+			newRow[timeIdx] = tVal
+			newRow[dimIdx] = d
+			newRow[metricIdx] = nil
+			*rows = append(*rows, newRow)
+		}
+	}
 }
 
 func parseRowTime(v any) time.Time {
@@ -1914,6 +2066,11 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	// groupBy: build "groupName:metric" series (old plugin compatibility)
 	if groupByFrame := buildGroupBySeriesFrame(resp, settings); groupByFrame != nil {
 		response.Frames = append(response.Frames, groupByFrame)
+		return response, nil
+	}
+	// topN: build Time + one column per dimension value (stacked charts, old plugin compatibility)
+	if topNFrame := buildTopNSeriesFrame(resp, settings); topNFrame != nil {
+		response.Frames = append(response.Frames, topNFrame)
 		return response, nil
 	}
 
