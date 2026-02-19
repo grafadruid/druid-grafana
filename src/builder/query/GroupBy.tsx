@@ -9,7 +9,6 @@ import { Granularity } from '../granularity';
 import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
-import { Intervals } from '../querysegmentspec';
 import { VirtualColumn } from '../virtualcolumn';
 
 export const GroupBy = (props: QueryBuilderProps) => {
@@ -17,45 +16,34 @@ export const GroupBy = (props: QueryBuilderProps) => {
   const scopedComponentProps = useScopedQueryBuilderProps(props, GroupBy);
   return (
     <>
-      <Row>
-        <DataSource {...scopedComponentProps('dataSource')} />
-      </Row>
-      <Row>
-        <Intervals {...scopedComponentProps('intervals')} />
-      </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('dimensions')}
-          label="Dimensions"
-          description="The dimensions"
-          component={Dimension}
-          componentExtraProps={{}}
-        />
-      </Row>
+      <DataSource {...scopedComponentProps('dataSource')} inline />
+      <Multiple
+        {...scopedProps('dimensions')}
+        label="Dimensions"
+        description="The dimensions"
+        component={Dimension}
+        componentExtraProps={{}}
+      />
       <Row>
         <LimitSpec {...scopedComponentProps('limitSpec')} />
       </Row>
-      <Row>
-        <HavingSpec {...scopedComponentProps('having')} />
-      </Row>
+      <HavingSpec {...scopedComponentProps('having')} />
       <Row>
         <Granularity {...scopedComponentProps('granularity')} />
       </Row>
       <Row>
         <RootFilter {...scopedComponentProps('filter')} />
       </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('aggregations')}
-          label="Aggregations"
-          description="The aggregations"
-          component={Aggregation}
-          componentExtraProps={{
-            label: 'Aggregation',
-            description: 'An aggregation',
-          }}
-        />
-      </Row>
+      <Multiple
+        {...scopedProps('aggregations')}
+        label="Aggregations"
+        description="The aggregations"
+        component={Aggregation}
+        componentExtraProps={{
+          label: 'Aggregation',
+          description: 'An aggregation',
+        }}
+      />
       <Row>
         <Multiple
           {...scopedProps('postAggregations')}
