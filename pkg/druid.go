@@ -1644,15 +1644,23 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		err := json.Unmarshal(result, &sm)
 		if err == nil && len(sm) > 0 {
 			var columns []string
-			switch settings["view"].(string) {
+			view, _ := settings["view"].(string)
+			if view == "" {
+				view = "base"
+			}
+			switch view {
 			case "base":
 				for k, v := range sm[0] {
 					if k != "aggregators" && k != "columns" && k != "timestampSpec" {
 						if k == "intervals" {
-							for i := range v.([]any) {
-								pos := strconv.Itoa(i)
-								columns = append(columns, "interval_start_"+pos)
-								columns = append(columns, "interval_stop_"+pos)
+							if intervals, ok := v.([]any); ok && intervals != nil {
+								for i := range intervals {
+									pos := strconv.Itoa(i)
+									columns = append(columns, "interval_start_"+pos)
+									columns = append(columns, "interval_stop_"+pos)
+								}
+							} else {
+								columns = append(columns, k)
 							}
 						} else {
 							columns = append(columns, k)
@@ -1669,12 +1677,19 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 							if parts[1] == "stop" {
 								pos = 1
 							}
-							idx, err := strconv.Atoi(parts[2])
-							if err != nil {
+							idx, parseErr := strconv.Atoi(parts[2])
+							if parseErr != nil {
 								return r, errors.New("interval parsing goes wrong")
 							}
-							ii := result["intervals"].([]any)[idx]
-							col = strings.Split(ii.(string), "/")[pos]
+							intervals, _ := result["intervals"].([]any)
+							if intervals != nil && idx < len(intervals) && intervals[idx] != nil {
+								if s, ok := intervals[idx].(string); ok {
+									split := strings.Split(s, "/")
+									if pos < len(split) {
+										col = split[pos]
+									}
+								}
+							}
 						} else {
 							col = result[c]
 						}
@@ -1683,62 +1698,81 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 					r.Rows = append(r.Rows, row)
 				}
 			case "aggregators":
-				for _, v := range sm[0]["aggregators"].(map[string]any) {
-					columns = append(columns, "aggregator")
-					for k := range v.(map[string]any) {
-						columns = append(columns, k)
+				if aggs, ok := sm[0]["aggregators"].(map[string]any); ok && aggs != nil {
+					for _, v := range aggs {
+						if vm, ok := v.(map[string]any); ok {
+							columns = append(columns, "aggregator")
+							for k := range vm {
+								columns = append(columns, k)
+							}
+							break
+						}
 					}
-					break
 				}
 				for _, result := range sm {
-					for k, v := range result["aggregators"].(map[string]any) {
-						var row []any
-						for _, c := range columns {
-							var col any
-							if c == "aggregator" {
-								col = k
-							} else {
-								col = v.(map[string]any)[c]
+					if aggs, ok := result["aggregators"].(map[string]any); ok && aggs != nil {
+						for k, v := range aggs {
+							if vm, ok := v.(map[string]any); ok {
+								var row []any
+								for _, c := range columns {
+									var col any
+									if c == "aggregator" {
+										col = k
+									} else {
+										col = vm[c]
+									}
+									row = append(row, col)
+								}
+								r.Rows = append(r.Rows, row)
 							}
-							row = append(row, col)
 						}
-						r.Rows = append(r.Rows, row)
 					}
 				}
 			case "columns":
-				for _, v := range sm[0]["columns"].(map[string]any) {
-					columns = append(columns, "column")
-					for k := range v.(map[string]any) {
-						columns = append(columns, k)
+				if cols, ok := sm[0]["columns"].(map[string]any); ok && cols != nil {
+					for _, v := range cols {
+						if vm, ok := v.(map[string]any); ok {
+							columns = append(columns, "column")
+							for k := range vm {
+								columns = append(columns, k)
+							}
+							break
+						}
 					}
-					break
 				}
 				for _, result := range sm {
-					for k, v := range result["columns"].(map[string]any) {
-						var row []any
-						for _, c := range columns {
-							var col any
-							if c == "column" {
-								col = k
-							} else {
-								col = v.(map[string]any)[c]
+					if cols, ok := result["columns"].(map[string]any); ok && cols != nil {
+						for k, v := range cols {
+							if vm, ok := v.(map[string]any); ok {
+								var row []any
+								for _, c := range columns {
+									var col any
+									if c == "column" {
+										col = k
+									} else {
+										col = vm[c]
+									}
+									row = append(row, col)
+								}
+								r.Rows = append(r.Rows, row)
 							}
-							row = append(row, col)
 						}
-						r.Rows = append(r.Rows, row)
 					}
 				}
 			case "timestampspec":
-				for k := range sm[0]["timestampSpec"].(map[string]any) {
-					columns = append(columns, k)
+				if ts, ok := sm[0]["timestampSpec"].(map[string]any); ok && ts != nil {
+					for k := range ts {
+						columns = append(columns, k)
+					}
 				}
 				for _, result := range sm {
-					var row []any
-					for _, c := range columns {
-						col := result["timestampSpec"].(map[string]any)[c]
-						row = append(row, col)
+					if ts, ok := result["timestampSpec"].(map[string]any); ok && ts != nil {
+						var row []any
+						for _, c := range columns {
+							row = append(row, ts[c])
+						}
+						r.Rows = append(r.Rows, row)
 					}
-					r.Rows = append(r.Rows, row)
 				}
 			}
 			for i, c := range columns {
