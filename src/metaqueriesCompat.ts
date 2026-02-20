@@ -112,7 +112,7 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
       target: seriesName,
       datapoints: [],
       refId: frame.refId,
-      length: 0,
+      length: len,
     };
     if (fields.length > 0) {
       datum.fields = fields.map((f) => ({ ...f, values: ensureVectorLike(f.values) }));
