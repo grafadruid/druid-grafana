@@ -8,6 +8,7 @@ import { FieldType } from '@grafana/data';
 
 const TIME_FIELD_NAMES = ['time', 'timestamp', 'Time', 'Timestamp'];
 const TIME_FIELD_TYPE = FieldType?.time ?? 2;
+const FIELD_TYPE_STRING = FieldType?.string ?? 3;
 
 type FieldLike = {
   name: string;
@@ -98,8 +99,27 @@ function findTimeAndValueFieldIndices(
 }
 
 /**
+ * True when the frame should be shown as one table (all columns, all rows) instead of one series per value column.
+ * Use one table datum when there are multiple value columns or any string column (e.g. search: timestamp, dimension, value, count).
+ */
+function isTableShapedFrame(frame: FrameLike, valueIndices: number[]): boolean {
+  if (valueIndices.length > 1) {
+    return true;
+  }
+  const fields = frame.fields || [];
+  for (const idx of valueIndices) {
+    const f = fields[idx];
+    if (f && (f.type === FIELD_TYPE_STRING || f.type === (FieldType?.other ?? 0))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Convert a single frame to one or more series objects that metaqueries accepts.
- * Wide format (one time + multiple value columns) yields one datum per value column.
+ * Table-shaped frames (multiple value columns or string columns, e.g. Druid search) yield one datum with all fields so the table shows all rows.
+ * Single numeric value column yields one datum with datapoints (time-series).
  */
 function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
   const indices = findTimeAndValueFieldIndices(frame);
@@ -121,36 +141,46 @@ function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
   }
 
   const { timeIdx, valueIndices } = indices;
-  const timeField = fields[timeIdx];
-  const datums: Record<string, unknown>[] = [];
 
-  for (const valueIdx of valueIndices) {
-    const valueField = fields[valueIdx];
-    const seriesName = valueField.name ?? frame.name ?? frame.refId ?? 'series';
-    const datapoints: [number, number][] = [];
-    for (let i = 0; i < len; i++) {
-      const t = getFieldValue(timeField, i);
-      const v = getFieldValue(valueField, i);
-      const ts = typeof t === 'number' ? t : t instanceof Date ? t.getTime() : Number(t);
-      const val = typeof v === 'number' ? v : Number(v);
-      if (!Number.isNaN(ts) && !Number.isNaN(val)) {
-        datapoints.push([val, ts]);
-      }
-    }
+  // Table-shaped (e.g. search: timestamp, dimension, value, count): one datum with all columns so UI shows all rows
+  if (isTableShapedFrame(frame, valueIndices)) {
+    const seriesName = frame.name ?? frame.refId ?? 'series';
     const datum: Record<string, unknown> = {
       target: seriesName,
-      datapoints,
+      datapoints: [],
       refId: frame.refId,
-      length: datapoints.length,
+      length: len,
     };
-    datum.fields = [
-      { ...timeField, values: ensureVectorLike(timeField.values) },
-      { ...valueField, values: ensureVectorLike(valueField.values) },
-    ];
-    datums.push(datum);
+    datum.fields = fields.map((f) => ({ ...f, values: ensureVectorLike(f.values) }));
+    return [datum];
   }
 
-  return datums;
+  // Single numeric value column: one series with datapoints for time-series / metaqueries
+  const timeField = fields[timeIdx];
+  const valueIdx = valueIndices[0];
+  const valueField = fields[valueIdx];
+  const seriesName = valueField.name ?? frame.name ?? frame.refId ?? 'series';
+  const datapoints: [number, number][] = [];
+  for (let i = 0; i < len; i++) {
+    const t = getFieldValue(timeField, i);
+    const v = getFieldValue(valueField, i);
+    const ts = typeof t === 'number' ? t : t instanceof Date ? t.getTime() : Number(t);
+    const val = typeof v === 'number' ? v : Number(v);
+    if (!Number.isNaN(ts) && !Number.isNaN(val)) {
+      datapoints.push([val, ts]);
+    }
+  }
+  const datum: Record<string, unknown> = {
+    target: seriesName,
+    datapoints,
+    refId: frame.refId,
+    length: datapoints.length,
+  };
+  datum.fields = [
+    { ...timeField, values: ensureVectorLike(timeField.values) },
+    { ...valueField, values: ensureVectorLike(valueField.values) },
+  ];
+  return [datum];
 }
 
 /**
