@@ -32,20 +32,34 @@ export const useScopedQueryBuilderProps = (
       name = '';
     }
     let scopedProps = cloneDeep(props);
-    scopedProps.options.builder = name in builder ? builder[name] : undefined;
+    if (scopeType === ScopeType.Settings) {
+      scopedProps.options = { ...scopedProps.options, builder: props.options.settings?.[name] };
+    } else {
+      scopedProps.options.builder = name in builder ? builder[name] : undefined;
+    }
     scopedProps.rootBuilder = rootBuilder;
     scopedProps.onOptionsChange = (options: QueryBuilderOptions) => {
-      let newBuilder: any = {};
       if (name === undefined) {
         name = '';
       }
+      if (scopeType === ScopeType.Settings) {
+        const newSettings = { ...(props.options.settings || {}), [name]: options.builder };
+        props.onOptionsChange({ ...props.options, settings: newSettings });
+        return;
+      }
+      const isPlainObject =
+        options.builder != null &&
+        typeof options.builder === 'object' &&
+        !Array.isArray(options.builder);
+      let newBuilder: any;
       if (name in builder) {
         newBuilder = { ...builder, [name]: options.builder };
-      } else {
+      } else if (isPlainObject) {
         newBuilder = { ...builder, ...options.builder };
+      } else {
+        newBuilder = { ...builder, [name]: options.builder };
       }
-      let newOptions = { ...options, builder: newBuilder };
-      props.onOptionsChange(newOptions);
+      props.onOptionsChange({ ...options, builder: newBuilder });
     };
     return scopedProps;
   };
@@ -62,20 +76,34 @@ export const useScopedQueryBuilderFieldProps = (
       name = '';
     }
     let scopedProps: QueryBuilderFieldProps = { name: name, label: '', description: '', ...cloneDeep(props) };
-    scopedProps.options.builder = name in builder ? builder[name] : undefined;
+    if (scopeType === ScopeType.Settings) {
+      scopedProps.options = { ...scopedProps.options, builder: props.options.settings?.[name] };
+    } else {
+      scopedProps.options.builder = name in builder ? builder[name] : undefined;
+    }
     scopedProps.rootBuilder = rootBuilder;
     scopedProps.onOptionsChange = (options: QueryBuilderOptions) => {
-      let newBuilder: any = {};
       if (name === undefined) {
         name = '';
       }
+      if (scopeType === ScopeType.Settings) {
+        const newSettings = { ...(props.options.settings || {}), [name]: options.builder };
+        props.onOptionsChange({ ...props.options, settings: newSettings });
+        return;
+      }
+      const isPlainObject =
+        options.builder != null &&
+        typeof options.builder === 'object' &&
+        !Array.isArray(options.builder);
+      let newBuilder: any;
       if (name in builder) {
         newBuilder = { ...builder, [name]: options.builder };
-      } else {
+      } else if (isPlainObject) {
         newBuilder = { ...builder, ...options.builder };
+      } else {
+        newBuilder = { ...builder, [name]: options.builder };
       }
-      let newOptions = { ...options, builder: newBuilder };
-      props.onOptionsChange(newOptions);
+      props.onOptionsChange({ ...options, builder: newBuilder });
     };
     return scopedProps;
   };
