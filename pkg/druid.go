@@ -1012,6 +1012,9 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		if len(ss) > 0 {
 			return ss[0].Key
 		}
+		if queryType == "segmentMetadata" {
+			return "string"
+		}
 		return "float"
 	}
 
@@ -1416,6 +1419,10 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			})
 			if len(ss) > 0 {
 				return ss[0].Key
+			}
+			// For segmentMetadata, all-nil columns are often unused analysis fields; default to string. Others stay float.
+			if qtyp == "segmentMetadata" {
+				return "string"
 			}
 			return "float"
 		}
