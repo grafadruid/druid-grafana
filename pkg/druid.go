@@ -1805,6 +1805,10 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 			parts = append(parts, cellToString(r[di]))
 		}
 		groupName := strings.Join(parts, "-")
+		if groupName == "" {
+			// Skip rows with no dimension values (e.g. empty-bucket placeholder)
+			continue
+		}
 		t := parseRowTime(r[timeIdx])
 		ts := t.UnixMilli()
 		if !timeSeen[ts] {
@@ -1872,12 +1876,16 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 	var seriesOrder []string
 	seriesSeen := make(map[string]bool)
 	for _, r := range resp.Rows {
+		s := cellToString(r[dimIdx])
+		if s == "" {
+			// Skip empty-bucket rows (timestamp, nil dimension, nil metric); do not create a series for ""
+			continue
+		}
 		ts := parseRowTime(r[timeIdx]).UnixMilli()
 		if !timeSeen[ts] {
 			timeSeen[ts] = true
 			timeOrder = append(timeOrder, ts)
 		}
-		s := cellToString(r[dimIdx])
 		if !seriesSeen[s] {
 			seriesSeen[s] = true
 			seriesOrder = append(seriesOrder, s)
