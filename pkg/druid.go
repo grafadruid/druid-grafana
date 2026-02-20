@@ -1284,25 +1284,47 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		}
 	case "search":
 		var s []map[string]any
-		err := json.Unmarshal(result, &s)
-		if err == nil && len(s) > 0 {
-			colResults0, _ := s[0]["result"].([]map[string]any)
-			if len(colResults0) > 0 {
-				columns := []string{"timestamp"}
-				for c := range colResults0[0] {
-					columns = append(columns, c)
-				}
-				for _, result := range s {
-					var row []any
-					t := result["timestamp"]
-					row = append(row, t)
-					colResults := result["result"].([]map[string]any)
-					if len(colResults) > 0 {
-						for _, c := range columns[1:] {
-							row = append(row, colResults[0][c])
+		if err := json.Unmarshal(result, &s); err != nil || len(s) == 0 {
+			// Period granularity can return single bucket object; wrap so we have []map[string]any
+			var single map[string]any
+			if err := json.Unmarshal(result, &single); err == nil && single != nil {
+				s = []map[string]any{single}
+			}
+		}
+		if len(s) > 0 {
+			// result is []interface{} from JSON, not []map[string]any — use []any and get columns from first non-empty bucket
+			var columns []string
+			for _, resultItem := range s {
+				resultArr, _ := resultItem["result"].([]any)
+				if len(resultArr) > 0 {
+					if rec, _ := resultArr[0].(map[string]any); rec != nil {
+						columns = []string{"timestamp"}
+						for c := range rec {
+							columns = append(columns, c)
 						}
+						break
 					}
-					r.Rows = append(r.Rows, row)
+				}
+			}
+			if len(columns) > 0 {
+				for _, resultItem := range s {
+					ts := resultItem["timestamp"]
+					if ts == nil {
+						ts = resultItem["__time"]
+					}
+					resultArr, _ := resultItem["result"].([]any)
+					for _, recAny := range resultArr {
+						o, _ := recAny.(map[string]any)
+						if o == nil {
+							continue
+						}
+						var row []any
+						row = append(row, ts)
+						for _, c := range columns[1:] {
+							row = append(row, o[c])
+						}
+						r.Rows = append(r.Rows, row)
+					}
 				}
 				for i, c := range columns {
 					col := struct {
@@ -1313,7 +1335,6 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 					r.Columns = append(r.Columns, col)
 				}
 			}
-			// empty result array: r stays with zero Rows/Columns, return success
 		}
 	default:
 		// For unknown query types, try to parse as generic JSON
