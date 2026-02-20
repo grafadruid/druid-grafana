@@ -8,7 +8,7 @@ export const Fragment = (props: QueryBuilderProps) => {
     <>
       <Row>
         <Checkbox
-          {...scopedProps('case_sensitive')}
+          {...scopedProps('caseSensitive')}
           label="Case sensitive"
           description="Specifies if the match should be case sensitive"
         />
@@ -30,4 +30,4 @@ export const Fragment = (props: QueryBuilderProps) => {
   );
 };
 Fragment.type = 'fragment';
-Fragment.fields = ['case_sensitive', 'values'];
+Fragment.fields = ['caseSensitive', 'values'];
