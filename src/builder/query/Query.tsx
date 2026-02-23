@@ -22,7 +22,6 @@ export const Query = (props: QueryBuilderProps) => (
       {...props}
       label="Query"
       default={Timeseries}
-      inline={true}
       components={{
         DatasourceMetadata: DatasourceMetadata,
         GroupBy: GroupBy,

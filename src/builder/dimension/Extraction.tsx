@@ -7,7 +7,6 @@ export const Extraction = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Extraction);
   return (
     <>
-      <Row>
         <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
         <Input
           {...scopedProps('outputName')}
@@ -21,10 +20,7 @@ export const Extraction = (props: QueryBuilderProps) => {
           description="The output type"
           entries={{ STRING: 'String', LONG: 'Long', FLOAT: 'Float' }}
         />
-      </Row>
-      <Row>
         <ExtractionFn {...scopedProps('extractionFn')} />
-      </Row>
     </>
   );
 };

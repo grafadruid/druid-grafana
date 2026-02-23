@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QueryBuilderComponent, QueryComponent, Component } from './types';
 import { QueryBuilderProps } from '../types';
-import { InlineField, Select } from '@grafana/ui';
+import { InlineField, InlineFieldRow, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { cloneDeep } from 'lodash';
 
@@ -88,7 +88,7 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
   };
   const Component = selectedComponentKey === undefined ? undefined : componentsRegistry[selectedComponentKey];
 
-  return (
+  const content = (
     <>
       <InlineField label={label} grow>
         <Select options={options} value={selectedOption} onChange={onSelection} isClearable={true} />
@@ -96,4 +96,6 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
       {Component && <Component {...queryBuilderComponentProps} inline={inline} />}
     </>
   );
+
+  return inline ? <InlineFieldRow>{content}</InlineFieldRow> : content;
 };

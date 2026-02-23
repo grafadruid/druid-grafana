@@ -2,7 +2,6 @@ import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, Input, Row } from '../abstract';
 import { DataSource } from '../datasource';
-import { Intervals } from '../querysegmentspec';
 import { Granularity } from '../granularity';
 import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
@@ -17,13 +16,8 @@ export const TopN = (props: QueryBuilderProps) => {
   return (
     <>
       <Row>
-        <DataSource {...scopedComponentProps('dataSource')} />
-      </Row>
-      <Row>
-        <Intervals {...scopedComponentProps('intervals')} />
-      </Row>
-      <Row>
-        <Granularity {...scopedComponentProps('granularity')} />
+        <DataSource {...scopedComponentProps('dataSource')} inline />
+        <Granularity {...scopedComponentProps('granularity')} inline />
       </Row>
       <Row>
         <RootFilter {...scopedComponentProps('filter')} />

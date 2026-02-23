@@ -15,19 +15,13 @@ import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { VirtualColumn } from '../virtualcolumn';
 
-export const Timeseries = (props: QueryBuilderProps & { inline?: boolean }) => {
+export const Timeseries = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Timeseries);
   const scopedComponentProps = useScopedQueryBuilderProps(props, Timeseries);
   return (
     <>
-      <DataSource {...scopedComponentProps('dataSource')} inline={props.inline} />
-      {props.inline ? (
-        <Granularity {...scopedComponentProps('granularity')} inline={props.inline} />
-      ) : (
-        <Row>
-          <Granularity {...scopedComponentProps('granularity')} />
-        </Row>
-      )}
+      <DataSource {...scopedComponentProps('dataSource')} inline />
+      <Granularity {...scopedComponentProps('granularity')} inline />
       <Row>
         <RootFilter {...scopedComponentProps('filter')} />
       </Row>

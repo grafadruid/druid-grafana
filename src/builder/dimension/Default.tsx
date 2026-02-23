@@ -1,11 +1,11 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, AutocompleteInput, Input, Select, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Input, Select } from '../abstract';
 
 export const Default = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Default);
   return (
-    <Row>
+    <>
       <AutocompleteInput
         {...scopedProps('dimension')}
         label="Dimension"
@@ -25,7 +25,7 @@ export const Default = (props: QueryBuilderProps) => {
         description="The output type"
         entries={{ STRING: 'String', LONG: 'Long', FLOAT: 'Float' }}
       />
-    </Row>
+    </>
   );
 };
 Default.type = 'default';
