@@ -16,8 +16,9 @@ export const GroupBy = (props: QueryBuilderProps) => {
   const scopedComponentProps = useScopedQueryBuilderProps(props, GroupBy);
   return (
     <>
-        <DataSource {...scopedComponentProps('dataSource')} inline />
-        <Granularity {...scopedComponentProps('granularity')} inline />
+      <DataSource {...scopedComponentProps('dataSource')} inline />
+      <Granularity {...scopedComponentProps('granularity')} inline />
+      <Row>
       <Multiple
         {...scopedProps('dimensions')}
         label="Dimensions"
@@ -25,6 +26,7 @@ export const GroupBy = (props: QueryBuilderProps) => {
         component={Dimension}
         componentExtraProps={{}}
       />
+      </Row>
       <Row>
         <LimitSpec {...scopedComponentProps('limitSpec')} />
       </Row>

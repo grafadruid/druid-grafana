@@ -14,20 +14,10 @@ export const Search = (props: QueryBuilderProps) => {
   const scopedComponentProps = useScopedQueryBuilderProps(props, Search);
   return (
     <>
-      <Row>
         <DataSource {...scopedComponentProps('dataSource')} />
-      </Row>
-      <Row>
-        <Intervals {...scopedComponentProps('intervals')} />
-      </Row>
-      <Row>
         <Granularity {...scopedComponentProps('granularity')} />
-      </Row>
       <Row>
         <RootFilter {...scopedComponentProps('filter')} />
-      </Row>
-      <Row>
-        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
       </Row>
       <Row>
         <Multiple
@@ -40,9 +30,8 @@ export const Search = (props: QueryBuilderProps) => {
       </Row>
       <Row>
         <SearchQuerySpec {...scopedComponentProps('query')} />
-      </Row>
-      <Row>
         <SearchSortSpec {...scopedComponentProps('sort')} />
+        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
       </Row>
     </>
   );

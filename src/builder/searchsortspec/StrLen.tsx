@@ -1,10 +1,10 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useQueryBuilderAutoSubmit, Row } from '../abstract';
+import { useQueryBuilderAutoSubmit } from '../abstract';
 
 export const StrLen = (props: QueryBuilderProps) => {
   useQueryBuilderAutoSubmit(props, StrLen);
-  return <Row>StrLen.</Row>;
+  return null;
 };
 StrLen.type = 'strlen';
 StrLen.fields = [] as string[];

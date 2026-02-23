@@ -58,6 +58,9 @@ export const Multiple = (props: Props) => {
 
   return (
     <>
+      <InlineLabel width="auto" tooltip={props.description}>
+        {props.label}
+      </InlineLabel>
       <Button
             variant="secondary"
             icon="plus"
@@ -68,9 +71,6 @@ export const Multiple = (props: Props) => {
           >
             Add
       </Button>
-      <InlineLabel width="auto" tooltip={props.description}>
-        {props.label}
-      </InlineLabel>
       {Object.entries(proxyBuilder).map((builderEntry: any, index: number) =>
         props.inlineItems ? (
           <Fragment key={index}>{itemContent(builderEntry, index)}</Fragment>

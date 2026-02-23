@@ -6,16 +6,12 @@ export const Contains = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Contains);
   return (
     <>
-      <Row>
         <Input {...scopedProps('value')} label="Value" description="the value that has to be contained" type="text" />
-      </Row>
-      <Row>
         <Checkbox
           {...scopedProps('caseSensitive')}
           label="Case sensitive"
           description="Specifies if the match should be case sensitive"
         />
-      </Row>
     </>
   );
 };
