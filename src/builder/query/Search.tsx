@@ -14,8 +14,8 @@ export const Search = (props: QueryBuilderProps) => {
   const scopedComponentProps = useScopedQueryBuilderProps(props, Search);
   return (
     <>
-        <DataSource {...scopedComponentProps('dataSource')} />
-        <Granularity {...scopedComponentProps('granularity')} />
+        <DataSource {...scopedComponentProps('dataSource')} inline />
+        <Granularity {...scopedComponentProps('granularity')} inline />
       <Row>
         <RootFilter {...scopedComponentProps('filter')} />
       </Row>

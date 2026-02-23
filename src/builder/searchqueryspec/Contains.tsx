@@ -10,7 +10,7 @@ export const Contains = (props: QueryBuilderProps) => {
         <Checkbox
           {...scopedProps('caseSensitive')}
           label="Case sensitive"
-          description="Specifies if the match should be case sensitive"
+          description=""
         />
     </>
   );

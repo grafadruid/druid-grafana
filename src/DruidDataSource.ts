@@ -232,18 +232,15 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
     };
     return super.query(uniqueOptions).pipe(
       map((response: { data?: unknown[]; frames?: unknown[]; [key: string]: unknown }) => {
-        console.error('[Druid] query: response received from backend (before metaqueries compat)', response);
+        //console.error('[Druid] query: response received from backend (before metaqueries compat)', response); //uncomment to debug
         const out = ensureMetaqueriesCompatibleResponse(response);
-        console.error('[Druid] query: output sent to Grafana / metaqueries (after metaqueries compat)', out);
+        //console.error('[Druid] query: output sent to Grafana / metaqueries (after metaqueries compat)', out); //uncomment to debug
         return out;
       })
     );
   }
   applyTemplateVariables(templatedQuery: DruidQuery, scopedVars?: ScopedVars) {
-    console.error('[Druid] applyTemplateVariables received from Grafana:', {
-      templatedQuery,
-      scopedVars,
-    });
+    // console.error('[Druid] applyTemplateVariables received from Grafana:', { templatedQuery, scopedVars, }); //uncomment to debug
 
     const templateSrv = getTemplateSrv();
 
@@ -260,7 +257,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
       payload = JSON.parse(JSON.stringify({ builder: templatedQuery.builder, settings: templatedQuery.settings }));
       console.error('[Druid] applyTemplateVariables (no expr) payload:', { builderAfter: payload.builder });
     }
-    console.error('[Druid][payload] applyTemplateVariables before full replacement:', { payload });
+    // console.error('[Druid][payload] applyTemplateVariables before full replacement:', { payload }); //uncomment to debug
     if (payload.builder?.filter != null) {
       replaceFilterTreeTemplateValues(payload.builder.filter, scopedVars, templateSrv);
     }
@@ -290,15 +287,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
           ? JSON.stringify({ builder: substitutedPayload.builder, settings: substitutedPayload.settings })
           : templatedQuery.expr,
     };
-    console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result);
-    /* this.postResource('query-variable', result)
-      .then((response) => {console.error('[Druid] response from Druid (query-variable):', response)})
-      .catch((err: { response?: { status?: number; data?: unknown }; status?: number; data?: unknown }) => {
-        const status = err.response?.status ?? err.status;
-        const body = err.response?.data ?? err.data ?? err;
-        console.error('[Druid] query-variable failed:', status, body);
-        console.error('[Druid] query-variable full error:', err);
-      }); */
+    console.error('[Druid] applyTemplateVariables sending (after variable replacement):', result); //uncomment to debug
     return result;
   }
 
