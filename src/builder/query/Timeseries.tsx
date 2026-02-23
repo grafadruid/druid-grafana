@@ -48,25 +48,21 @@ export const Timeseries = (props: QueryBuilderProps) => {
         />
       </Row>
       <Row>
+        <Multiple
+                {...scopedProps('virtualColumns')}
+                label="Virtual columns"
+                description="The virtual columns"
+                component={VirtualColumn}
+                componentExtraProps={{
+                  label: 'Virtual column',
+                  description: 'A virtual column',
+                }}
+              />
         <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
-      </Row>
-      <Row>
         <Checkbox
           {...scopedProps('descending')}
           label="Descending"
           description="Whether to make descending ordered result"
-        />
-      </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('virtualColumns')}
-          label="Virtual columns"
-          description="The virtual columns"
-          component={VirtualColumn}
-          componentExtraProps={{
-            label: 'Virtual column',
-            description: 'A virtual column',
-          }}
         />
       </Row>
     </>

@@ -5,7 +5,7 @@ import { useScopedQueryBuilderFieldProps, AutocompleteInput, Select, Row } from 
 export const OrderByColumnSpecs = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, OrderByColumnSpecs);
   return (
-    <Row>
+    <>
       <AutocompleteInput
         {...scopedProps('dimension')}
         label="Dimension"
@@ -34,7 +34,7 @@ export const OrderByColumnSpecs = (props: QueryBuilderProps) => {
           version: 'Version',
         }}
       />
-    </Row>
+    </>
   );
 };
 OrderByColumnSpecs.type = '';

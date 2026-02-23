@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QueryBuilderComponent, QueryComponent, Component } from './types';
 import { QueryBuilderProps } from '../types';
-import { InlineField, InlineFieldRow, Select } from '@grafana/ui';
+import { InlineField, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { cloneDeep } from 'lodash';
 
@@ -64,7 +64,7 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
   const [selectedComponentKey, selectComponentKey] = useState(
     useComponentKey(queryBuilderComponentProps.options.builder, props.default)
   );
-  
+
   // Update selectedComponentKey when builder changes
   useEffect(() => {
     const newKey = useComponentKey(queryBuilderComponentProps.options.builder, props.default);
@@ -73,7 +73,7 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
       return newKey !== currentKey ? newKey : currentKey;
     });
   }, [queryBuilderComponentProps.options.builder, props.default]);
-  
+
   const [selectedOption, options] = useSelectOptions(components, selectedComponentKey);
   const onSelection = (selection: SelectableValue<string>) => {
     let componentKey = undefined;
@@ -88,7 +88,7 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
   };
   const Component = selectedComponentKey === undefined ? undefined : componentsRegistry[selectedComponentKey];
 
-  const content = (
+  return (
     <>
       <InlineField label={label} grow>
         <Select options={options} value={selectedOption} onChange={onSelection} isClearable={true} />
@@ -96,6 +96,4 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
       {Component && <Component {...queryBuilderComponentProps} inline={inline} />}
     </>
   );
-
-  return inline ? <InlineFieldRow>{content}</InlineFieldRow> : content;
 };

@@ -6,13 +6,14 @@ import { OrderByColumnSpecs } from '.';
 export const Default = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Default);
   return (
-    <Row>
+    <>
       <Input
         {...scopedProps('limit')}
         label="Limit"
         description="The amount of rows to keep from the set of results"
         type="number"
       />
+      <Row>
       <Multiple
         {...scopedProps('columns')}
         label="Order by columns"
@@ -20,7 +21,8 @@ export const Default = (props: QueryBuilderProps) => {
         component={OrderByColumnSpecs}
         componentExtraProps={{}}
       />
-    </Row>
+      </Row>
+    </>
   );
 };
 Default.type = 'default';

@@ -5,7 +5,7 @@ import { useScopedQueryBuilderFieldProps, Input, Select, Row } from '../abstract
 export const Dimension = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Dimension);
   return (
-    <Row>
+    <>
       <Select
         {...scopedProps('ordering')}
         label="Ordering"
@@ -24,7 +24,7 @@ export const Dimension = (props: QueryBuilderProps) => {
         description="The starting point of the sort"
         type="text"
       />
-    </Row>
+    </>
   );
 };
 Dimension.type = 'dimension';

@@ -58,6 +58,16 @@ export const Multiple = (props: Props) => {
 
   return (
     <>
+      <Button
+            variant="secondary"
+            icon="plus"
+            onClick={(event) => {
+              setProxyBuilder({ ...proxyBuilder, [props.name + '_' + Object.entries(proxyBuilder).length]: undefined });
+              event.preventDefault();
+            }}
+          >
+            Add
+      </Button>
       <InlineLabel width="auto" tooltip={props.description}>
         {props.label}
       </InlineLabel>
@@ -68,16 +78,6 @@ export const Multiple = (props: Props) => {
           <Row key={index}>{itemContent(builderEntry, index)}</Row>
         )
       )}
-      <Button
-        variant="secondary"
-        icon="plus"
-        onClick={(event) => {
-          setProxyBuilder({ ...proxyBuilder, [props.name + '_' + Object.entries(proxyBuilder).length]: undefined });
-          event.preventDefault();
-        }}
-      >
-        Add
-      </Button>
     </>
   );
 };

@@ -4,5 +4,5 @@ import { QueryBuilderComponentSelector } from '../abstract';
 import { Default } from './';
 
 export const LimitSpec = (props: QueryBuilderProps) => (
-  <QueryBuilderComponentSelector {...props} label="LimitSpec" components={{ Default: Default }} />
+  <QueryBuilderComponentSelector {...props} label="LimitSpec" default={Default} components={{ Default: Default }} />
 );

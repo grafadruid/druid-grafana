@@ -15,10 +15,8 @@ export const TopN = (props: QueryBuilderProps) => {
   const scopedComponentProps = useScopedQueryBuilderProps(props, TopN);
   return (
     <>
-      <Row>
         <DataSource {...scopedComponentProps('dataSource')} inline />
         <Granularity {...scopedComponentProps('granularity')} inline />
-      </Row>
       <Row>
         <RootFilter {...scopedComponentProps('filter')} />
       </Row>
@@ -50,17 +48,13 @@ export const TopN = (props: QueryBuilderProps) => {
         <Dimension {...scopedProps('dimension')} />
       </Row>
       <Row>
+        <TopNMetric {...scopedProps('metric')} />
         <Input
           {...scopedProps('threshold')}
           label="Threshold"
           description="How many results in the top list"
           type="number"
         />
-      </Row>
-      <Row>
-        <TopNMetric {...scopedProps('metric')} />
-      </Row>
-      <Row>
         <Multiple
           {...scopedProps('virtualColumns')}
           label="Virtual columns"

@@ -6,7 +6,7 @@ import { HavingSpec } from './';
 export const Or = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Or);
   return (
-    <Row>
+    <>
       <Multiple
         {...scopedProps('havingSpecs')}
         label="Or"
@@ -14,7 +14,7 @@ export const Or = (props: QueryBuilderProps) => {
         component={HavingSpec}
         componentExtraProps={{}}
       />
-    </Row>
+    </>
   );
 };
 Or.type = 'or';
