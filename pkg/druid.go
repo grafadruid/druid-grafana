@@ -446,7 +446,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
-	q, stg, err := ds.prepareQuery(qry, s)
+	q, stg, err := ds.prepareQuery(qry, s, nil)
 	if err != nil {
 		return response, err
 	}
@@ -543,22 +543,29 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	// Full payload from Grafana (dashboard, Explore, or alerting): req contains all queries and metadata.
 	log.DefaultLogger.Debug("DRUID QueryData request", "numQueries", len(req.Queries), "request", req)
 
+	// Only resolve query window from request TimeRange when the request is from alerting.
+	// Dashboard/Explore use the intervals already in the query (from panel range applied on the frontend).
+	fromAlert := req.Headers != nil && req.Headers["FromAlert"] == "true"
 	response := backend.NewQueryDataResponse()
 
 	for _, q := range req.Queries {
-		response.Responses[q.RefID] = ds.query(q, ds.settings)
+		var intervalTimeRange *backend.TimeRange
+		if fromAlert {
+			intervalTimeRange = &q.TimeRange
+		}
+		response.Responses[q.RefID] = ds.query(q, ds.settings, intervalTimeRange)
 	}
 
 	return response, nil
 }
 
-func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
+func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings, intervalTimeRange *backend.TimeRange) backend.DataResponse {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
 	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange)
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
-	q, stg, err := ds.prepareQuery([]byte(rawQuery), s)
+	q, stg, err := ds.prepareQuery([]byte(rawQuery), s, intervalTimeRange)
 	if err != nil {
 		response.Error = err
 		return response
@@ -824,7 +831,7 @@ func expandJsonFilters(filter any) any {
 	}
 }
 
-func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]any, error) {
+func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, timeRange *backend.TimeRange) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
 	if err != nil {
@@ -863,6 +870,16 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 		// Grafana seems to invoke this even before the user has entered any query
 		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
 		return nil, nil, nil
+	}
+
+	// Use request time range for Druid intervals when provided (dashboard range or alert's resolved relativeTimeRange).
+	if timeRange != nil && !timeRange.From.IsZero() && !timeRange.To.IsZero() {
+		fromISO := timeRange.From.UTC().Format("2006-01-02T15:04:05.000Z")
+		toISO := timeRange.To.UTC().Format("2006-01-02T15:04:05.000Z")
+		builder["intervals"] = map[string]any{
+			"type":      "intervals",
+			"intervals": []string{fromISO + "/" + toISO},
+		}
 	}
 
 	// Expand json filters: replace filter type "json" with parsed value (template variables already replaced by Grafana)
