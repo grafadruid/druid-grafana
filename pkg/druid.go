@@ -540,6 +540,9 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 }
 
 func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
+	// Full payload from Grafana (dashboard, Explore, or alerting): req contains all queries and metadata.
+	log.DefaultLogger.Debug("DRUID QueryData request", "numQueries", len(req.Queries), "request", req)
+
 	response := backend.NewQueryDataResponse()
 
 	for _, q := range req.Queries {
