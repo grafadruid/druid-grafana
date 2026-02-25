@@ -553,13 +553,13 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 		if fromAlert {
 			intervalTimeRange = &q.TimeRange
 		}
-		response.Responses[q.RefID] = ds.query(q, ds.settings, intervalTimeRange)
+		response.Responses[q.RefID] = ds.query(q, ds.settings, intervalTimeRange, fromAlert)
 	}
 
 	return response, nil
 }
 
-func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings, intervalTimeRange *backend.TimeRange) backend.DataResponse {
+func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings, intervalTimeRange *backend.TimeRange, fromAlert bool) backend.DataResponse {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
 	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange)
 
@@ -570,6 +570,8 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		response.Error = err
 		return response
 	}
+	// So prepareResponse/buildGroupBySeriesFrame can use label-set series names only for alerting
+	stg["_fromAlert"] = fromAlert
 	if q == nil {
 		// Check if this is a raw JSON query (period granularity or search filter)
 		if rawJSON, ok := stg["_rawQueryJSON"].(string); ok {
@@ -1869,7 +1871,42 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	return r, nil
 }
 
-// buildGroupBySeriesFrame builds a wide frame with Time + one column per "groupName:metric" series
+// formatSeriesLabelSet builds a series name as {dim1="val1",dim2="val2",...,metric="MetricName"}
+// so Grafana alerting and UI show descriptive labels instead of refId (e.g. "A").
+func formatSeriesLabelSet(dimNames []string, dimValues []string, metricName string) string {
+	var b strings.Builder
+	b.WriteString("{")
+	for i, name := range dimNames {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		val := ""
+		if i < len(dimValues) {
+			val = dimValues[i]
+		}
+		// Escape double quotes in value for safe display
+		val = strings.ReplaceAll(val, "\\", "\\\\")
+		val = strings.ReplaceAll(val, "\"", "\\\"")
+		b.WriteString(name)
+		b.WriteString("=\"")
+		b.WriteString(val)
+		b.WriteString("\"")
+	}
+	if metricName != "" {
+		if len(dimNames) > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString("metric=\"")
+		b.WriteString(strings.ReplaceAll(strings.ReplaceAll(metricName, "\\", "\\\\"), "\"", "\\\""))
+		b.WriteString("\"")
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
+// buildGroupBySeriesFrame builds a wide frame with Time + one column per series.
+// When the request is from Grafana alerting (_fromAlert), series names use label-set format
+// {dim1="val1",dim2="val2",metric="Events"}; otherwise dashboard/panel use "groupName:metric".
 func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data.Frame {
 	var dims, metrics []string
 	for _, d := range asStringSlice(settings["_groupByDimensions"]) {
@@ -1911,13 +1948,27 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 	timeSeen := make(map[int64]bool)
 	var seriesOrder []string
 	seriesSeen := make(map[string]bool)
+	// When fromAlert, store (metricName, labels) per series so Grafana gets (refId, field.Name, field.Labels) as series identity
+	var seriesMetricNames []string
+	var seriesLabels []data.Labels
+	useLabelSetNames := false
+	if b, ok := settings["_fromAlert"].(bool); ok && b {
+		useLabelSetNames = true
+	}
 	for _, r := range resp.Rows {
 		parts := make([]string, 0, len(dimIndices))
 		for _, di := range dimIndices {
 			parts = append(parts, cellToString(r[di]))
 		}
 		groupName := strings.Join(parts, "-")
-		if groupName == "" {
+		allEmpty := true
+		for _, p := range parts {
+			if p != "" {
+				allEmpty = false
+				break
+			}
+		}
+		if allEmpty {
 			// Skip rows with no dimension values (e.g. empty-bucket placeholder)
 			continue
 		}
@@ -1929,10 +1980,25 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 		}
 		for _, mi := range metricIndices {
 			metricName := resp.Columns[mi].Name
-			s := groupName + ":" + metricName
+			var s string
+			if useLabelSetNames {
+				s = formatSeriesLabelSet(dims, parts, metricName)
+			} else {
+				s = groupName + ":" + metricName
+			}
 			if !seriesSeen[s] {
 				seriesSeen[s] = true
 				seriesOrder = append(seriesOrder, s)
+				if useLabelSetNames {
+					seriesMetricNames = append(seriesMetricNames, metricName)
+					labels := make(data.Labels)
+					for i, dimName := range dims {
+						if i < len(parts) {
+							labels[dimName] = parts[i]
+						}
+					}
+					seriesLabels = append(seriesLabels, labels)
+				}
 			}
 			points[key{t: ts, s: s}] = cellToFloat64(r[mi])
 		}
@@ -1948,17 +2014,21 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 	}
 	var zero float64 = 0
 	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
-	for _, s := range seriesOrder {
+	for i, s := range seriesOrder {
 		vals := make([]*float64, len(timeOrder))
-		for i, ts := range timeOrder {
+		for j, ts := range timeOrder {
 			if v, ok := points[key{t: ts, s: s}]; ok {
 				vCopy := v
-				vals[i] = &vCopy
+				vals[j] = &vCopy
 			} else {
-				vals[i] = &zero
+				vals[j] = &zero
 			}
 		}
-		frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+		if useLabelSetNames && i < len(seriesMetricNames) && i < len(seriesLabels) {
+			frame.Fields = append(frame.Fields, data.NewField(seriesMetricNames[i], seriesLabels[i], vals))
+		} else {
+			frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+		}
 	}
 	return frame
 }
