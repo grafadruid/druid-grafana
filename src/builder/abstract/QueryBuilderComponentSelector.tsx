@@ -4,6 +4,7 @@ import { QueryBuilderProps } from '../types';
 import { InlineField, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { cloneDeep } from 'lodash';
+import { initBuilder } from './QueryBuilderComponent';
 
 const useComponentsRegistry = (
   components: Record<string, QueryBuilderComponent<QueryComponent | Component>>
@@ -56,6 +57,8 @@ export interface QueryBuilderComponentSelectorProps extends QueryBuilderProps {
   components: Record<string, QueryBuilderComponent<QueryComponent | Component>>;
   default?: QueryBuilderComponent<QueryComponent | Component> | undefined;
   inline?: boolean;
+  /** When switching component type, build default builder. If not provided, initBuilder({}, component) is used for object-shaped builders. */
+  getDefaultBuilder?: (componentKey: string, component: QueryBuilderComponent<QueryComponent | Component>) => any;
 }
 
 export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelectorProps) => {
@@ -83,6 +86,17 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
       queryBuilderComponentProps.onOptionsChange(options);
     } else {
       componentKey = selection.value;
+      const ComponentForDefault = componentsRegistry[componentKey];
+      if (ComponentForDefault) {
+        const newOptions = cloneDeep(queryBuilderComponentProps.options);
+        const componentKeyCapitalized = Object.keys(components).find((k) => k.toLowerCase() === componentKey);
+        const customDefault =
+          props.getDefaultBuilder != null && componentKeyCapitalized != null
+            ? props.getDefaultBuilder(componentKey, components[componentKeyCapitalized])
+            : undefined;
+        newOptions.builder = customDefault !== undefined ? customDefault : initBuilder({}, ComponentForDefault);
+        queryBuilderComponentProps.onOptionsChange(newOptions);
+      }
     }
     selectComponentKey(componentKey);
   };
