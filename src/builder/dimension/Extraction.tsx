@@ -13,6 +13,7 @@ export const Extraction = (props: QueryBuilderProps) => {
           label="Output name"
           description="The, optionnal, dimension output name"
           type="text"
+          omitWhenEmpty
         />
         <Select
           {...scopedProps('outputType')}

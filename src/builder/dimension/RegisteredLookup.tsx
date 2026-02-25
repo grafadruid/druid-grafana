@@ -12,6 +12,7 @@ export const RegisteredLookup = (props: QueryBuilderProps) => {
           label="Output name"
           description="The, optionnal, dimension output name"
           type="text"
+          omitWhenEmpty
         />
       <Row>
         <Input {...scopedProps('lookup')} label="Lookup" description="The registered lookup name" type="text" />

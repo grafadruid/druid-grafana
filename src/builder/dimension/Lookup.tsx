@@ -13,6 +13,7 @@ export const Lookup = (props: QueryBuilderProps) => {
           label="Output name"
           description="The, optionnal, dimension output name"
           type="text"
+          omitWhenEmpty
         />
         <Input
           {...scopedProps('name')}
