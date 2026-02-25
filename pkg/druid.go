@@ -2114,6 +2114,42 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 	return frame
 }
 
+// buildEmptyTopNWideFrame returns a wide frame (Time + one value column) when a topN query returned
+// no dimension/metric data (e.g. Druid returns only timestamp). Grafana alerting/expressions expect
+// "wide series" (time + value columns); a frame with only Time breaks with "input data must be a wide series".
+func buildEmptyTopNWideFrame(resp *druidResponse, settings map[string]any) *data.Frame {
+	metricName, _ := settings["_topNMetric"].(string)
+	if metricName == "" {
+		return nil
+	}
+	timeIdx := -1
+	for i, c := range resp.Columns {
+		if c.Name == "timestamp" {
+			timeIdx = i
+			break
+		}
+	}
+	var times []time.Time
+	if timeIdx >= 0 && len(resp.Rows) > 0 {
+		times = make([]time.Time, len(resp.Rows))
+		for i, r := range resp.Rows {
+			if timeIdx < len(r) {
+				times[i] = parseRowTime(r[timeIdx])
+			}
+		}
+	}
+	if times == nil {
+		times = []time.Time{}
+	}
+	vals := make([]*float64, len(times))
+	for i := range vals {
+		vals[i] = nil
+	}
+	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
+	frame.Fields = append(frame.Fields, data.NewField(metricName, nil, vals))
+	return frame
+}
+
 func asStringSlice(v any) []string {
 	if v == nil {
 		return nil
@@ -2277,6 +2313,14 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	if topNFrame := buildTopNSeriesFrame(resp, settings); topNFrame != nil {
 		response.Frames = append(response.Frames, topNFrame)
 		return response, nil
+	}
+	// topN with no data: Druid may return only timestamp column; fallback would produce time-only frame
+	// and break Grafana ("input data must be a wide series"). Return empty wide frame instead.
+	if _, hasTopN := settings["_topNDimension"]; hasTopN {
+		if emptyTopN := buildEmptyTopNWideFrame(resp, settings); emptyTopN != nil {
+			response.Frames = append(response.Frames, emptyTopN)
+			return response, nil
+		}
 	}
 
 	for ic, c := range resp.Columns {
