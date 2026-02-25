@@ -2035,6 +2035,7 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 
 // buildTopNSeriesFrame builds a wide frame with Time + one column per dimension value (topN series, old plugin compatibility).
 // Uses filled rows (missing dimension values per timestamp already have nil metric) so stacked charts sum correctly.
+// When the request is from Grafana alerting (_fromAlert), value fields use metric name and dimension as labels for series identity.
 func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Frame {
 	dimName, _ := settings["_topNDimension"].(string)
 	metricName, _ := settings["_topNMetric"].(string)
@@ -2051,12 +2052,17 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 	if !hasTime || !hasDim || !hasMetric {
 		return nil
 	}
+	useLabelSetNames := false
+	if b, ok := settings["_fromAlert"].(bool); ok && b {
+		useLabelSetNames = true
+	}
 	type key struct{ t int64; s string }
 	points := make(map[key]float64)
 	var timeOrder []int64
 	timeSeen := make(map[int64]bool)
 	var seriesOrder []string
 	seriesSeen := make(map[string]bool)
+	var seriesLabels []data.Labels
 	for _, r := range resp.Rows {
 		s := cellToString(r[dimIdx])
 		if s == "" {
@@ -2071,6 +2077,9 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 		if !seriesSeen[s] {
 			seriesSeen[s] = true
 			seriesOrder = append(seriesOrder, s)
+			if useLabelSetNames {
+				seriesLabels = append(seriesLabels, data.Labels{dimName: s})
+			}
 		}
 		if r[metricIdx] != nil {
 			points[key{t: ts, s: s}] = cellToFloat64(r[metricIdx])
@@ -2086,17 +2095,21 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 	}
 	var zero float64 = 0
 	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
-	for _, s := range seriesOrder {
+	for i, s := range seriesOrder {
 		vals := make([]*float64, len(timeOrder))
-		for i, ts := range timeOrder {
+		for j, ts := range timeOrder {
 			if v, ok := points[key{t: ts, s: s}]; ok {
 				vCopy := v
-				vals[i] = &vCopy
+				vals[j] = &vCopy
 			} else {
-				vals[i] = &zero
+				vals[j] = &zero
 			}
 		}
-		frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+		if useLabelSetNames && i < len(seriesLabels) {
+			frame.Fields = append(frame.Fields, data.NewField(metricName, seriesLabels[i], vals))
+		} else {
+			frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+		}
 	}
 	return frame
 }
