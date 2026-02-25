@@ -53,7 +53,6 @@ export const TopN = (props: QueryBuilderProps) => {
           label="Threshold"
           description="How many results in the top list"
           type="number"
-          omitWhenEmpty
         />
       </Row>
     </>

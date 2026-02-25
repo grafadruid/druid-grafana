@@ -64,6 +64,13 @@ const isFilterComplete = (filter: any): boolean => {
       return !isEmpty(filter.value);
     case 'columnComparison':
       return Array.isArray(filter.dimensions) && filter.dimensions.length > 0;
+    case 'search':
+      return (
+        filter.query != null &&
+        typeof filter.query === 'object' &&
+        !isEmpty(filter.query.type) &&
+        (filter.query.value === undefined || !isEmpty(filter.query.value))
+      );
     case 'true':
     case 'false':
       return true;

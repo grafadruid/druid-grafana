@@ -571,12 +571,12 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		return response
 	}
 	if q == nil {
-		// Check if this is a raw JSON query (period granularity)
+		// Check if this is a raw JSON query (period granularity or search filter)
 		if rawJSON, ok := stg["_rawQueryJSON"].(string); ok {
 			// Remove the marker from settings
 			delete(stg, "_rawQueryJSON")
 			log.DefaultLogger.Debug("[RAW] DRUID EXECUTE QUERY", "druid_query", rawJSON)
-			// Send raw JSON directly to Druid for period granularity queries
+			// Send raw JSON directly to Druid (bypasses go-druid struct marshaling)
 			r, err := ds.executeRawQuery(qry.RefID, []byte(rawJSON), s, stg)
 			if err != nil {
 				response.Error = err
@@ -831,6 +831,33 @@ func expandJsonFilters(filter any) any {
 	}
 }
 
+// containsSearchFilter returns true if the filter tree contains any filter with type "search".
+// Queries with search filters must be sent as raw JSON because the go-druid client's struct
+// for search filters does not include the "query" field, causing Druid to reject the query.
+func containsSearchFilter(filter any) bool {
+	if filter == nil {
+		return false
+	}
+	f, ok := filter.(map[string]any)
+	if !ok {
+		return false
+	}
+	if ftype, _ := f["type"].(string); ftype == "search" {
+		return true
+	}
+	if fields, ok := f["fields"].([]any); ok {
+		for _, field := range fields {
+			if containsSearchFilter(field) {
+				return true
+			}
+		}
+	}
+	if field, ok := f["field"]; ok {
+		return containsSearchFilter(field)
+	}
+	return false
+}
+
 func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, timeRange *backend.TimeRange) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
@@ -945,8 +972,11 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 	}
 
 	// If we have period granularity, we need to send raw JSON directly to Druid
-	// because the Go client's Load method expects time.Duration for period, not ISO8601 strings
-	if hasPeriodGranularity {
+	// because the Go client's Load method expects time.Duration for period, not ISO8601 strings.
+	// If the filter tree contains a "search" filter, we must also send raw JSON because the
+	// go-druid client's search filter struct omits the "query" field, causing ValueInstantiationException in Druid.
+	hasSearchFilter := containsSearchFilter(builder["filter"])
+	if hasPeriodGranularity || hasSearchFilter {
 		// Create a raw query wrapper that will be handled specially in executeQuery
 		// We'll return nil for the query and store the raw JSON in settings as a marker
 		settings["_rawQueryJSON"] = string(jsonQuery)

@@ -47,7 +47,7 @@ export const Timeseries = (props: QueryBuilderProps) => {
         />
       </Row>
       <Row>
-        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
+        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" omitWhenEmpty />
         <Checkbox
           {...scopedProps('descending')}
           label="Descending"
