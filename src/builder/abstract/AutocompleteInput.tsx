@@ -8,7 +8,7 @@ import { DruidDataSource } from '../../DruidDataSource';
 import { DruidQuery } from '../../types';
 
 interface Props extends QueryBuilderFieldProps {
-  type: 'dimension' | 'dimensionValue' | 'metric' | 'table';
+  type: 'dimension' | 'dimensionValue' | 'metric' | 'table' | 'column';
   datasource?: DruidDataSource;
   debounceTime?: number;
   dimensionName?: string | null;
@@ -111,6 +111,38 @@ const fetchMetrics = async (
     return filtered;
   } catch (error) {
     console.error('Error fetching metrics from metadata API:', error);
+    return [];
+  }
+};
+
+const fetchColumnNames = async (
+  datasource: DruidDataSource,
+  tableName: string | null,
+  inputValue: string
+): Promise<SelectableValue[]> => {
+  if (!tableName) {
+    return [];
+  }
+
+  try {
+    const [dimensions, metrics] = await Promise.all([
+      fetchDimensionNames(datasource, tableName, inputValue),
+      fetchMetrics(datasource, tableName, inputValue),
+    ]);
+
+    const seen = new Set<string>();
+    const combined: SelectableValue[] = [];
+    for (const opt of [...dimensions, ...metrics]) {
+      const v = opt.value ?? opt.label;
+      if (typeof v === 'string' && !seen.has(v)) {
+        seen.add(v);
+        combined.push(opt);
+      }
+    }
+    combined.sort((a, b) => (a.label ?? '').localeCompare(String(b.label ?? '')));
+    return combined.slice(0, 20);
+  } catch (error) {
+    console.error('Error fetching column names (dimensions + metrics):', error);
     return [];
   }
 };
@@ -383,6 +415,8 @@ export const AutocompleteInput = (props: Props) => {
         return await fetchDimensionNames(datasource, tableName, inputValue || '');
       } else if (type === 'metric') {
         return await fetchMetrics(datasource, tableName, inputValue || '');
+      } else if (type === 'column') {
+        return await fetchColumnNames(datasource, tableName, inputValue || '');
       } else {
         const rootBuilder = (props as any).rootBuilder || props.options.builder;
         const panelRange = (props as any).range ?? null;
@@ -509,6 +543,8 @@ export const AutocompleteInput = (props: Props) => {
             ? 'Please select a table first'
             : type === 'dimensionValue' && !dimensionName
             ? 'Please select a dimension first'
+            : type === 'column'
+            ? 'No dimensions or metrics found'
             : 'No options found'
         }
       />

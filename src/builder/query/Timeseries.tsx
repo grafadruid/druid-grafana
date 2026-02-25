@@ -13,7 +13,6 @@ import { Granularity } from '../granularity';
 import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
-import { VirtualColumn } from '../virtualcolumn';
 
 export const Timeseries = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Timeseries);
@@ -48,16 +47,6 @@ export const Timeseries = (props: QueryBuilderProps) => {
         />
       </Row>
       <Row>
-        <Multiple
-                {...scopedProps('virtualColumns')}
-                label="Virtual columns"
-                description="The virtual columns"
-                component={VirtualColumn}
-                componentExtraProps={{
-                  label: 'Virtual column',
-                  description: 'A virtual column',
-                }}
-              />
         <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
         <Checkbox
           {...scopedProps('descending')}
@@ -78,5 +67,4 @@ Timeseries.fields = [
   'aggregations',
   'postAggregations',
   'limit',
-  'virtualColumns',
 ];

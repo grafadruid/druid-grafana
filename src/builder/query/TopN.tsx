@@ -8,7 +8,6 @@ import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { Dimension } from '../dimension';
 import { TopNMetric } from '../topnmetric';
-import { VirtualColumn } from '../virtualcolumn';
 
 export const TopN = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, TopN);
@@ -54,16 +53,7 @@ export const TopN = (props: QueryBuilderProps) => {
           label="Threshold"
           description="How many results in the top list"
           type="number"
-        />
-        <Multiple
-          {...scopedProps('virtualColumns')}
-          label="Virtual columns"
-          description="The virtual columns"
-          component={VirtualColumn}
-          componentExtraProps={{
-            label: 'Virtual column',
-            description: 'A virtual column',
-          }}
+          omitWhenEmpty
         />
       </Row>
     </>
@@ -80,5 +70,4 @@ TopN.fields = [
   'dimension',
   'threshold',
   'metric',
-  'virtualColumns',
 ];

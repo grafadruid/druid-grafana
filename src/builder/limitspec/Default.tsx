@@ -12,6 +12,7 @@ export const Default = (props: QueryBuilderProps) => {
         label="Limit"
         description="The amount of rows to keep from the set of results"
         type="number"
+        omitWhenEmpty
       />
       <Row>
       <Multiple

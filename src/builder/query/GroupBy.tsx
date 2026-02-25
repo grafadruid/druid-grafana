@@ -9,7 +9,6 @@ import { Granularity } from '../granularity';
 import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
-import { VirtualColumn } from '../virtualcolumn';
 
 export const GroupBy = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, GroupBy);
@@ -56,18 +55,6 @@ export const GroupBy = (props: QueryBuilderProps) => {
           }}
         />
       </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('virtualColumns')}
-          label="Virtual columns"
-          description="The virtual columns"
-          component={VirtualColumn}
-          componentExtraProps={{
-            label: 'Virtual column',
-            description: 'A virtual column',
-          }}
-        />
-      </Row>
     </>
   );
 };
@@ -82,5 +69,4 @@ GroupBy.fields = [
   'aggregations',
   'postAggregations',
   'intervals',
-  'virtualColumns',
 ];

@@ -1,9 +1,8 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, Input, Select, Row } from '../abstract';
+import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, Input, Select, Row, AutocompleteInput } from '../abstract';
 import { DataSource } from '../datasource';
 import { RootFilter } from '../filter';
-import { VirtualColumn } from '../virtualcolumn';
 import { Intervals } from '../querysegmentspec';
 
 export const Scan = (props: QueryBuilderProps) => {
@@ -12,10 +11,7 @@ export const Scan = (props: QueryBuilderProps) => {
   return (
     <>
       <Row>
-        <DataSource {...scopedComponentProps('dataSource')} />
-      </Row>
-      <Row>
-        <Intervals {...scopedComponentProps('intervals')} />
+        <DataSource {...scopedComponentProps('dataSource')} inline />
       </Row>
       <Row>
         <RootFilter {...scopedComponentProps('filter')} />
@@ -24,12 +20,14 @@ export const Scan = (props: QueryBuilderProps) => {
         <Multiple
           {...scopedProps('columns')}
           label="Columns"
-          description="The columns names"
-          component={Input}
+          description="The columns names (dimensions and metrics)"
+          component={AutocompleteInput}
           componentExtraProps={{
             label: undefined,
-            description: 'The column name',
-            type: 'text',
+            description: 'The column name (dimension or metric)',
+            type: 'column',
+            datasource: props.datasource,
+            rootBuilder: props.options.builder,
           }}
         />
       </Row>
@@ -44,28 +42,17 @@ export const Scan = (props: QueryBuilderProps) => {
             descending: 'Descending',
           }}
         />
-        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" />
+        <Input {...scopedProps('limit')} label="Limit" description="How many rows to return" type="number" omitWhenEmpty />
         <Input
           {...scopedProps('batchSize')}
           label="Batch size"
           description="The maximum number of rows buffered"
           type="number"
-        />
-      </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('virtualColumns')}
-          label="Virtual columns"
-          description="The virtual columns"
-          component={VirtualColumn}
-          componentExtraProps={{
-            label: 'Virtual column',
-            description: 'A virtual column',
-          }}
+          omitWhenEmpty
         />
       </Row>
     </>
   );
 };
 Scan.queryType = 'scan';
-Scan.fields = ['dataSource', 'intervals', 'filter', 'columns', 'order', 'limit', 'batchSize', 'virtualColumns'];
+Scan.fields = ['dataSource', 'intervals', 'filter', 'columns', 'order', 'limit', 'batchSize'];
