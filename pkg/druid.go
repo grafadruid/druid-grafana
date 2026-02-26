@@ -763,6 +763,32 @@ func expandJsonFiltersInBuilder(builder map[string]any) {
 	builder["filter"] = expandJsonFilters(filter)
 }
 
+// stripEmptyFiltersFromBuilder removes the root filter when it is an "and" or "or"
+// with empty fields. Druid rejects such filters (ValueInstantiationException).
+// This can happen when alerts run with a stored query where filters were removed
+// (the UI sends filter: { type: "and", fields: [] }).
+func stripEmptyFiltersFromBuilder(builder map[string]any) {
+	if builder == nil {
+		return
+	}
+	filter, ok := builder["filter"]
+	if !ok || filter == nil {
+		return
+	}
+	f, ok := filter.(map[string]any)
+	if !ok {
+		return
+	}
+	ftype, _ := f["type"].(string)
+	if ftype != "and" && ftype != "or" {
+		return
+	}
+	fields, ok := f["fields"].([]any)
+	if !ok || len(fields) == 0 {
+		delete(builder, "filter")
+	}
+}
+
 // expandJsonFilters recursively expands the filter tree. Filters with type "json" are
 // replaced by the parsed JSON object (filter.value). "and" and "or" filters have their
 // fields expanded; "not" has its field expanded.
@@ -913,6 +939,8 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 
 	// Expand json filters: replace filter type "json" with parsed value (template variables already replaced by Grafana)
 	expandJsonFiltersInBuilder(builder)
+	// Remove root filter when it is "and"/"or" with empty fields (Druid rejects it; happens e.g. when alerts run after filters were removed)
+	stripEmptyFiltersFromBuilder(builder)
 
 	// Extract hidden aggregation names for response filtering and strip "hidden" from builder so Druid query is valid
 	if hiddenNames := extractHiddenMetricsAndStripFromBuilder(builder); len(hiddenNames) > 0 {
