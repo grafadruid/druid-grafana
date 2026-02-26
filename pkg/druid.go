@@ -2025,6 +2025,7 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 							labels[dimName] = parts[i]
 						}
 					}
+					labels["metric"] = metricName
 					seriesLabels = append(seriesLabels, labels)
 				}
 			}
@@ -2106,7 +2107,7 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 			seriesSeen[s] = true
 			seriesOrder = append(seriesOrder, s)
 			if useLabelSetNames {
-				seriesLabels = append(seriesLabels, data.Labels{dimName: s})
+				seriesLabels = append(seriesLabels, data.Labels{dimName: s, "metric": metricName})
 			}
 		}
 		if r[metricIdx] != nil {
@@ -2350,6 +2351,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		}
 	}
 
+	fromAlert, _ := settings["_fromAlert"].(bool)
 	for ic, c := range resp.Columns {
 		if hiddenMetricNames[c.Name] {
 			continue
@@ -2414,7 +2416,12 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		if hideEmptyColumns && columnIsEmpty {
 			continue
 		}
-		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
+		// When from alerting, give value columns a metric label so timeseries (and other) alerts see {metric: "Events"}
+		fieldLabels := (data.Labels)(nil)
+		if fromAlert && c.Type != "time" {
+			fieldLabels = data.Labels{"metric": c.Name}
+		}
+		frame.Fields = append(frame.Fields, data.NewField(c.Name, fieldLabels, ff))
 	}
 	// convert to other formats if specified
 	if format == "wide" && len(frame.Fields) > 0 {
