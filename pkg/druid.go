@@ -2117,6 +2117,7 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 // buildEmptyTopNWideFrame returns a wide frame (Time + one value column) when a topN query returned
 // no dimension/metric data (e.g. Druid returns only timestamp). Grafana alerting/expressions expect
 // "wide series" (time + value columns); a frame with only Time breaks with "input data must be a wide series".
+// Only rows with non-nil timestamp are included so we never send zero/unix-epoch times that break Reduce (Last/Sum).
 func buildEmptyTopNWideFrame(resp *druidResponse, settings map[string]any) *data.Frame {
 	metricName, _ := settings["_topNMetric"].(string)
 	if metricName == "" {
@@ -2130,20 +2131,18 @@ func buildEmptyTopNWideFrame(resp *druidResponse, settings map[string]any) *data
 		}
 	}
 	var times []time.Time
+	var vals []*float64
 	if timeIdx >= 0 && len(resp.Rows) > 0 {
-		times = make([]time.Time, len(resp.Rows))
-		for i, r := range resp.Rows {
-			if timeIdx < len(r) {
-				times[i] = parseRowTime(r[timeIdx])
+		for _, r := range resp.Rows {
+			if timeIdx < len(r) && r[timeIdx] != nil {
+				times = append(times, parseRowTime(r[timeIdx]))
+				vals = append(vals, nil)
 			}
 		}
 	}
 	if times == nil {
 		times = []time.Time{}
-	}
-	vals := make([]*float64, len(times))
-	for i := range vals {
-		vals[i] = nil
+		vals = []*float64{}
 	}
 	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
 	frame.Fields = append(frame.Fields, data.NewField(metricName, nil, vals))
