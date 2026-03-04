@@ -243,12 +243,8 @@ const isQueryComplete = (builder: any): boolean => {
       if (!topNAggregations || !Array.isArray(topNAggregations) || topNAggregations.length === 0) return false;
       if (topNAggregations.filter((agg: any) => isAggregationComplete(agg)).length === 0) return false;
       return true;
-    case 'scan':
-      return true;
     case 'search':
       return !!(builder.query && builder.searchDimensions);
-    case 'sql':
-      return !!(builder.query && typeof builder.query === 'string');
     default:
       return true;
   }
@@ -322,7 +318,7 @@ export const QueryEditor = (props: Props) => {
   const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
 
   // Query types that do not have a granularity field (no conversion applied)
-  const QUERY_TYPES_WITHOUT_GRANULARITY = ['segmentMetadata', 'scan'];
+  const QUERY_TYPES_WITHOUT_GRANULARITY = ['segmentMetadata'];
 
   // Convert simple granularity (day/week/month/quarter/year) to period granularity with timezone for backend.
   // Applies to all query types that use granularity (timeseries, groupBy, topN, search, etc.) so Druid buckets in the given timezone (e.g. PST).
