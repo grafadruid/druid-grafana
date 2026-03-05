@@ -4,7 +4,6 @@ import { QueryBuilderComponentSelector } from '../abstract';
 import {
   DatasourceMetadata,
   GroupBy,
-  Json,
   Search,
   SegmentMetadata,
   Timeseries,
@@ -22,7 +21,6 @@ export const Query = (props: QueryBuilderProps) => (
       components={{
         DatasourceMetadata: DatasourceMetadata,
         GroupBy: GroupBy,
-        Json: Json,
         Search: Search,
         SegmentMetadata: SegmentMetadata,
         Timeseries: Timeseries,
