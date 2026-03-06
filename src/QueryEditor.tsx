@@ -245,6 +245,8 @@ const isQueryComplete = (builder: any): boolean => {
       return true;
     case 'search':
       return !!(builder.query && builder.searchDimensions);
+    case 'sql':
+      return !!(builder.query && typeof builder.query === 'string');
     default:
       return true;
   }

@@ -6,6 +6,7 @@ import {
   GroupBy,
   Search,
   SegmentMetadata,
+  Sql,
   Timeseries,
   TopN,
 } from './';
@@ -23,6 +24,7 @@ export const Query = (props: QueryBuilderProps) => (
         GroupBy: GroupBy,
         Search: Search,
         SegmentMetadata: SegmentMetadata,
+        Sql: Sql,
         Timeseries: Timeseries,
         TopN: TopN,
       }}
