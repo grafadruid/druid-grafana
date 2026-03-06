@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -675,6 +676,413 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
+// Query completeness checks: if the builder is incomplete (e.g. user still typing),
+// we do not send the query to Druid and return an empty response. This avoids sending
+// incomplete queries on every keystroke or when Grafana refreshes (variable/time change).
+
+func isEmptyValue(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch val := v.(type) {
+	case string:
+		return strings.TrimSpace(val) == ""
+	case []any:
+		return len(val) == 0
+	}
+	return false
+}
+
+func isFilterComplete(filter any) bool {
+	if filter == nil {
+		return true
+	}
+	m, ok := filter.(map[string]any)
+	if !ok {
+		return false
+	}
+	ftype, _ := m["type"].(string)
+	if strings.TrimSpace(ftype) == "" {
+		return false
+	}
+	switch ftype {
+	case "and", "or":
+		fields, ok := m["fields"].([]any)
+		if !ok || len(fields) == 0 {
+			return false
+		}
+		for _, f := range fields {
+			if !isFilterComplete(f) {
+				return false
+			}
+		}
+		return true
+	case "not":
+		return m["field"] != nil && isFilterComplete(m["field"])
+	}
+	if dim, has := m["dimension"]; has && isEmptyValue(dim) {
+		return false
+	}
+	switch ftype {
+	case "selector":
+		return !isEmptyValue(m["value"])
+	case "like", "regex":
+		return !isEmptyValue(m["pattern"])
+	case "in":
+		vals, ok := m["values"].([]any)
+		return ok && len(vals) > 0
+	case "bound":
+		return !isEmptyValue(m["lower"]) || !isEmptyValue(m["upper"])
+	case "expression":
+		return !isEmptyValue(m["expression"])
+	case "interval":
+		return !isEmptyValue(m["intervals"])
+	case "javascript":
+		return !isEmptyValue(m["function"])
+	case "json":
+		return !isEmptyValue(m["value"])
+	case "columnComparison":
+		dims, ok := m["dimensions"].([]any)
+		return ok && len(dims) > 0
+	case "search":
+		q, ok := m["query"].(map[string]any)
+		if !ok || isEmptyValue(q["type"]) {
+			return false
+		}
+		if v, has := q["value"]; has && isEmptyValue(v) {
+			return false
+		}
+		return true
+	case "true", "false":
+		return true
+	default:
+		if v, has := m["value"]; has && isEmptyValue(v) {
+			return false
+		}
+		if v, has := m["pattern"]; has && isEmptyValue(v) {
+			return false
+		}
+		if v, has := m["values"]; has && isEmptyValue(v) {
+			return false
+		}
+		return true
+	}
+}
+
+var aggregationTypesWithExpression = map[string]struct{}{
+	"longSum": {}, "longMin": {}, "longMax": {},
+	"doubleSum": {}, "doubleMin": {}, "doubleMax": {},
+	"floatSum": {}, "floatMin": {}, "floatMax": {},
+}
+
+func isAggregationComplete(agg any) bool {
+	m, ok := agg.(map[string]any)
+	if !ok {
+		return false
+	}
+	atype, _ := m["type"].(string)
+	if strings.TrimSpace(atype) == "" {
+		return false
+	}
+	aname, _ := m["name"].(string)
+	if strings.TrimSpace(aname) == "" {
+		return false
+	}
+	if atype != "count" && atype != "filtered" {
+		fieldName, _ := m["fieldName"].(string)
+		hasFieldName := strings.TrimSpace(fieldName) != ""
+		if _, hasExpr := aggregationTypesWithExpression[atype]; hasExpr {
+			expr, _ := m["expression"].(string)
+			hasExpression := strings.TrimSpace(expr) != ""
+			if !hasFieldName && !hasExpression {
+				return false
+			}
+		} else {
+			if !hasFieldName {
+				return false
+			}
+		}
+	}
+	if atype == "filtered" {
+		if !isFilterComplete(m["filter"]) {
+			return false
+		}
+		if !isAggregationComplete(m["aggregator"]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isPostAggregationComplete(pa any) bool {
+	m, ok := pa.(map[string]any)
+	if !ok {
+		return false
+	}
+	ptype, _ := m["type"].(string)
+	if strings.TrimSpace(ptype) == "" {
+		return false
+	}
+	pname, _ := m["name"].(string)
+	if strings.TrimSpace(pname) == "" {
+		return false
+	}
+	switch ptype {
+	case "arithmetic":
+		if fn, _ := m["fn"].(string); strings.TrimSpace(fn) == "" {
+			return false
+		}
+		fields, ok := m["fields"].([]any)
+		if !ok || len(fields) == 0 {
+			return false
+		}
+		for _, f := range fields {
+			if !isPostAggregationComplete(f) {
+				return false
+			}
+		}
+		return true
+	case "constant":
+		val := m["value"]
+		if val == nil {
+			return false
+		}
+		switch v := val.(type) {
+		case float64, int, int64:
+			return true
+		case string:
+			return strings.TrimSpace(v) != ""
+		default:
+			return fmt.Sprint(val) != ""
+		}
+	case "doubleGreatest", "doubleLeast", "longGreatest", "longLeast":
+		fields, ok := m["fields"].([]any)
+		if !ok || len(fields) == 0 {
+			return false
+		}
+		for _, f := range fields {
+			if !isPostAggregationComplete(f) {
+				return false
+			}
+		}
+		return true
+	case "fieldAccess", "finalizingFieldAccess", "hyperUniqueCardinality":
+		return !isEmptyValue(m["fieldName"])
+	case "javascript":
+		fieldNames, ok := m["fieldNames"].([]any)
+		if !ok || len(fieldNames) == 0 {
+			return false
+		}
+		for _, fn := range fieldNames {
+			if isEmptyValue(fn) {
+				return false
+			}
+		}
+		return !isEmptyValue(m["function"])
+	case "quantilesDoublesSketchToQuantile":
+		if !isPostAggregationComplete(m["field"]) {
+			return false
+		}
+		frac := m["fraction"]
+		if frac == nil {
+			return false
+		}
+		switch frac.(type) {
+		case float64, int, int64:
+			return true
+		case string:
+			return strings.TrimSpace(frac.(string)) != ""
+		default:
+			return fmt.Sprint(frac) != ""
+		}
+	default:
+		return true
+	}
+}
+
+func isQueryComplete(builder map[string]any) bool {
+	if builder == nil {
+		return false
+	}
+	queryType, _ := builder["queryType"].(string)
+	if strings.TrimSpace(queryType) == "" {
+		return false
+	}
+	var tableName string
+	switch ds := builder["dataSource"].(type) {
+	case string:
+		tableName = ds
+	case map[string]any:
+		if n, ok := ds["name"].(string); ok {
+			tableName = n
+		}
+	}
+	if strings.TrimSpace(tableName) == "" {
+		return false
+	}
+	if postAggs, ok := builder["postAggregations"].([]any); ok && len(postAggs) > 0 {
+		for _, pa := range postAggs {
+			if !isPostAggregationComplete(pa) {
+				return false
+			}
+		}
+	}
+	switch queryType {
+	case "timeseries":
+		aggs, ok := builder["aggregations"].([]any)
+		if !ok || len(aggs) == 0 {
+			return false
+		}
+		completeCount := 0
+		for _, a := range aggs {
+			if isAggregationComplete(a) {
+				completeCount++
+			}
+		}
+		return completeCount > 0
+	case "groupBy":
+		dims, ok := builder["dimensions"].([]any)
+		if !ok || len(dims) == 0 {
+			return false
+		}
+		aggs, ok := builder["aggregations"].([]any)
+		if !ok || len(aggs) == 0 {
+			return false
+		}
+		completeCount := 0
+		for _, a := range aggs {
+			if isAggregationComplete(a) {
+				completeCount++
+			}
+		}
+		return completeCount > 0
+	case "topN":
+		if builder["dimension"] == nil || builder["metric"] == nil {
+			return false
+		}
+		if _, has := builder["threshold"]; !has {
+			return false
+		}
+		aggs, ok := builder["aggregations"].([]any)
+		if !ok || len(aggs) == 0 {
+			return false
+		}
+		completeCount := 0
+		for _, a := range aggs {
+			if isAggregationComplete(a) {
+				completeCount++
+			}
+		}
+		return completeCount > 0
+	case "search":
+		return builder["query"] != nil && builder["searchDimensions"] != nil
+	case "sql":
+		q, _ := builder["query"].(string)
+		return strings.TrimSpace(q) != ""
+	default:
+		return true
+	}
+}
+
+// Sanitize builder before sending to Druid: keep only complete aggregations, post-aggregations,
+// and filter branches; strip empty optional aggregation fields. Order matches frontend logic.
+
+func sanitizeAggregationsForBackend(builder map[string]any) {
+	aggs, ok := builder["aggregations"].([]any)
+	if !ok || len(aggs) == 0 {
+		return
+	}
+	var complete []any
+	for _, a := range aggs {
+		if isAggregationComplete(a) {
+			complete = append(complete, a)
+		}
+	}
+	builder["aggregations"] = complete
+}
+
+func stripEmptyAggregationFieldsInAgg(agg map[string]any) {
+	if isEmptyValue(agg["expression"]) {
+		delete(agg, "expression")
+	}
+	if isEmptyValue(agg["fieldName"]) {
+		delete(agg, "fieldName")
+	}
+	if agg["type"] == "filtered" {
+		if sub, ok := agg["aggregator"].(map[string]any); ok {
+			stripEmptyAggregationFieldsInAgg(sub)
+		}
+	}
+}
+
+func stripEmptyAggregationFields(builder map[string]any) {
+	aggs, ok := builder["aggregations"].([]any)
+	if !ok {
+		return
+	}
+	for _, a := range aggs {
+		if m, ok := a.(map[string]any); ok {
+			stripEmptyAggregationFieldsInAgg(m)
+		}
+	}
+}
+
+func sanitizeFilterForBackend(builder map[string]any) {
+	f, ok := builder["filter"].(map[string]any)
+	if !ok {
+		return
+	}
+	ftype, _ := f["type"].(string)
+	if ftype == "and" || ftype == "or" {
+		fields, ok := f["fields"].([]any)
+		if !ok {
+			delete(builder, "filter")
+			return
+		}
+		var valid []any
+		for _, field := range fields {
+			if isFilterComplete(field) {
+				valid = append(valid, field)
+			}
+		}
+		if len(valid) == 0 {
+			delete(builder, "filter")
+			return
+		}
+		if len(valid) == 1 {
+			builder["filter"] = valid[0]
+			return
+		}
+		builder["filter"] = map[string]any{"type": ftype, "fields": valid}
+		return
+	}
+	if !isFilterComplete(f) {
+		delete(builder, "filter")
+	}
+}
+
+func sanitizePostAggregationsForBackend(builder map[string]any) {
+	postAggs, ok := builder["postAggregations"].([]any)
+	if !ok || len(postAggs) == 0 {
+		return
+	}
+	var complete []any
+	for _, pa := range postAggs {
+		if isPostAggregationComplete(pa) {
+			complete = append(complete, pa)
+		}
+	}
+	builder["postAggregations"] = complete
+}
+
+// sanitizeBuilderForDruid applies all sanitization steps so only valid, complete parts are sent to Druid.
+func sanitizeBuilderForDruid(builder map[string]any) {
+	sanitizeAggregationsForBackend(builder)
+	stripEmptyAggregationFields(builder)
+	sanitizeFilterForBackend(builder)
+	sanitizePostAggregationsForBackend(builder)
+}
+
 // extractHiddenMetricsAndStripFromBuilder collects names of aggregations marked hidden
 // and removes the "hidden" key from each aggregation so the query sent to Druid is valid.
 // Returns the list of hidden metric names for use when building the response frame.
@@ -859,6 +1267,35 @@ func expandJsonFilters(filter any) any {
 	}
 }
 
+// sqlMaxLimit is the maximum allowed LIMIT for Druid SQL queries. Unbounded or higher limits
+// are capped to this value to avoid overloading Druid (e.g. "SELECT * FROM raw_events").
+const sqlMaxLimit = 2000
+
+// sqlLimitRegex matches a trailing LIMIT n optional OFFSET m clause (case-insensitive).
+var sqlLimitRegex = regexp.MustCompile(`(?i)\s+LIMIT\s+(\d+)(\s+OFFSET\s+\d+)?\s*$`)
+
+// enforceSQLLimit ensures the SQL query has a LIMIT at most sqlMaxLimit. If the query has no
+// LIMIT or LIMIT > sqlMaxLimit, it adds or replaces with LIMIT sqlMaxLimit. Used for all SQL
+// (dashboard, Explore, variables, alerting) to prevent unbounded queries from breaking the system.
+func enforceSQLLimit(sql string) string {
+	sql = strings.TrimSpace(sql)
+	sql = strings.TrimSuffix(sql, ";")
+	sql = strings.TrimSpace(sql)
+	loc := sqlLimitRegex.FindStringSubmatchIndex(sql)
+	if loc != nil {
+		limitStart, limitEnd := loc[2], loc[3]
+		n, err := strconv.Atoi(sql[limitStart:limitEnd])
+		if err != nil {
+			return sql + " LIMIT " + strconv.Itoa(sqlMaxLimit)
+		}
+		if n > sqlMaxLimit {
+			return sql[:limitStart] + strconv.Itoa(sqlMaxLimit) + sql[limitEnd:]
+		}
+		return sql
+	}
+	return sql + " LIMIT " + strconv.Itoa(sqlMaxLimit)
+}
+
 // containsSearchFilter returns true if the filter tree contains any filter with type "search".
 // Queries with search filters must be sent as raw JSON because the go-druid client's struct
 // for search filters does not include the "query" field, causing Druid to reject the query.
@@ -927,6 +1364,13 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 		return nil, nil, nil
 	}
 
+	// Sanitize: keep only complete aggregations, post-aggregations, and filter branches; strip empty optional fields.
+	// Then decide whether the query is complete enough to send to Druid.
+	sanitizeBuilderForDruid(builder)
+	if !isQueryComplete(builder) {
+		return nil, make(map[string]any), nil
+	}
+
 	// Use request time range for Druid intervals when provided (dashboard range or alert's resolved relativeTimeRange).
 	if timeRange != nil && !timeRange.From.IsZero() && !timeRange.To.IsZero() {
 		fromISO := timeRange.From.UTC().Format("2006-01-02T15:04:05.000Z")
@@ -974,6 +1418,13 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 			if m, ok := met["metric"].(string); ok {
 				settings["_topNMetric"] = m
 			}
+		}
+	}
+
+	// Enforce max LIMIT on SQL queries to avoid unbounded queries (e.g. SELECT * FROM raw_events).
+	if qt, _ := builder["queryType"].(string); qt == "sql" {
+		if q, ok := builder["query"].(string); ok && q != "" {
+			builder["query"] = enforceSQLLimit(q)
 		}
 	}
 
@@ -1040,6 +1491,17 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 	if err := json.Unmarshal(jsonQuery, &queryMap); err == nil {
 		if qt, ok := queryMap["queryType"].(string); ok {
 			queryType = qt
+		}
+		// Enforce max LIMIT on SQL when sending raw JSON (same as prepareQuery path).
+		if queryType == "sql" {
+			if q, ok := queryMap["query"].(string); ok && q != "" {
+				queryMap["query"] = enforceSQLLimit(q)
+				var err error
+				jsonQuery, err = json.Marshal(queryMap)
+				if err != nil {
+					return r, err
+				}
+			}
 		}
 	}
 
