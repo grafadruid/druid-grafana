@@ -10,7 +10,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -1267,34 +1266,9 @@ func expandJsonFilters(filter any) any {
 	}
 }
 
-// sqlMaxLimit is the maximum allowed LIMIT for Druid SQL queries. Unbounded or higher limits
-// are capped to this value to avoid overloading Druid (e.g. "SELECT * FROM raw_events").
-const sqlMaxLimit = 2000
-
-// sqlLimitRegex matches a trailing LIMIT n optional OFFSET m clause (case-insensitive).
-var sqlLimitRegex = regexp.MustCompile(`(?i)\s+LIMIT\s+(\d+)(\s+OFFSET\s+\d+)?\s*$`)
-
-// enforceSQLLimit ensures the SQL query has a LIMIT at most sqlMaxLimit. If the query has no
-// LIMIT or LIMIT > sqlMaxLimit, it adds or replaces with LIMIT sqlMaxLimit. Used for all SQL
-// (dashboard, Explore, variables, alerting) to prevent unbounded queries from breaking the system.
-func enforceSQLLimit(sql string) string {
-	sql = strings.TrimSpace(sql)
-	sql = strings.TrimSuffix(sql, ";")
-	sql = strings.TrimSpace(sql)
-	loc := sqlLimitRegex.FindStringSubmatchIndex(sql)
-	if loc != nil {
-		limitStart, limitEnd := loc[2], loc[3]
-		n, err := strconv.Atoi(sql[limitStart:limitEnd])
-		if err != nil {
-			return sql + " LIMIT " + strconv.Itoa(sqlMaxLimit)
-		}
-		if n > sqlMaxLimit {
-			return sql[:limitStart] + strconv.Itoa(sqlMaxLimit) + sql[limitEnd:]
-		}
-		return sql
-	}
-	return sql + " LIMIT " + strconv.Itoa(sqlMaxLimit)
-}
+// sqlOuterLimitDefault is the default value for Druid's sqlOuterLimit context parameter.
+// Druid caps the number of rows returned by SQL at this value, so we do not modify the query text.
+const sqlOuterLimitDefault = 2000
 
 // containsSearchFilter returns true if the filter tree contains any filter with type "search".
 // Queries with search filters must be sent as raw JSON because the go-druid client's struct
@@ -1421,13 +1395,6 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 		}
 	}
 
-	// Enforce max LIMIT on SQL queries to avoid unbounded queries (e.g. SELECT * FROM raw_events).
-	if qt, _ := builder["queryType"].(string); qt == "sql" {
-		if q, ok := builder["query"].(string); ok && q != "" {
-			builder["query"] = enforceSQLLimit(q)
-		}
-	}
-
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
 		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]any))
@@ -1437,6 +1404,17 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 		builder["context"] = mergeSettings(
 			defaultQueryContext,
 			ds.prepareQueryContext(queryContextParameters.([]any)))
+	}
+	// For SQL queries, set sqlOuterLimit in context so Druid caps result size.
+	if qt, _ := builder["queryType"].(string); qt == "sql" {
+		ctx, _ := builder["context"].(map[string]any)
+		if ctx == nil {
+			ctx = make(map[string]any)
+			builder["context"] = ctx
+		}
+		if _, ok := ctx["sqlOuterLimit"]; !ok {
+			ctx["sqlOuterLimit"] = sqlOuterLimitDefault
+		}
 	}
 	// Check if granularity is a period type (which the Go client can't handle properly)
 	// Period granularity uses ISO8601 strings like "P1D" which can't be unmarshaled into time.Duration
@@ -1492,10 +1470,15 @@ func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s 
 		if qt, ok := queryMap["queryType"].(string); ok {
 			queryType = qt
 		}
-		// Enforce max LIMIT on SQL when sending raw JSON (same as prepareQuery path).
+		// For SQL, set sqlOuterLimit in context so Druid caps result size (same as prepareQuery path).
 		if queryType == "sql" {
-			if q, ok := queryMap["query"].(string); ok && q != "" {
-				queryMap["query"] = enforceSQLLimit(q)
+			ctx, _ := queryMap["context"].(map[string]any)
+			if ctx == nil {
+				ctx = make(map[string]any)
+				queryMap["context"] = ctx
+			}
+			if _, ok := ctx["sqlOuterLimit"]; !ok {
+				ctx["sqlOuterLimit"] = sqlOuterLimitDefault
 				var err error
 				jsonQuery, err = json.Marshal(queryMap)
 				if err != nil {
