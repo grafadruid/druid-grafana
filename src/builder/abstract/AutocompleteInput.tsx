@@ -190,14 +190,31 @@ const fetchDimensionValues = async (
     console.error('fetchDimensionValues: Missing tableName or dimensionName', { tableName, dimensionName });
     return [];
   }
-  if (panelRange?.from == null || panelRange?.to == null) {
+
+  // Use panel range when available (dashboard/Explore). When null (e.g. variable editor), use interval from the query builder.
+  let fromMs: number;
+  let toMs: number;
+  if (panelRange?.from != null && panelRange?.to != null) {
+    fromMs = panelRange.from.valueOf();
+    toMs = panelRange.to.valueOf();
+  } else if (rootBuilder?.intervals?.intervals?.[0]) {
+    const intervalStr = rootBuilder.intervals.intervals[0];
+    const [fromISO, toISO] = String(intervalStr).split('/');
+    if (!fromISO || !toISO) {
+      return [];
+    }
+    fromMs = new Date(fromISO).getTime();
+    toMs = new Date(toISO).getTime();
+    if (Number.isNaN(fromMs) || Number.isNaN(toMs)) {
+      return [];
+    }
+  } else {
     return [];
   }
 
   try {
-    // Use Druid search query to get dimension values; only panel time range (no default)
-    const fromISO = new Date(panelRange.from.valueOf()).toISOString();
-    const toISO = new Date(panelRange.to.valueOf()).toISOString();
+    const fromISO = new Date(fromMs).toISOString();
+    const toISO = new Date(toMs).toISOString();
     const intervalsObj = {
       type: 'intervals',
       intervals: [`${fromISO}/${toISO}`],
@@ -254,6 +271,11 @@ const fetchDimensionValues = async (
     // This sends the query directly to Druid via the normal query execution flow
     // requestId is used by Grafana for request tracking - simple string is sufficient
     // datasource.query() returns an Observable, so we need to convert it to a Promise
+    // Use synthetic range when panel range was missing (e.g. variable editor)
+    const rangeForRequest =
+      panelRange?.from != null && panelRange?.to != null
+        ? panelRange
+        : { from: new Date(fromMs), to: new Date(toMs), valueOf: () => 0 };
     const queryObservable = datasource.query({
       targets: [query],
       requestId: 'autocomplete-' + Date.now(), // requestId with timestamp
@@ -263,7 +285,7 @@ const fetchDimensionValues = async (
       timezone: 'browser',
       app: 'dashboard',
       startTime: Date.now(),
-      range: panelRange,
+      range: rangeForRequest,
     } as any);
 
     // Convert Observable to Promise - get the first (and only) value
