@@ -923,6 +923,9 @@ func isQueryComplete(builder map[string]any) bool {
 			return false
 		}
 	}
+	if builder["filter"] != nil && !isFilterComplete(builder["filter"]) {
+		return false
+	}
 	if postAggs, ok := builder["postAggregations"].([]any); ok && len(postAggs) > 0 {
 		for _, pa := range postAggs {
 			if !isPostAggregationComplete(pa) {
@@ -936,13 +939,12 @@ func isQueryComplete(builder map[string]any) bool {
 		if !ok || len(aggs) == 0 {
 			return false
 		}
-		completeCount := 0
 		for _, a := range aggs {
-			if isAggregationComplete(a) {
-				completeCount++
+			if !isAggregationComplete(a) {
+				return false
 			}
 		}
-		return completeCount > 0
+		return true
 	case "groupBy":
 		dims, ok := builder["dimensions"].([]any)
 		if !ok || len(dims) == 0 {
@@ -952,13 +954,12 @@ func isQueryComplete(builder map[string]any) bool {
 		if !ok || len(aggs) == 0 {
 			return false
 		}
-		completeCount := 0
 		for _, a := range aggs {
-			if isAggregationComplete(a) {
-				completeCount++
+			if !isAggregationComplete(a) {
+				return false
 			}
 		}
-		return completeCount > 0
+		return true
 	case "topN":
 		if builder["dimension"] == nil || builder["metric"] == nil {
 			return false
@@ -970,13 +971,12 @@ func isQueryComplete(builder map[string]any) bool {
 		if !ok || len(aggs) == 0 {
 			return false
 		}
-		completeCount := 0
 		for _, a := range aggs {
-			if isAggregationComplete(a) {
-				completeCount++
+			if !isAggregationComplete(a) {
+				return false
 			}
 		}
-		return completeCount > 0
+		return true
 	case "search":
 		return builder["query"] != nil && builder["searchDimensions"] != nil
 	case "sql":
@@ -985,23 +985,6 @@ func isQueryComplete(builder map[string]any) bool {
 	default:
 		return true
 	}
-}
-
-// Sanitize builder before sending to Druid: keep only complete aggregations, post-aggregations,
-// and filter branches; strip empty optional aggregation fields. Order matches frontend logic.
-
-func sanitizeAggregationsForBackend(builder map[string]any) {
-	aggs, ok := builder["aggregations"].([]any)
-	if !ok || len(aggs) == 0 {
-		return
-	}
-	var complete []any
-	for _, a := range aggs {
-		if isAggregationComplete(a) {
-			complete = append(complete, a)
-		}
-	}
-	builder["aggregations"] = complete
 }
 
 func stripEmptyAggregationFieldsInAgg(agg map[string]any) {
@@ -1028,62 +1011,6 @@ func stripEmptyAggregationFields(builder map[string]any) {
 			stripEmptyAggregationFieldsInAgg(m)
 		}
 	}
-}
-
-func sanitizeFilterForBackend(builder map[string]any) {
-	f, ok := builder["filter"].(map[string]any)
-	if !ok {
-		return
-	}
-	ftype, _ := f["type"].(string)
-	if ftype == "and" || ftype == "or" {
-		fields, ok := f["fields"].([]any)
-		if !ok {
-			delete(builder, "filter")
-			return
-		}
-		var valid []any
-		for _, field := range fields {
-			if isFilterComplete(field) {
-				valid = append(valid, field)
-			}
-		}
-		if len(valid) == 0 {
-			delete(builder, "filter")
-			return
-		}
-		if len(valid) == 1 {
-			builder["filter"] = valid[0]
-			return
-		}
-		builder["filter"] = map[string]any{"type": ftype, "fields": valid}
-		return
-	}
-	if !isFilterComplete(f) {
-		delete(builder, "filter")
-	}
-}
-
-func sanitizePostAggregationsForBackend(builder map[string]any) {
-	postAggs, ok := builder["postAggregations"].([]any)
-	if !ok || len(postAggs) == 0 {
-		return
-	}
-	var complete []any
-	for _, pa := range postAggs {
-		if isPostAggregationComplete(pa) {
-			complete = append(complete, pa)
-		}
-	}
-	builder["postAggregations"] = complete
-}
-
-// sanitizeBuilderForDruid applies all sanitization steps so only valid, complete parts are sent to Druid.
-func sanitizeBuilderForDruid(builder map[string]any) {
-	sanitizeAggregationsForBackend(builder)
-	stripEmptyAggregationFields(builder)
-	sanitizeFilterForBackend(builder)
-	sanitizePostAggregationsForBackend(builder)
 }
 
 // extractHiddenMetricsAndStripFromBuilder collects names of aggregations marked hidden
@@ -1351,12 +1278,14 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 		return nil, nil, nil
 	}
 
-	// Sanitize: keep only complete aggregations, post-aggregations, and filter branches; strip empty optional fields.
-	// Then decide whether the query is complete enough to send to Druid.
-	sanitizeBuilderForDruid(builder)
+	// Query must be fully complete (all aggregations, filter if present, all post-aggregations).
+	// We do not strip incomplete parts; if anything is incomplete we do not send to Druid.
 	if !isQueryComplete(builder) {
 		return nil, make(map[string]any), nil
 	}
+
+	// Strip empty optional aggregation fields so the payload sent to Druid is valid.
+	stripEmptyAggregationFields(builder)
 
 	// Use request time range for Druid intervals when provided (dashboard range or alert's resolved relativeTimeRange).
 	if timeRange != nil && !timeRange.From.IsZero() && !timeRange.To.IsZero() {
