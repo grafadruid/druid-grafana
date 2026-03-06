@@ -162,8 +162,12 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ ...queryBuilderOptions, builder: converted });
     onChange({ ...query, ...queryBuilderOptions, expr: expr });
 
-    // Backend is the single authority: it skips Druid for incomplete queries and returns empty response.
-    onRunQuery();
+    // SQL: only run on dashboard/panel refresh or when user clicks "Run query". Do not run on every keystroke.
+    // Other query types: run on change (backend still skips incomplete queries).
+    const isSql = queryBuilderOptions.builder?.queryType === 'sql';
+    if (!isSql) {
+      onRunQuery();
+    }
   };
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
     const { query, onChange, onRunQuery } = props;
@@ -176,7 +180,6 @@ export const QueryEditor = (props: Props) => {
     const expr = JSON.stringify({ builder: converted, ...querySettingsOptions });
     onChange({ ...query, ...querySettingsOptions, expr: expr });
 
-    // Backend is the single authority: it skips Druid for incomplete queries and returns empty response.
     onRunQuery();
   };
   const [showDrawer, setShowDrawer] = useState(false);
