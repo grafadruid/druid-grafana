@@ -907,17 +907,21 @@ func isQueryComplete(builder map[string]any) bool {
 	if strings.TrimSpace(queryType) == "" {
 		return false
 	}
-	var tableName string
-	switch ds := builder["dataSource"].(type) {
-	case string:
-		tableName = ds
-	case map[string]any:
-		if n, ok := ds["name"].(string); ok {
-			tableName = n
+	// dataSource is required only for native query types that use it; SQL and search do not require it.
+	queryNeedsDataSource := queryType != "sql" && queryType != "search"
+	if queryNeedsDataSource {
+		var tableName string
+		switch ds := builder["dataSource"].(type) {
+		case string:
+			tableName = ds
+		case map[string]any:
+			if n, ok := ds["name"].(string); ok {
+				tableName = n
+			}
 		}
-	}
-	if strings.TrimSpace(tableName) == "" {
-		return false
+		if strings.TrimSpace(tableName) == "" {
+			return false
+		}
 	}
 	if postAggs, ok := builder["postAggregations"].([]any); ok && len(postAggs) > 0 {
 		for _, pa := range postAggs {
@@ -1308,6 +1312,7 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 	// Otherwise fall back to builder/settings
 	var builder map[string]any
 	var settings map[string]any
+	usedExpr := false
 
 	if q.Expr != "" {
 		// Parse the expr JSON string which contains { builder: {...}, settings: {...} }
@@ -1319,6 +1324,7 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 			builder = q.Builder
 			settings = q.Settings
 		} else {
+			usedExpr = true
 			builder = exprQuery.Builder
 			settings = exprQuery.Settings
 			// Merge with original settings if expr doesn't have settings
@@ -1329,6 +1335,13 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, ti
 	} else {
 		builder = q.Builder
 		settings = q.Settings
+	}
+
+	// In Explore, Grafana can run the query before the editor has set expr (e.g. initial load).
+	// Requests without expr are treated as incomplete: do not send to Druid to avoid plugin errors.
+	if !usedExpr && q.Expr == "" {
+		log.DefaultLogger.Debug("Query has no expr (e.g. Explore initial state); not sending to Druid")
+		return nil, make(map[string]any), nil
 	}
 
 	if builder == nil || settings == nil {

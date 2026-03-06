@@ -10,12 +10,19 @@ import { QueryBuilderOptions } from './builder/types';
 interface Props {
   query: DruidQuery;
   onChange: (query: DruidQuery, definition: string) => void;
+  /** Passed by Grafana when rendering the variable query editor; required for datasource/metric/dimension/dimension value autocomplete */
+  datasource?: any;
+  /** Optional time range for dimension value autocomplete (e.g. last 7 days); when missing, suggestions may be limited */
+  range?: { from: { valueOf(): number }; to: { valueOf(): number } };
 }
 
 export const VariableQueryEditor = (props: Props) => {
   const { builder, settings } = props.query;
   const builderOptions = { builder: builder || {}, settings: settings || {} };
   const settingsOptions = { settings: settings || {} };
+  // Grafana passes datasource when rendering the variable editor; accept from typed prop or legacy (untyped) prop
+  const datasource = props.datasource ?? (props as any).datasource;
+  const range = props.range ?? (props as any).range;
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -68,7 +75,13 @@ export const VariableQueryEditor = (props: Props) => {
           <DruidQuerySettings options={settingsOptions} onOptionsChange={onSettingsOptionsChange} />
         </Drawer>
       )}
-      <DruidQueryBuilder options={builderOptions} onOptionsChange={onBuilderOptionsChange} />
+      <DruidQueryBuilder
+        options={builderOptions}
+        onOptionsChange={onBuilderOptionsChange}
+        datasource={datasource}
+        rootBuilder={builderOptions.builder}
+        range={range}
+      />
     </>
   );
 };
