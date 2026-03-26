@@ -21,7 +21,6 @@ export const Javascript = (props: QueryBuilderProps) => {
           label="Function"
           description="The javascript function. e.g: function(x) { return(x >= 'bar' && x <= 'foo') }"
           lang="javascript"
-          height="80px"
         />
       </Row>
     </>

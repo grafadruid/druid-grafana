@@ -11,8 +11,6 @@ import 'ace-builds/src-noconflict/theme-twilight';
 
 interface Props extends QueryBuilderFieldProps {
   lang: string;
-  /** Height of the editor (e.g. '80px', '5em'). Shortens the visible area without changing width. */
-  height?: string;
 }
 
 export const Code = (props: Props) => {
@@ -27,8 +25,6 @@ export const Code = (props: Props) => {
         mode={props.lang}
         theme="twilight"
         onChange={onChange}
-        width="100%"
-        height={props.height ?? '200px'}
         fontSize={14}
         wrapEnabled={true}
         showPrintMargin={true}
