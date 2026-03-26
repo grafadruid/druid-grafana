@@ -1,15 +1,11 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
 import { css, cx } from '@emotion/css';
-import { debounce } from 'lodash';
 import { DruidQuery } from './types';
 import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
-
-/** Delay before committing SQL variable query to Grafana (avoids running metricFindQuery on every keystroke). */
-const VARIABLE_SQL_DEBOUNCE_MS = 1000;
 
 interface Props {
   query: DruidQuery;
@@ -20,65 +16,105 @@ interface Props {
   range?: { from: { valueOf(): number }; to: { valueOf(): number } };
 }
 
+function applyIntervalsDefault(queryBuilderOptions: QueryBuilderOptions): QueryBuilderOptions {
+  if (
+    queryBuilderOptions.builder !== null &&
+    (queryBuilderOptions.builder.intervals === undefined ||
+      (Array.isArray(queryBuilderOptions.builder.intervals?.intervals) &&
+        queryBuilderOptions.builder.intervals.intervals.length === 0))
+  ) {
+    return {
+      ...queryBuilderOptions,
+      builder: {
+        ...queryBuilderOptions.builder,
+        intervals: {
+          type: 'intervals',
+          intervals: ['${__from:date:iso}/${__to:date:iso}'],
+        },
+      },
+    };
+  }
+  return queryBuilderOptions;
+}
+
+function buildQueryAndExpr(
+  propsQuery: DruidQuery,
+  options: QueryBuilderOptions
+): { query: DruidQuery; expr: string } {
+  const opts = applyIntervalsDefault(options);
+  const expr = JSON.stringify(opts);
+  const query = { ...propsQuery, ...opts, expr };
+  return { query, expr };
+}
+
 function isSql(b: unknown): boolean {
   return b != null && typeof b === 'object' && (b as { queryType?: string }).queryType === 'sql';
 }
 
 export const VariableQueryEditor = (props: Props) => {
-  const { builder, settings } = props.query;
-  const builderOptions = { builder: builder || {}, settings: settings || {} };
-  const settingsOptions = { settings: settings || {} };
+  const { query: propsQuery, onChange } = props;
+  const { builder, settings } = propsQuery;
+  // SQL: keep edits local until blur / Run query / unmount so Grafana does not run metricFindQuery on every keystroke.
+  const [localOptions, setLocalOptions] = useState<QueryBuilderOptions>(() => ({
+    builder: builder || {},
+    settings: settings || {},
+  }));
+  const settingsOptions = { settings: localOptions.settings || {} };
   const datasource = props.datasource ?? (props as any).datasource;
   const range = props.range ?? (props as any).range;
 
-  const onChangeRef = useRef(props.onChange);
-  onChangeRef.current = props.onChange;
+  const localOptionsRef = useRef(localOptions);
+  const propsQueryRef = useRef(propsQuery);
+  const onChangeRef = useRef(onChange);
+  localOptionsRef.current = localOptions;
+  propsQueryRef.current = propsQuery;
+  onChangeRef.current = onChange;
 
-  const debouncedSqlOnChange = useMemo(
-    () =>
-      debounce((nextQuery: DruidQuery, definition: string) => {
-        onChangeRef.current(nextQuery, definition);
-      }, VARIABLE_SQL_DEBOUNCE_MS),
-    []
-  );
+  useEffect(() => {
+    setLocalOptions({
+      builder: builder || {},
+      settings: settings || {},
+    });
+  }, [builder, settings]);
 
   useEffect(() => {
     return () => {
-      debouncedSqlOnChange.flush();
-      debouncedSqlOnChange.cancel();
+      const opts = localOptionsRef.current;
+      if (isSql(opts.builder)) {
+        const { query, expr } = buildQueryAndExpr(propsQueryRef.current, opts);
+        onChangeRef.current(query, expr);
+      }
     };
-  }, [debouncedSqlOnChange]);
+  }, []);
+
+  const commitSqlToGrafana = () => {
+    if (!isSql(localOptions.builder)) return;
+    const { query, expr } = buildQueryAndExpr(propsQuery, localOptions);
+    onChange(query, expr);
+  };
 
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
-    const { query, onChange } = props;
-    if (
-      queryBuilderOptions.builder !== null &&
-      (queryBuilderOptions.builder.intervals === undefined ||
-        (Array.isArray(queryBuilderOptions.builder.intervals?.intervals) &&
-          queryBuilderOptions.builder.intervals.intervals.length === 0))
-    ) {
-      queryBuilderOptions.builder.intervals = {
-        type: 'intervals',
-        intervals: ['${__from:date:iso}/${__to:date:iso}'],
-      };
-    }
-    const expr = JSON.stringify(queryBuilderOptions);
-    const nextQuery = { ...query, ...queryBuilderOptions, expr };
-
-    if (isSql(queryBuilderOptions.builder)) {
-      debouncedSqlOnChange(nextQuery, expr);
+    const opts = applyIntervalsDefault(queryBuilderOptions);
+    if (isSql(opts.builder)) {
+      setLocalOptions(opts);
     } else {
-      onChange(nextQuery, expr);
+      const { query, expr } = buildQueryAndExpr(propsQuery, opts);
+      onChange(query, expr);
     }
   };
 
   const onSettingsOptionsChange = (querySettingsOptions: QuerySettingsOptions) => {
-    const { query, onChange } = props;
-    const expr = JSON.stringify({ builder: query.builder, ...querySettingsOptions });
-    onChange({ ...query, ...querySettingsOptions, expr: expr }, expr);
+    const nextOptions = { builder: localOptions.builder, ...querySettingsOptions };
+    setLocalOptions(nextOptions);
+    const { query, expr } = buildQueryAndExpr(propsQuery, nextOptions);
+    onChange(query, expr);
   };
 
   const [showDrawer, setShowDrawer] = useState(false);
+  const useLocalStateForBuilder = isSql(builder) || isSql(localOptions.builder);
+  const builderOptions = useLocalStateForBuilder
+    ? { builder: localOptions.builder || {}, settings: localOptions.settings || {} }
+    : { builder: builder || {}, settings: settings || {} };
 
   return (
     <>
@@ -107,7 +143,7 @@ export const VariableQueryEditor = (props: Props) => {
           <DruidQuerySettings options={settingsOptions} onOptionsChange={onSettingsOptionsChange} />
         </Drawer>
       )}
-      <div onBlur={() => debouncedSqlOnChange.flush()}>
+      <div onBlur={commitSqlToGrafana}>
         <DruidQueryBuilder
           options={builderOptions}
           onOptionsChange={onBuilderOptionsChange}
