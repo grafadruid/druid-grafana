@@ -198,13 +198,17 @@ const fetchDimensionValues = async (
     fromMs = panelRange.from.valueOf();
     toMs = panelRange.to.valueOf();
   } else if (rootBuilder?.intervals?.intervals?.[0]) {
-    const intervalStr = rootBuilder.intervals.intervals[0];
-    const [fromISO, toISO] = String(intervalStr).split('/');
+    let intervalStr = String(rootBuilder.intervals.intervals[0]);
+    // Substitute template variables (e.g. ${__from:date:iso}/${__to:date:iso}) when in variable editor
+    if (intervalStr.includes('${')) {
+      intervalStr = getTemplateSrv().replace(intervalStr);
+    }
+    const [fromISO, toISO] = intervalStr.split('/');
     if (!fromISO || !toISO) {
       return [];
     }
-    fromMs = new Date(fromISO).getTime();
-    toMs = new Date(toISO).getTime();
+    fromMs = new Date(fromISO.trim()).getTime();
+    toMs = new Date(toISO.trim()).getTime();
     if (Number.isNaN(fromMs) || Number.isNaN(toMs)) {
       return [];
     }
