@@ -2,7 +2,7 @@ import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, Row } from '../abstract';
 import { DataSource } from '../datasource';
-import { Dimension } from '../dimension';
+import { GroupByDimension } from '../dimension';
 import { LimitSpec } from '../limitspec';
 import { HavingSpec } from '../havingspec';
 import { Granularity } from '../granularity';
@@ -18,13 +18,14 @@ export const GroupBy = (props: QueryBuilderProps) => {
       <DataSource {...scopedComponentProps('dataSource')} inline />
       <Granularity {...scopedComponentProps('granularity')} inline />
       <Row>
-      <Multiple
-        {...scopedProps('dimensions')}
-        label="Dimensions"
-        description="The dimensions"
-        component={Dimension}
-        componentExtraProps={{}}
-      />
+        <Multiple
+          {...scopedProps('dimensions')}
+          label="Dimensions"
+          description="The dimensions"
+          component={GroupByDimension}
+          componentExtraProps={{}}
+          inlineItems
+        />
       </Row>
       <Row>
         <LimitSpec {...scopedComponentProps('limitSpec')} />

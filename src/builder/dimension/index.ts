@@ -1,5 +1,6 @@
 export { Default } from './Default';
 export { Dimension } from './Dimension';
+export { GroupByDimension } from './GroupByDimension';
 export { Extraction } from './Extraction';
 export { ListFiltered } from './ListFiltered';
 export { Lookup } from './Lookup';

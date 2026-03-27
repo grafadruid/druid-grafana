@@ -5,7 +5,7 @@ import { DataSource } from '../datasource';
 import { Granularity } from '../granularity';
 import { RootFilter } from '../filter';
 import { Intervals } from '../querysegmentspec';
-import { Dimension } from '../dimension';
+import { GroupByDimension } from '../dimension';
 import { SearchQuerySpec } from '../searchqueryspec';
 import { SearchSortSpec } from '../searchsortspec';
 
@@ -24,8 +24,9 @@ export const Search = (props: QueryBuilderProps) => {
           {...scopedProps('searchDimensions')}
           label="Search dimensions"
           description="The dimensions to run the search over. Excluding this means the search is run over all dimensions."
-          component={Dimension}
+          component={GroupByDimension}
           componentExtraProps={{}}
+          inlineItems
         />
       </Row>
       <Row>
