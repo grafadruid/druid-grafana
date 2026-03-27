@@ -1343,7 +1343,7 @@ func expandJsonFilters(filter any) any {
 
 // sqlOuterLimitDefault is the default value for Druid's sqlOuterLimit context parameter.
 // Druid caps the number of rows returned by SQL at this value, so we do not modify the query text.
-const sqlOuterLimitDefault = 500
+const sqlOuterLimitDefault = 2000
 
 // containsSearchFilter returns true if the filter tree contains any filter with type "search".
 // Queries with search filters must be sent as raw JSON because the go-druid client's struct
