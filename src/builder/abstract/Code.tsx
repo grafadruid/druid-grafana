@@ -25,6 +25,7 @@ export const Code = (props: Props) => {
         mode={props.lang}
         theme="twilight"
         onChange={onChange}
+        width="100%"
         fontSize={14}
         wrapEnabled={true}
         showPrintMargin={true}

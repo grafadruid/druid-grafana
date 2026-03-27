@@ -692,9 +692,135 @@ func isEmptyValue(v any) bool {
 	return false
 }
 
+// isInlineLookupMapComplete checks Druid inline lookup specs from the query builder
+// (e.g. type "map" with a key-value object).
+func isInlineLookupMapComplete(lookup any) bool {
+	if lookup == nil {
+		return false
+	}
+	m, ok := lookup.(map[string]any)
+	if !ok || len(m) == 0 {
+		return false
+	}
+	ltype, _ := m["type"].(string)
+	switch strings.ToLower(strings.TrimSpace(ltype)) {
+	case "map":
+		kv, ok := m["map"].(map[string]any)
+		return ok && len(kv) > 0
+	default:
+		return strings.TrimSpace(ltype) != ""
+	}
+}
+
+func isExtractionFnComplete(fn any) bool {
+	if fn == nil {
+		return false
+	}
+	m, ok := fn.(map[string]any)
+	if !ok {
+		return false
+	}
+	ftype, _ := m["type"].(string)
+	ftype = strings.ToLower(strings.TrimSpace(ftype))
+	if ftype == "" {
+		return false
+	}
+	switch ftype {
+	case "identity", "lower", "upper", "strlen":
+		return true
+	case "javascript":
+		return !isEmptyValue(m["function"])
+	case "regex":
+		return !isEmptyValue(m["expr"])
+	case "partial":
+		return !isEmptyValue(m["expr"])
+	case "stringformat":
+		return !isEmptyValue(m["format"])
+	case "cascade":
+		fns, ok := m["extractionFns"].([]any)
+		if !ok || len(fns) == 0 {
+			return false
+		}
+		for _, sub := range fns {
+			if !isExtractionFnComplete(sub) {
+				return false
+			}
+		}
+		return true
+	case "lookup":
+		return isInlineLookupMapComplete(m["lookup"])
+	case "registeredlookup":
+		return !isEmptyValue(m["lookup"])
+	default:
+		return true
+	}
+}
+
+// isDimensionComplete ensures each groupBy/topN dimension spec is valid before sending to Druid.
+// The UI can emit null slots (new Multiple rows) or default specs without a column name; those
+// must not pass completeness (Druid returns Jackson ValueInstantiationException otherwise).
+func isDimensionComplete(dim any) bool {
+	if dim == nil {
+		return false
+	}
+	if s, ok := dim.(string); ok {
+		return strings.TrimSpace(s) != ""
+	}
+	m, ok := dim.(map[string]any)
+	if !ok {
+		return false
+	}
+	dtypeRaw, _ := m["type"].(string)
+	dtype := strings.ToLower(strings.TrimSpace(dtypeRaw))
+	if dtype == "" {
+		d, ok := m["dimension"].(string)
+		return ok && strings.TrimSpace(d) != ""
+	}
+	switch dtype {
+	case "default":
+		d, _ := m["dimension"].(string)
+		return strings.TrimSpace(d) != ""
+	case "extraction":
+		d, _ := m["dimension"].(string)
+		if strings.TrimSpace(d) == "" {
+			return false
+		}
+		return isExtractionFnComplete(m["extractionFn"])
+	case "listfiltered":
+		if !isDimensionComplete(m["delegate"]) {
+			return false
+		}
+		vals, ok := m["values"].([]any)
+		return ok && len(vals) > 0
+	case "registeredlookup":
+		d, _ := m["dimension"].(string)
+		if strings.TrimSpace(d) == "" {
+			return false
+		}
+		return !isEmptyValue(m["lookup"])
+	case "lookup":
+		d, _ := m["dimension"].(string)
+		if strings.TrimSpace(d) == "" {
+			return false
+		}
+		name, _ := m["name"].(string)
+		if strings.TrimSpace(name) != "" {
+			return true
+		}
+		return isInlineLookupMapComplete(m["lookup"])
+	case "prefixfiltered":
+		return isDimensionComplete(m["delegate"]) && !isEmptyValue(m["prefix"])
+	case "regexfiltered":
+		return isDimensionComplete(m["delegate"]) && !isEmptyValue(m["pattern"])
+	default:
+		d, _ := m["dimension"].(string)
+		return strings.TrimSpace(d) != ""
+	}
+}
+
 func isFilterComplete(filter any) bool {
 	if filter == nil {
-		return true
+		return false
 	}
 	m, ok := filter.(map[string]any)
 	if !ok {
@@ -707,8 +833,13 @@ func isFilterComplete(filter any) bool {
 	switch ftype {
 	case "and", "or":
 		fields, ok := m["fields"].([]any)
-		if !ok || len(fields) == 0 {
+		if !ok {
 			return false
+		}
+		// Root filter is often { type: "and", fields: [] } when the user added no clauses.
+		// prepareQuery strips that before Druid. JSON null slots from "Add filter" must fail.
+		if len(fields) == 0 {
+			return true
 		}
 		for _, f := range fields {
 			if !isFilterComplete(f) {
@@ -742,7 +873,15 @@ func isFilterComplete(filter any) bool {
 		return !isEmptyValue(m["value"])
 	case "columnComparison":
 		dims, ok := m["dimensions"].([]any)
-		return ok && len(dims) > 0
+		if !ok || len(dims) == 0 {
+			return false
+		}
+		for _, d := range dims {
+			if !isDimensionComplete(d) {
+				return false
+			}
+		}
+		return true
 	case "search":
 		q, ok := m["query"].(map[string]any)
 		if !ok || isEmptyValue(q["type"]) {
@@ -950,6 +1089,11 @@ func isQueryComplete(builder map[string]any) bool {
 		if !ok || len(dims) == 0 {
 			return false
 		}
+		for _, d := range dims {
+			if !isDimensionComplete(d) {
+				return false
+			}
+		}
 		aggs, ok := builder["aggregations"].([]any)
 		if !ok || len(aggs) == 0 {
 			return false
@@ -961,7 +1105,7 @@ func isQueryComplete(builder map[string]any) bool {
 		}
 		return true
 	case "topN":
-		if builder["dimension"] == nil || builder["metric"] == nil {
+		if !isDimensionComplete(builder["dimension"]) || builder["metric"] == nil {
 			return false
 		}
 		if _, has := builder["threshold"]; !has {
@@ -2357,7 +2501,10 @@ func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data
 		return nil
 	}
 	// Build (time, seriesName, value) and collect unique times and series for wide format
-	type key struct{ t int64; s string }
+	type key struct {
+		t int64
+		s string
+	}
 	points := make(map[key]float64)
 	var timeOrder []int64
 	timeSeen := make(map[int64]bool)
@@ -2472,7 +2619,10 @@ func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Fr
 	if b, ok := settings["_fromAlert"].(bool); ok && b {
 		useLabelSetNames = true
 	}
-	type key struct{ t int64; s string }
+	type key struct {
+		t int64
+		s string
+	}
 	points := make(map[key]float64)
 	var timeOrder []int64
 	timeSeen := make(map[int64]bool)
@@ -2637,7 +2787,10 @@ func fillTopNMissingDimensionValues(rows *[][]any, columns []string, settings ma
 			}
 		}
 	}
-	type timeDimKey struct{ t int64; d string }
+	type timeDimKey struct {
+		t int64
+		d string
+	}
 	present := make(map[timeDimKey]bool)
 	timeVals := make(map[int64]any)
 	for _, row := range *rows {
