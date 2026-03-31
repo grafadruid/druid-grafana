@@ -6,34 +6,27 @@ export const RegisteredLookup = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, RegisteredLookup);
   return (
     <>
-      <Row>
         <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
         <Input
           {...scopedProps('outputName')}
           label="Output name"
           description="The, optionnal, dimension output name"
           type="text"
+          omitWhenEmpty
         />
-      </Row>
       <Row>
         <Input {...scopedProps('lookup')} label="Lookup" description="The registered lookup name" type="text" />
-      </Row>
-      <Row>
         <Checkbox
           {...scopedProps('retainMissingValue')}
           label="Retain missing value"
-          description="Specifies if the missing value should be retained"
+          description=""
         />
-      </Row>
-      <Row>
         <Input
           {...scopedProps('replaceMissingValueWith')}
           label="Replace missing value with"
           description="The missing value replacement text"
           type="text"
         />
-      </Row>
-      <Row>
         <Checkbox
           {...scopedProps('injective')}
           label="Injective?"

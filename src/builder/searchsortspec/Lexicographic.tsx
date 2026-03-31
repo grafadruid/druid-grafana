@@ -1,10 +1,10 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useQueryBuilderAutoSubmit, Row } from '../abstract';
+import { useQueryBuilderAutoSubmit } from '../abstract';
 
 export const Lexicographic = (props: QueryBuilderProps) => {
   useQueryBuilderAutoSubmit(props, Lexicographic);
-  return <Row>Lexicographic.</Row>;
+  return null;
 };
 Lexicographic.type = 'lexicographic';
 Lexicographic.fields = [] as string[];

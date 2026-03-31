@@ -1,21 +1,23 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Checkbox } from '../abstract';
 
 export const LongMax = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, LongMax);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
-      <Input
+      <AutocompleteInput
         {...scopedProps('fieldName')}
         label="Field name"
         description="Name of the metric column to sum over"
-        type="text"
+        type="metric"
+        datasource={props.datasource}
       />
       <Input {...scopedProps('expression')} label="Expression" description="The expression" type="text" />
-    </Row>
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
+    </>
   );
 };
 LongMax.type = 'longMax';
-LongMax.fields = ['name', 'fieldName', 'expression'];
+LongMax.fields = ['name', 'fieldName', 'expression', 'hidden'];

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,6 +51,7 @@ func variableVariants(base string) []string {
 type druidQuery struct {
 	Builder  map[string]any `json:"builder"`
 	Settings map[string]any `json:"settings"`
+	Expr     string         `json:"expr,omitempty"` // Workaround for Grafana issue #30013 - contains converted query with timezone-aware granularity
 }
 
 type druidResponse struct {
@@ -64,6 +66,10 @@ type druidResponse struct {
 type druidInstanceSettings struct {
 	client               *druid.Client
 	defaultQuerySettings map[string]any
+	druidURL             string
+	basicAuthUser        string
+	basicAuthPassword    string
+	hasBasicAuth         bool
 }
 
 func (s *druidInstanceSettings) Dispose() {
@@ -87,8 +93,14 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	if retryWaitMax := data.Get("connection.retryableRetryWaitMax").MustInt(-1); retryWaitMax != -1 {
 		druidOpts = append(druidOpts, druid.WithRetryWaitMax(time.Duration(retryWaitMax)*time.Millisecond))
 	}
+	var basicAuthUser string
+	var basicAuthPassword string
+	var hasBasicAuth bool
 	if basicAuth := data.Get("connection.basicAuth").MustBool(); basicAuth {
-		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
+		basicAuthUser = data.Get("connection.basicAuthUser").MustString()
+		basicAuthPassword = secureData["connection.basicAuthPassword"]
+		hasBasicAuth = true
+		druidOpts = append(druidOpts, druid.WithBasicAuth(basicAuthUser, basicAuthPassword))
 	}
 	if mTLS := data.Get("connection.mTLS").MustBool(); mTLS {
 		log.DefaultLogger.Info("mTLS enabled for Druid connection")
@@ -151,7 +163,8 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}
 
-	c, err := druid.NewClient(data.Get("connection.url").MustString(), druidOpts...)
+	druidURL := data.Get("connection.url").MustString()
+	c, err := druid.NewClient(druidURL, druidOpts...)
 	if err != nil {
 		return &druidInstanceSettings{}, err
 	}
@@ -159,6 +172,10 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	return &druidInstanceSettings{
 		client:               c,
 		defaultQuerySettings: prepareQuerySettings(settings.JSONData),
+		druidURL:             druidURL,
+		basicAuthUser:        basicAuthUser,
+		basicAuthPassword:    basicAuthPassword,
+		hasBasicAuth:         hasBasicAuth,
 	}, nil
 }
 
@@ -185,6 +202,67 @@ func mergeSettings(settings ...map[string]any) map[string]any {
 		}
 	}
 	return stg
+}
+
+// cellToString converts a Druid response cell (interface{}) to string. Druid/JSON can return numbers as float64.
+func cellToString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return x
+	case float64:
+		return strconv.FormatFloat(x, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(x)
+	case int64:
+		return strconv.FormatInt(x, 10)
+	case bool:
+		return strconv.FormatBool(x)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// cellToFloat64 converts a cell to float64 (Druid often returns numbers as float64; JSON may give int).
+func cellToFloat64(v any) float64 {
+	if v == nil {
+		return 0
+	}
+	switch x := v.(type) {
+	case float64:
+		return x
+	case int:
+		return float64(x)
+	case int64:
+		return float64(x)
+	case string:
+		f, _ := strconv.ParseFloat(x, 64)
+		return f
+	default:
+		return 0
+	}
+}
+
+// cellToInt64 converts a cell to int64 (value may be string, float64, or int from JSON).
+func cellToInt64(v any) int64 {
+	if v == nil {
+		return 0
+	}
+	switch x := v.(type) {
+	case float64:
+		return int64(x)
+	case int:
+		return int64(x)
+	case int64:
+		return x
+	case string:
+		i, _ := strconv.ParseInt(x, 10, 64)
+		return i
+	default:
+		return 0
+	}
 }
 
 func newDatasource(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
@@ -216,9 +294,40 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	case "query-variable":
 		switch req.Method {
 		case "POST":
-			body, err = ds.QueryVariableData(ctx, req)
+			var variableBody []grafanaMetricFindValue
+			variableBody, err = ds.QueryVariableData(ctx, req)
 			if err == nil {
 				code = 200
+				body = variableBody
+			} else {
+				log.DefaultLogger.Error("query-variable failed", "error", err.Error())
+				body = map[string]string{"error": err.Error()}
+			}
+		default:
+			body = "Method not supported"
+		}
+	case "datasource-metadata":
+		switch req.Method {
+		case "GET":
+			body, err = ds.GetDatasourceMetadata(ctx, req)
+			if err == nil {
+				code = 200
+			} else {
+				code = 500
+				body = map[string]string{"error": err.Error()}
+			}
+		default:
+			body = "Method not supported"
+		}
+	case "datasources":
+		switch req.Method {
+		case "GET":
+			body, err = ds.ListDatasources(ctx)
+			if err == nil {
+				code = 200
+			} else {
+				code = 500
+				body = map[string]string{"error": err.Error()}
 			}
 		default:
 			body = "Method not supported"
@@ -237,6 +346,97 @@ type grafanaMetricFindValue struct {
 	Text  string `json:"text"`
 }
 
+func (ds *druidDatasource) GetDatasourceMetadata(ctx context.Context, req *backend.CallResourceRequest) (map[string]any, error) {
+	// Parse datasource name from query parameters
+	// req.URL is a string, so we need to parse it first
+	parsedURL, err := url.Parse(req.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse request URL: %w", err)
+	}
+	datasourceName := parsedURL.Query().Get("datasource")
+	if datasourceName == "" {
+		return nil, fmt.Errorf("datasource parameter is required")
+	}
+
+	// Construct the URL for the Druid metadata API
+	url := strings.TrimSuffix(ds.settings.druidURL, "/") + "/druid/v2/datasources/" + datasourceName
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Create HTTP client with authentication if configured
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Add basic auth if configured
+	if ds.settings.hasBasicAuth {
+		httpReq.SetBasicAuth(ds.settings.basicAuthUser, ds.settings.basicAuthPassword)
+	}
+
+	// Make the request
+	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch datasource metadata: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Druid API returned status %d", resp.StatusCode)
+	}
+
+	// Parse the response
+	var metadata map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
+		return nil, fmt.Errorf("failed to parse metadata response: %w", err)
+	}
+
+	return metadata, nil
+}
+
+func (ds *druidDatasource) ListDatasources(ctx context.Context) ([]string, error) {
+	// Construct the URL for the Druid metadata API to list all datasources
+	url := strings.TrimSuffix(ds.settings.druidURL, "/") + "/druid/v2/datasources"
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Create HTTP client with authentication if configured
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Add basic auth if configured
+	if ds.settings.hasBasicAuth {
+		httpReq.SetBasicAuth(ds.settings.basicAuthUser, ds.settings.basicAuthPassword)
+	}
+
+	// Make the request
+	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch datasources list: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Druid API returned status %d", resp.StatusCode)
+	}
+
+	// Parse the response - /druid/v2/datasources returns a JSON array of datasource names
+	var datasources []string
+	if err := json.NewDecoder(resp.Body).Decode(&datasources); err != nil {
+		return nil, fmt.Errorf("failed to parse datasources response: %w", err)
+	}
+
+	return datasources, nil
+}
+
 func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
 	log.DefaultLogger.Debug("QUERY VARIABLE", "request", string(req.Body))
 	return ds.queryVariable(req.Body, ds.settings)
@@ -246,9 +446,13 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
-	q, stg, err := ds.prepareQuery(qry, s)
+	q, stg, err := ds.prepareQuery(qry, s, nil)
 	if err != nil {
 		return response, err
+	}
+	if q == nil {
+		// prepareQuery returned nil (invalid query), return empty response
+		return response, nil
 	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_query", q)
 	r, err := ds.executeQuery("variable", q, s, stg)
@@ -269,29 +473,24 @@ func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings
 			switch c.Type {
 			case "string":
 				if r[ic] != nil {
-					response = append(response, grafanaMetricFindValue{Value: r[ic].(string), Text: r[ic].(string)})
+					s := cellToString(r[ic])
+					response = append(response, grafanaMetricFindValue{Value: s, Text: s})
 				}
 			case "float":
 				if r[ic] != nil {
-					response = append(response, grafanaMetricFindValue{Value: r[ic].(float64), Text: fmt.Sprintf("%f", r[ic].(float64))})
+					f := cellToFloat64(r[ic])
+					response = append(response, grafanaMetricFindValue{Value: f, Text: fmt.Sprintf("%f", f)})
 				}
 			case "int":
 				if r[ic] != nil {
-					i, err := strconv.Atoi(r[ic].(string))
-					if err != nil {
-						i = 0
-					}
-					response = append(response, grafanaMetricFindValue{Value: i, Text: r[ic].(string)})
+					i := cellToInt64(r[ic])
+					response = append(response, grafanaMetricFindValue{Value: i, Text: strconv.FormatInt(i, 10)})
 				}
 			case "bool":
 				var b bool
-				var err error
 				b, ok := r[ic].(bool)
 				if !ok {
-					b, err = strconv.ParseBool(r[ic].(string))
-					if err != nil {
-						b = false
-					}
+					b, _ = strconv.ParseBool(cellToString(r[ic]))
 				}
 				var i int
 				if b {
@@ -341,24 +540,59 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 }
 
 func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
+	// Full payload from Grafana (dashboard, Explore, or alerting): req contains all queries and metadata.
+	log.DefaultLogger.Debug("DRUID QueryData request", "numQueries", len(req.Queries), "request", req)
+
+	// Only resolve query window from request TimeRange when the request is from alerting.
+	// Dashboard/Explore use the intervals already in the query (from panel range applied on the frontend).
+	fromAlert := req.Headers != nil && req.Headers["FromAlert"] == "true"
 	response := backend.NewQueryDataResponse()
 
 	for _, q := range req.Queries {
-		response.Responses[q.RefID] = ds.query(q, ds.settings)
+		var intervalTimeRange *backend.TimeRange
+		if fromAlert {
+			intervalTimeRange = &q.TimeRange
+		}
+		response.Responses[q.RefID] = ds.query(q, ds.settings, intervalTimeRange, fromAlert)
 	}
 
 	return response, nil
 }
 
-func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
+func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings, intervalTimeRange *backend.TimeRange, fromAlert bool) backend.DataResponse {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
 	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange)
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := backend.DataResponse{}
-	q, stg, err := ds.prepareQuery([]byte(rawQuery), s)
+	q, stg, err := ds.prepareQuery([]byte(rawQuery), s, intervalTimeRange)
 	if err != nil {
 		response.Error = err
+		return response
+	}
+	// So prepareResponse/buildGroupBySeriesFrame can use label-set series names only for alerting
+	stg["_fromAlert"] = fromAlert
+	if q == nil {
+		// Check if this is a raw JSON query (period granularity or search filter)
+		if rawJSON, ok := stg["_rawQueryJSON"].(string); ok {
+			// Remove the marker from settings
+			delete(stg, "_rawQueryJSON")
+			log.DefaultLogger.Debug("[RAW] DRUID EXECUTE QUERY", "druid_query", rawJSON)
+			// Send raw JSON directly to Druid (bypasses go-druid struct marshaling)
+			r, err := ds.executeRawQuery(qry.RefID, []byte(rawJSON), s, stg)
+			if err != nil {
+				response.Error = err
+				return response
+			}
+			log.DefaultLogger.Debug("[RAW] DRUID EXECUTE QUERY", "druid_response", r)
+			response, err = ds.prepareResponse(r, stg)
+			if err != nil {
+				response.Error = err
+			}
+			log.DefaultLogger.Debug("[RAW] DRUID EXECUTE QUERY", "grafana_response", response)
+			return response
+		}
+		// prepareQuery returned nil (invalid query), return empty response
 		return response
 	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_query", q)
@@ -441,36 +675,862 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
-func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]any, error) {
+// Query completeness checks: if the builder is incomplete (e.g. user still typing),
+// we do not send the query to Druid and return an empty response. This avoids sending
+// incomplete queries on every keystroke or when Grafana refreshes (variable/time change).
+
+func isEmptyValue(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch val := v.(type) {
+	case string:
+		return strings.TrimSpace(val) == ""
+	case []any:
+		return len(val) == 0
+	}
+	return false
+}
+
+// isInlineLookupMapComplete checks Druid inline lookup specs from the query builder
+// (e.g. type "map" with a key-value object).
+func isInlineLookupMapComplete(lookup any) bool {
+	if lookup == nil {
+		return false
+	}
+	m, ok := lookup.(map[string]any)
+	if !ok || len(m) == 0 {
+		return false
+	}
+	ltype, _ := m["type"].(string)
+	switch strings.ToLower(strings.TrimSpace(ltype)) {
+	case "map":
+		kv, ok := m["map"].(map[string]any)
+		return ok && len(kv) > 0
+	default:
+		return strings.TrimSpace(ltype) != ""
+	}
+}
+
+func isExtractionFnComplete(fn any) bool {
+	if fn == nil {
+		return false
+	}
+	m, ok := fn.(map[string]any)
+	if !ok {
+		return false
+	}
+	ftype, _ := m["type"].(string)
+	ftype = strings.ToLower(strings.TrimSpace(ftype))
+	if ftype == "" {
+		return false
+	}
+	switch ftype {
+	case "identity", "lower", "upper", "strlen":
+		return true
+	case "javascript":
+		return !isEmptyValue(m["function"])
+	case "regex":
+		return !isEmptyValue(m["expr"])
+	case "partial":
+		return !isEmptyValue(m["expr"])
+	case "stringformat":
+		return !isEmptyValue(m["format"])
+	case "cascade":
+		fns, ok := m["extractionFns"].([]any)
+		if !ok || len(fns) == 0 {
+			return false
+		}
+		for _, sub := range fns {
+			if !isExtractionFnComplete(sub) {
+				return false
+			}
+		}
+		return true
+	case "lookup":
+		return isInlineLookupMapComplete(m["lookup"])
+	case "registeredlookup":
+		return !isEmptyValue(m["lookup"])
+	default:
+		return true
+	}
+}
+
+// isDimensionComplete ensures each groupBy/topN dimension spec is valid before sending to Druid.
+// The UI can emit null slots (new Multiple rows) or default specs without a column name; those
+// must not pass completeness (Druid returns Jackson ValueInstantiationException otherwise).
+func isDimensionComplete(dim any) bool {
+	if dim == nil {
+		return false
+	}
+	if s, ok := dim.(string); ok {
+		return strings.TrimSpace(s) != ""
+	}
+	m, ok := dim.(map[string]any)
+	if !ok {
+		return false
+	}
+	dtypeRaw, _ := m["type"].(string)
+	dtype := strings.ToLower(strings.TrimSpace(dtypeRaw))
+	if dtype == "" {
+		d, ok := m["dimension"].(string)
+		return ok && strings.TrimSpace(d) != ""
+	}
+	switch dtype {
+	case "default":
+		d, _ := m["dimension"].(string)
+		return strings.TrimSpace(d) != ""
+	case "extraction":
+		d, _ := m["dimension"].(string)
+		if strings.TrimSpace(d) == "" {
+			return false
+		}
+		return isExtractionFnComplete(m["extractionFn"])
+	case "listfiltered":
+		if !isDimensionComplete(m["delegate"]) {
+			return false
+		}
+		vals, ok := m["values"].([]any)
+		return ok && len(vals) > 0
+	case "registeredlookup":
+		d, _ := m["dimension"].(string)
+		if strings.TrimSpace(d) == "" {
+			return false
+		}
+		return !isEmptyValue(m["lookup"])
+	case "lookup":
+		d, _ := m["dimension"].(string)
+		if strings.TrimSpace(d) == "" {
+			return false
+		}
+		name, _ := m["name"].(string)
+		if strings.TrimSpace(name) != "" {
+			return true
+		}
+		return isInlineLookupMapComplete(m["lookup"])
+	case "prefixfiltered":
+		return isDimensionComplete(m["delegate"]) && !isEmptyValue(m["prefix"])
+	case "regexfiltered":
+		return isDimensionComplete(m["delegate"]) && !isEmptyValue(m["pattern"])
+	default:
+		d, _ := m["dimension"].(string)
+		return strings.TrimSpace(d) != ""
+	}
+}
+
+func isFilterComplete(filter any) bool {
+	if filter == nil {
+		return false
+	}
+	m, ok := filter.(map[string]any)
+	if !ok {
+		return false
+	}
+	ftype, _ := m["type"].(string)
+	if strings.TrimSpace(ftype) == "" {
+		return false
+	}
+	switch ftype {
+	case "and", "or":
+		fields, ok := m["fields"].([]any)
+		if !ok {
+			return false
+		}
+		// Root filter is often { type: "and", fields: [] } when the user added no clauses.
+		// prepareQuery strips that before Druid. JSON null slots from "Add filter" must fail.
+		if len(fields) == 0 {
+			return true
+		}
+		for _, f := range fields {
+			if !isFilterComplete(f) {
+				return false
+			}
+		}
+		return true
+	case "not":
+		return m["field"] != nil && isFilterComplete(m["field"])
+	}
+	if dim, has := m["dimension"]; has && isEmptyValue(dim) {
+		return false
+	}
+	switch ftype {
+	case "selector":
+		return !isEmptyValue(m["value"])
+	case "like", "regex":
+		return !isEmptyValue(m["pattern"])
+	case "in":
+		vals, ok := m["values"].([]any)
+		return ok && len(vals) > 0
+	case "bound":
+		return !isEmptyValue(m["lower"]) || !isEmptyValue(m["upper"])
+	case "expression":
+		return !isEmptyValue(m["expression"])
+	case "interval":
+		return !isEmptyValue(m["intervals"])
+	case "javascript":
+		return !isEmptyValue(m["function"])
+	case "json":
+		return !isEmptyValue(m["value"])
+	case "columnComparison":
+		dims, ok := m["dimensions"].([]any)
+		if !ok || len(dims) == 0 {
+			return false
+		}
+		for _, d := range dims {
+			if !isDimensionComplete(d) {
+				return false
+			}
+		}
+		return true
+	case "search":
+		q, ok := m["query"].(map[string]any)
+		if !ok || isEmptyValue(q["type"]) {
+			return false
+		}
+		if v, has := q["value"]; has && isEmptyValue(v) {
+			return false
+		}
+		return true
+	case "true", "false":
+		return true
+	default:
+		if v, has := m["value"]; has && isEmptyValue(v) {
+			return false
+		}
+		if v, has := m["pattern"]; has && isEmptyValue(v) {
+			return false
+		}
+		if v, has := m["values"]; has && isEmptyValue(v) {
+			return false
+		}
+		return true
+	}
+}
+
+var aggregationTypesWithExpression = map[string]struct{}{
+	"longSum": {}, "longMin": {}, "longMax": {},
+	"doubleSum": {}, "doubleMin": {}, "doubleMax": {},
+	"floatSum": {}, "floatMin": {}, "floatMax": {},
+}
+
+func isAggregationComplete(agg any) bool {
+	m, ok := agg.(map[string]any)
+	if !ok {
+		return false
+	}
+	atype, _ := m["type"].(string)
+	if strings.TrimSpace(atype) == "" {
+		return false
+	}
+	aname, _ := m["name"].(string)
+	if strings.TrimSpace(aname) == "" {
+		return false
+	}
+	if atype != "count" && atype != "filtered" {
+		fieldName, _ := m["fieldName"].(string)
+		hasFieldName := strings.TrimSpace(fieldName) != ""
+		if _, hasExpr := aggregationTypesWithExpression[atype]; hasExpr {
+			expr, _ := m["expression"].(string)
+			hasExpression := strings.TrimSpace(expr) != ""
+			if !hasFieldName && !hasExpression {
+				return false
+			}
+		} else {
+			if !hasFieldName {
+				return false
+			}
+		}
+	}
+	if atype == "filtered" {
+		if !isFilterComplete(m["filter"]) {
+			return false
+		}
+		if !isAggregationComplete(m["aggregator"]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isPostAggregationComplete(pa any) bool {
+	m, ok := pa.(map[string]any)
+	if !ok {
+		return false
+	}
+	ptype, _ := m["type"].(string)
+	if strings.TrimSpace(ptype) == "" {
+		return false
+	}
+	pname, _ := m["name"].(string)
+	if strings.TrimSpace(pname) == "" {
+		return false
+	}
+	switch ptype {
+	case "arithmetic":
+		if fn, _ := m["fn"].(string); strings.TrimSpace(fn) == "" {
+			return false
+		}
+		fields, ok := m["fields"].([]any)
+		if !ok || len(fields) == 0 {
+			return false
+		}
+		for _, f := range fields {
+			if !isPostAggregationComplete(f) {
+				return false
+			}
+		}
+		return true
+	case "constant":
+		val := m["value"]
+		if val == nil {
+			return false
+		}
+		switch v := val.(type) {
+		case float64, int, int64:
+			return true
+		case string:
+			return strings.TrimSpace(v) != ""
+		default:
+			return fmt.Sprint(val) != ""
+		}
+	case "doubleGreatest", "doubleLeast", "longGreatest", "longLeast":
+		fields, ok := m["fields"].([]any)
+		if !ok || len(fields) == 0 {
+			return false
+		}
+		for _, f := range fields {
+			if !isPostAggregationComplete(f) {
+				return false
+			}
+		}
+		return true
+	case "fieldAccess", "finalizingFieldAccess", "hyperUniqueCardinality":
+		return !isEmptyValue(m["fieldName"])
+	case "javascript":
+		fieldNames, ok := m["fieldNames"].([]any)
+		if !ok || len(fieldNames) == 0 {
+			return false
+		}
+		for _, fn := range fieldNames {
+			if isEmptyValue(fn) {
+				return false
+			}
+		}
+		return !isEmptyValue(m["function"])
+	case "quantilesDoublesSketchToQuantile":
+		if !isPostAggregationComplete(m["field"]) {
+			return false
+		}
+		frac := m["fraction"]
+		if frac == nil {
+			return false
+		}
+		switch frac.(type) {
+		case float64, int, int64:
+			return true
+		case string:
+			return strings.TrimSpace(frac.(string)) != ""
+		default:
+			return fmt.Sprint(frac) != ""
+		}
+	default:
+		return true
+	}
+}
+
+func isQueryComplete(builder map[string]any) bool {
+	if builder == nil {
+		return false
+	}
+	queryType, _ := builder["queryType"].(string)
+	if strings.TrimSpace(queryType) == "" {
+		return false
+	}
+	// dataSource is required only for native query types that use it; SQL and search do not require it.
+	queryNeedsDataSource := queryType != "sql" && queryType != "search"
+	if queryNeedsDataSource {
+		var tableName string
+		switch ds := builder["dataSource"].(type) {
+		case string:
+			tableName = ds
+		case map[string]any:
+			if n, ok := ds["name"].(string); ok {
+				tableName = n
+			}
+		}
+		if strings.TrimSpace(tableName) == "" {
+			return false
+		}
+	}
+	if builder["filter"] != nil && !isFilterComplete(builder["filter"]) {
+		return false
+	}
+	if postAggs, ok := builder["postAggregations"].([]any); ok && len(postAggs) > 0 {
+		for _, pa := range postAggs {
+			if !isPostAggregationComplete(pa) {
+				return false
+			}
+		}
+	}
+	switch queryType {
+	case "timeseries":
+		aggs, ok := builder["aggregations"].([]any)
+		if !ok || len(aggs) == 0 {
+			return false
+		}
+		for _, a := range aggs {
+			if !isAggregationComplete(a) {
+				return false
+			}
+		}
+		return true
+	case "groupBy":
+		dims, ok := builder["dimensions"].([]any)
+		if !ok || len(dims) == 0 {
+			return false
+		}
+		for _, d := range dims {
+			if !isDimensionComplete(d) {
+				return false
+			}
+		}
+		aggs, ok := builder["aggregations"].([]any)
+		if !ok || len(aggs) == 0 {
+			return false
+		}
+		for _, a := range aggs {
+			if !isAggregationComplete(a) {
+				return false
+			}
+		}
+		return true
+	case "topN":
+		if !isDimensionComplete(builder["dimension"]) || builder["metric"] == nil {
+			return false
+		}
+		if _, has := builder["threshold"]; !has {
+			return false
+		}
+		aggs, ok := builder["aggregations"].([]any)
+		if !ok || len(aggs) == 0 {
+			return false
+		}
+		for _, a := range aggs {
+			if !isAggregationComplete(a) {
+				return false
+			}
+		}
+		return true
+	case "search":
+		return builder["query"] != nil && builder["searchDimensions"] != nil
+	case "sql":
+		q, _ := builder["query"].(string)
+		return strings.TrimSpace(q) != ""
+	default:
+		return true
+	}
+}
+
+func stripEmptyAggregationFieldsInAgg(agg map[string]any) {
+	if isEmptyValue(agg["expression"]) {
+		delete(agg, "expression")
+	}
+	if isEmptyValue(agg["fieldName"]) {
+		delete(agg, "fieldName")
+	}
+	if agg["type"] == "filtered" {
+		if sub, ok := agg["aggregator"].(map[string]any); ok {
+			stripEmptyAggregationFieldsInAgg(sub)
+		}
+	}
+}
+
+func stripEmptyAggregationFields(builder map[string]any) {
+	aggs, ok := builder["aggregations"].([]any)
+	if !ok {
+		return
+	}
+	for _, a := range aggs {
+		if m, ok := a.(map[string]any); ok {
+			stripEmptyAggregationFieldsInAgg(m)
+		}
+	}
+}
+
+// extractHiddenMetricsAndStripFromBuilder collects names of aggregations marked hidden
+// and removes the "hidden" key from each aggregation so the query sent to Druid is valid.
+// Returns the list of hidden metric names for use when building the response frame.
+func extractHiddenMetricsAndStripFromBuilder(builder map[string]any) []string {
+	if builder == nil {
+		return nil
+	}
+	aggs, ok := builder["aggregations"].([]any)
+	if !ok || len(aggs) == 0 {
+		return nil
+	}
+	var hidden []string
+	for _, a := range aggs {
+		m, ok := a.(map[string]any)
+		if !ok {
+			continue
+		}
+		if h, _ := m["hidden"].(bool); h {
+			if name, _ := m["name"].(string); name != "" {
+				hidden = append(hidden, name)
+			}
+		}
+		delete(m, "hidden")
+	}
+	return hidden
+}
+
+// extractGroupBySeriesOpts extracts dimension and metric names from a groupBy query builder
+// for use when building "groupName:metric" series (old plugin compatibility). Returns
+// dimension names (as they appear in the response event), metric names, and true if this is groupBy.
+func extractGroupBySeriesOpts(builder map[string]any) (dimensions []string, metrics []string, ok bool) {
+	if builder == nil {
+		return nil, nil, false
+	}
+	if qt, _ := builder["queryType"].(string); qt != "groupBy" {
+		return nil, nil, false
+	}
+	// Dimensions: string = dimension name; object may have "outputName" or "dimension"
+	if dims, _ := builder["dimensions"].([]any); dims != nil {
+		for _, d := range dims {
+			switch v := d.(type) {
+			case string:
+				if v != "" {
+					dimensions = append(dimensions, v)
+				}
+			case map[string]any:
+				if name, _ := v["outputName"].(string); name != "" {
+					dimensions = append(dimensions, name)
+				} else if name, _ := v["dimension"].(string); name != "" {
+					dimensions = append(dimensions, name)
+				}
+			}
+		}
+	}
+	// Metrics: aggregation "name" (excluding hidden)
+	hidden := make(map[string]bool)
+	for _, s := range extractHiddenMetricsAndStripFromBuilder(builder) {
+		hidden[s] = true
+	}
+	if aggs, _ := builder["aggregations"].([]any); aggs != nil {
+		for _, a := range aggs {
+			m, _ := a.(map[string]any)
+			if m == nil {
+				continue
+			}
+			name, _ := m["name"].(string)
+			if name != "" && !hidden[name] {
+				metrics = append(metrics, name)
+			}
+		}
+	}
+	return dimensions, metrics, len(dimensions) > 0 && len(metrics) > 0
+}
+
+// expandJsonFiltersInBuilder walks the builder's filter tree and replaces any filter
+// with type "json" by parsing filter.value as JSON. Template variables (e.g. $variable_name)
+// are already replaced by Grafana before the query reaches the backend.
+func expandJsonFiltersInBuilder(builder map[string]any) {
+	if builder == nil {
+		return
+	}
+	filter, ok := builder["filter"]
+	if !ok || filter == nil {
+		return
+	}
+	builder["filter"] = expandJsonFilters(filter)
+}
+
+// stripEmptyFiltersFromBuilder removes the root filter when it is an "and" or "or"
+// with empty fields. Druid rejects such filters (ValueInstantiationException).
+// This can happen when alerts run with a stored query where filters were removed
+// (the UI sends filter: { type: "and", fields: [] }).
+func stripEmptyFiltersFromBuilder(builder map[string]any) {
+	if builder == nil {
+		return
+	}
+	filter, ok := builder["filter"]
+	if !ok || filter == nil {
+		return
+	}
+	f, ok := filter.(map[string]any)
+	if !ok {
+		return
+	}
+	ftype, _ := f["type"].(string)
+	if ftype != "and" && ftype != "or" {
+		return
+	}
+	fields, ok := f["fields"].([]any)
+	if !ok || len(fields) == 0 {
+		delete(builder, "filter")
+	}
+}
+
+// expandJsonFilters recursively expands the filter tree. Filters with type "json" are
+// replaced by the parsed JSON object (filter.value). "and" and "or" filters have their
+// fields expanded; "not" has its field expanded.
+func expandJsonFilters(filter any) any {
+	if filter == nil {
+		return nil
+	}
+	f, ok := filter.(map[string]any)
+	if !ok {
+		return filter
+	}
+	ftype, _ := f["type"].(string)
+	switch ftype {
+	case "json":
+		val := f["value"]
+		if val == nil {
+			return filter
+		}
+		var valueStr string
+		switch v := val.(type) {
+		case string:
+			valueStr = v
+		default:
+			// Try to marshal and unmarshal if value was already expanded to a map
+			if alreadyExpanded, ok := val.(map[string]any); ok {
+				return alreadyExpanded
+			}
+			return filter
+		}
+		valueStr = strings.TrimSpace(valueStr)
+		if valueStr == "" {
+			return filter
+		}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(valueStr), &parsed); err != nil {
+			log.DefaultLogger.Debug("Failed to parse json filter value", "error:", err, "value:", valueStr)
+			return filter
+		}
+		return parsed
+	case "and", "or":
+		fields, ok := f["fields"].([]any)
+		if !ok || len(fields) == 0 {
+			return filter
+		}
+		expanded := make([]any, len(fields))
+		for i, field := range fields {
+			expanded[i] = expandJsonFilters(field)
+		}
+		out := make(map[string]any, len(f))
+		for k, v := range f {
+			out[k] = v
+		}
+		out["fields"] = expanded
+		return out
+	case "not":
+		field := f["field"]
+		if field == nil {
+			return filter
+		}
+		out := make(map[string]any, len(f))
+		for k, v := range f {
+			out[k] = v
+		}
+		out["field"] = expandJsonFilters(field)
+		return out
+	default:
+		return filter
+	}
+}
+
+// sqlOuterLimitDefault is the default value for Druid's sqlOuterLimit context parameter.
+// Druid caps the number of rows returned by SQL at this value, so we do not modify the query text.
+const sqlOuterLimitDefault = 2000
+
+// containsSearchFilter returns true if the filter tree contains any filter with type "search".
+// Queries with search filters must be sent as raw JSON because the go-druid client's struct
+// for search filters does not include the "query" field, causing Druid to reject the query.
+func containsSearchFilter(filter any) bool {
+	if filter == nil {
+		return false
+	}
+	f, ok := filter.(map[string]any)
+	if !ok {
+		return false
+	}
+	if ftype, _ := f["type"].(string); ftype == "search" {
+		return true
+	}
+	if fields, ok := f["fields"].([]any); ok {
+		for _, field := range fields {
+			if containsSearchFilter(field) {
+				return true
+			}
+		}
+	}
+	if field, ok := f["field"]; ok {
+		return containsSearchFilter(field)
+	}
+	return false
+}
+
+func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings, timeRange *backend.TimeRange) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
 	if err != nil {
 		return nil, nil, err
 	}
-	if q.Builder == nil || q.Settings == nil {
+
+	// Use expr if available (contains converted query with timezone-aware granularity)
+	// Otherwise fall back to builder/settings
+	var builder map[string]any
+	var settings map[string]any
+	usedExpr := false
+
+	if q.Expr != "" {
+		// Parse the expr JSON string which contains { builder: {...}, settings: {...} }
+		var exprQuery druidQuery
+		err := json.Unmarshal([]byte(q.Expr), &exprQuery)
+		if err != nil {
+			log.DefaultLogger.Debug("Failed to parse expr, falling back to builder", "error:", err, "expr:", q.Expr)
+			// Fall back to builder/settings if expr parsing fails
+			builder = q.Builder
+			settings = q.Settings
+		} else {
+			usedExpr = true
+			builder = exprQuery.Builder
+			settings = exprQuery.Settings
+			// Merge with original settings if expr doesn't have settings
+			if settings == nil {
+				settings = q.Settings
+			}
+		}
+	} else {
+		builder = q.Builder
+		settings = q.Settings
+	}
+
+	// In Explore, Grafana can run the query before the editor has set expr (e.g. initial load).
+	// Requests without expr are treated as incomplete: do not send to Druid to avoid plugin errors.
+	if !usedExpr && q.Expr == "" {
+		log.DefaultLogger.Debug("Query has no expr (e.g. Explore initial state); not sending to Druid")
+		return nil, make(map[string]any), nil
+	}
+
+	if builder == nil || settings == nil {
 		// Don't return an error here, as this isn't a user error
 		// Grafana seems to invoke this even before the user has entered any query
 		log.DefaultLogger.Debug("Invalid query issued to Druid Plugin: missing builder or settings", "query:", string(qry))
 		return nil, nil, nil
 	}
 
+	// Query must be fully complete (all aggregations, filter if present, all post-aggregations).
+	// We do not strip incomplete parts; if anything is incomplete we do not send to Druid.
+	if !isQueryComplete(builder) {
+		return nil, make(map[string]any), nil
+	}
+
+	// Strip empty optional aggregation fields so the payload sent to Druid is valid.
+	stripEmptyAggregationFields(builder)
+
+	// Use request time range for Druid intervals when provided (dashboard range or alert's resolved relativeTimeRange).
+	if timeRange != nil && !timeRange.From.IsZero() && !timeRange.To.IsZero() {
+		fromISO := timeRange.From.UTC().Format("2006-01-02T15:04:05.000Z")
+		toISO := timeRange.To.UTC().Format("2006-01-02T15:04:05.000Z")
+		builder["intervals"] = map[string]any{
+			"type":      "intervals",
+			"intervals": []string{fromISO + "/" + toISO},
+		}
+	}
+
+	// Expand json filters: replace filter type "json" with parsed value (template variables already replaced by Grafana)
+	expandJsonFiltersInBuilder(builder)
+	// Remove root filter when it is "and"/"or" with empty fields (Druid rejects it; happens e.g. when alerts run after filters were removed)
+	stripEmptyFiltersFromBuilder(builder)
+
+	// Extract hidden aggregation names for response filtering and strip "hidden" from builder so Druid query is valid
+	if hiddenNames := extractHiddenMetricsAndStripFromBuilder(builder); len(hiddenNames) > 0 {
+		hiddenNamesAny := make([]any, len(hiddenNames))
+		for i, s := range hiddenNames {
+			hiddenNamesAny[i] = s
+		}
+		settings["_hiddenMetricNames"] = hiddenNamesAny
+	}
+	// Extract groupBy dimensions and metrics for "groupName:metric" series
+	if dims, metrics, ok := extractGroupBySeriesOpts(builder); ok {
+		dimsAny := make([]any, len(dims))
+		for i, s := range dims {
+			dimsAny[i] = s
+		}
+		metricsAny := make([]any, len(metrics))
+		for i, s := range metrics {
+			metricsAny[i] = s
+		}
+		settings["_groupByDimensions"] = dimsAny
+		settings["_groupByMetrics"] = metricsAny
+	}
+	// Extract topN dimension and metric for series-style response (stacked charts, old plugin compatibility)
+	if qt, _ := builder["queryType"].(string); qt == "topN" {
+		if dim, ok := builder["dimension"].(map[string]any); ok {
+			if d, ok := dim["dimension"].(string); ok {
+				settings["_topNDimension"] = d
+			}
+		}
+		if met, ok := builder["metric"].(map[string]any); ok {
+			if m, ok := met["metric"].(string); ok {
+				settings["_topNMetric"] = m
+			}
+		}
+	}
+
 	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
 		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]any))
 	}
-	q.Builder["context"] = defaultQueryContext
-	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
-		q.Builder["context"] = mergeSettings(
+	builder["context"] = defaultQueryContext
+	if queryContextParameters, ok := settings["contextParameters"]; ok {
+		builder["context"] = mergeSettings(
 			defaultQueryContext,
 			ds.prepareQueryContext(queryContextParameters.([]any)))
 	}
-	jsonQuery, err := json.Marshal(q.Builder)
+	// For SQL queries, set sqlOuterLimit in context so Druid caps result size.
+	if qt, _ := builder["queryType"].(string); qt == "sql" {
+		ctx, _ := builder["context"].(map[string]any)
+		if ctx == nil {
+			ctx = make(map[string]any)
+			builder["context"] = ctx
+		}
+		if _, ok := ctx["sqlOuterLimit"]; !ok {
+			ctx["sqlOuterLimit"] = sqlOuterLimitDefault
+		}
+	}
+	// Check if granularity is a period type (which the Go client can't handle properly)
+	// Period granularity uses ISO8601 strings like "P1D" which can't be unmarshaled into time.Duration
+	hasPeriodGranularity := false
+	if granularity, ok := builder["granularity"].(map[string]any); ok {
+		if gtype, ok := granularity["type"].(string); ok && gtype == "period" {
+			hasPeriodGranularity = true
+		}
+	}
+
+	jsonQuery, err := json.Marshal(builder)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// If we have period granularity, we need to send raw JSON directly to Druid
+	// because the Go client's Load method expects time.Duration for period, not ISO8601 strings.
+	// If the filter tree contains a "search" filter, we must also send raw JSON because the
+	// go-druid client's search filter struct omits the "query" field, causing ValueInstantiationException in Druid.
+	hasSearchFilter := containsSearchFilter(builder["filter"])
+	if hasPeriodGranularity || hasSearchFilter {
+		// Create a raw query wrapper that will be handled specially in executeQuery
+		// We'll return nil for the query and store the raw JSON in settings as a marker
+		settings["_rawQueryJSON"] = string(jsonQuery)
+		return nil, mergeSettings(s.defaultQuerySettings, settings), nil
+	}
+
 	query, err := s.client.Query().Load(jsonQuery)
 	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
-	return query, mergeSettings(s.defaultQuerySettings, q.Settings), err
+	return query, mergeSettings(s.defaultQuerySettings, settings), err
 }
 
 func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any {
@@ -482,6 +1542,438 @@ func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any 
 		}
 	}
 	return ctx
+}
+
+// executeRawQuery sends raw JSON query directly to Druid, bypassing the Go client's struct unmarshaling
+// This is needed for period granularity queries which use ISO8601 strings that can't be unmarshaled into time.Duration
+func (ds *druidDatasource) executeRawQuery(queryRef string, jsonQuery []byte, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
+	r := &druidResponse{Reference: queryRef}
+
+	// Determine query type from JSON to handle result format
+	var queryType string
+	var queryMap map[string]any
+	if err := json.Unmarshal(jsonQuery, &queryMap); err == nil {
+		if qt, ok := queryMap["queryType"].(string); ok {
+			queryType = qt
+		}
+		// For SQL, set sqlOuterLimit in context so Druid caps result size (same as prepareQuery path).
+		if queryType == "sql" {
+			ctx, _ := queryMap["context"].(map[string]any)
+			if ctx == nil {
+				ctx = make(map[string]any)
+				queryMap["context"] = ctx
+			}
+			if _, ok := ctx["sqlOuterLimit"]; !ok {
+				ctx["sqlOuterLimit"] = sqlOuterLimitDefault
+				var err error
+				jsonQuery, err = json.Marshal(queryMap)
+				if err != nil {
+					return r, err
+				}
+			}
+		}
+	}
+
+	// Send raw JSON query directly to Druid
+	url := strings.TrimSuffix(s.druidURL, "/") + "/druid/v2/"
+	httpReq, err := http.NewRequest("POST", url, strings.NewReader(string(jsonQuery)))
+	if err != nil {
+		return r, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Add authentication if configured
+	if s.hasBasicAuth {
+		httpReq.SetBasicAuth(s.basicAuthUser, s.basicAuthPassword)
+	}
+
+	httpClient := &http.Client{Timeout: 300 * time.Second}
+	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		return r, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := json.Marshal(map[string]any{"error": fmt.Sprintf("Druid returned status %d", resp.StatusCode)})
+		return r, fmt.Errorf("druid query failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var result json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return r, err
+	}
+
+	// Process the result similar to executeQuery
+	election := func(values map[string]int) string {
+		type kv struct {
+			Key   string
+			Value int
+		}
+		var ss []kv
+		for k, v := range values {
+			if k == "nil" {
+				continue
+			}
+			ss = append(ss, kv{k, v})
+		}
+		sort.Slice(ss, func(i, j int) bool {
+			return ss[i].Value > ss[j].Value
+		})
+		if len(ss) > 0 {
+			return ss[0].Key
+		}
+		if queryType == "segmentMetadata" || queryType == "scan" {
+			return "string"
+		}
+		return "float"
+	}
+
+	detectColumnType := func(c *struct {
+		Name string
+		Type string
+	}, pos int, rr [][]any,
+	) {
+		t := map[string]int{"nil": 0}
+		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
+			r := rr[i]
+			if r[pos] == nil {
+				continue
+			}
+			switch r[pos].(type) {
+			case string:
+				v := r[pos].(string)
+				_, err := strconv.Atoi(v)
+				if err != nil {
+					_, err := strconv.ParseBool(v)
+					if err != nil {
+						_, err := parseTime(v)
+						if err != nil {
+							t["string"]++
+							continue
+						}
+						t["time"]++
+						continue
+					}
+					t["bool"]++
+					continue
+				}
+				t["int"]++
+				continue
+			case float64:
+				if c.Name == "__time" || strings.Contains(strings.ToLower(c.Name), "time_") {
+					t["time"]++
+					continue
+				}
+				t["float"]++
+				continue
+			case bool:
+				t["bool"]++
+				continue
+			}
+		}
+		c.Type = election(t)
+	}
+
+	switch queryType {
+	case "sql":
+		var sqlr []any
+		err := json.Unmarshal(result, &sqlr)
+		if err == nil && len(sqlr) > 1 {
+			for _, row := range sqlr[1:] {
+				r.Rows = append(r.Rows, row.([]any))
+			}
+			for i, c := range sqlr[0].([]any) {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c.(string)}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "timeseries":
+		var tsr []map[string]any
+		err := json.Unmarshal(result, &tsr)
+		if err == nil && len(tsr) > 0 {
+			columns := []string{"timestamp"}
+			for c := range tsr[0]["result"].(map[string]any) {
+				columns = append(columns, c)
+			}
+			for _, result := range tsr {
+				var row []any
+				t := result["timestamp"]
+				if t == nil {
+					// grand total, lets keep it last
+					if len(r.Rows) > 0 {
+						t = r.Rows[len(r.Rows)-1][0]
+					}
+				}
+				row = append(row, t)
+				colResults := result["result"].(map[string]any)
+				for _, c := range columns[1:] {
+					row = append(row, colResults[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "topN":
+		var tn []map[string]any
+		err := json.Unmarshal(result, &tn)
+		if err == nil && len(tn) > 0 {
+			columns := []string{"timestamp"}
+			// Derive dimension/metric columns from the first bucket that has a non-empty result
+			for _, bucket := range tn {
+				if colResults, ok := asResultSlice(bucket["result"]); ok && len(colResults) > 0 {
+					for c := range colResults[0] {
+						columns = append(columns, c)
+					}
+					break
+				}
+			}
+			for _, result := range tn {
+				t := result["timestamp"]
+				if colResults, ok := asResultSlice(result["result"]); ok && len(colResults) > 0 {
+					for _, entry := range colResults {
+						var row []any
+						row = append(row, t)
+						for _, c := range columns[1:] {
+							row = append(row, entry[c])
+						}
+						r.Rows = append(r.Rows, row)
+					}
+				} else {
+					// Empty bucket: one row with timestamp and nils
+					row := []any{t}
+					for len(row) < len(columns) {
+						row = append(row, nil)
+					}
+					r.Rows = append(r.Rows, row)
+				}
+			}
+			// Fill missing dimension values per timestamp (for stacked charts, old plugin compatibility)
+			fillTopNMissingDimensionValues(&r.Rows, columns, settings)
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "groupBy":
+		var gb []map[string]any
+		err := json.Unmarshal(result, &gb)
+		if err == nil && len(gb) > 0 {
+			columns := []string{"timestamp"}
+			for c := range gb[0]["event"].(map[string]any) {
+				columns = append(columns, c)
+			}
+			for _, result := range gb {
+				var row []any
+				t := result["timestamp"]
+				row = append(row, t)
+				colResults := result["event"].(map[string]any)
+				for _, c := range columns[1:] {
+					row = append(row, colResults[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "scan":
+		var scanr []map[string]any
+		err := json.Unmarshal(result, &scanr)
+		if err == nil && len(scanr) > 0 {
+			columns := []string{}
+			for c := range scanr[0]["events"].([]map[string]any)[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range scanr {
+				colResults := result["events"].([]map[string]any)
+				for _, event := range colResults {
+					var row []any
+					for _, c := range columns {
+						row = append(row, event[c])
+					}
+					r.Rows = append(r.Rows, row)
+				}
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "timeBoundary":
+		var tb []map[string]any
+		err := json.Unmarshal(result, &tb)
+		if err == nil && len(tb) > 0 {
+			columns := []string{"minTime", "maxTime"}
+			for _, result := range tb {
+				var row []any
+				for _, c := range columns {
+					row = append(row, result[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "datasourceMetadata":
+		var dsm []map[string]any
+		err := json.Unmarshal(result, &dsm)
+		if err == nil && len(dsm) > 0 {
+			columns := []string{}
+			for c := range dsm[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range dsm {
+				var row []any
+				for _, c := range columns {
+					row = append(row, result[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "segmentMetadata":
+		var sm []map[string]any
+		err := json.Unmarshal(result, &sm)
+		if err == nil && len(sm) > 0 {
+			columns := []string{}
+			for c := range sm[0] {
+				columns = append(columns, c)
+			}
+			for _, result := range sm {
+				var row []any
+				for _, c := range columns {
+					row = append(row, result[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	case "search":
+		var s []map[string]any
+		if err := json.Unmarshal(result, &s); err != nil || len(s) == 0 {
+			// Period granularity can return single bucket object; wrap so we have []map[string]any
+			var single map[string]any
+			if err := json.Unmarshal(result, &single); err == nil && single != nil {
+				s = []map[string]any{single}
+			}
+		}
+		if len(s) > 0 {
+			// result is []interface{} from JSON, not []map[string]any — use []any and get columns from first non-empty bucket
+			var columns []string
+			for _, resultItem := range s {
+				resultArr, _ := resultItem["result"].([]any)
+				if len(resultArr) > 0 {
+					if rec, _ := resultArr[0].(map[string]any); rec != nil {
+						columns = []string{"timestamp"}
+						for c := range rec {
+							columns = append(columns, c)
+						}
+						break
+					}
+				}
+			}
+			if len(columns) > 0 {
+				for _, resultItem := range s {
+					ts := resultItem["timestamp"]
+					if ts == nil {
+						ts = resultItem["__time"]
+					}
+					resultArr, _ := resultItem["result"].([]any)
+					for _, recAny := range resultArr {
+						o, _ := recAny.(map[string]any)
+						if o == nil {
+							continue
+						}
+						var row []any
+						row = append(row, ts)
+						for _, c := range columns[1:] {
+							row = append(row, o[c])
+						}
+						r.Rows = append(r.Rows, row)
+					}
+				}
+				for i, c := range columns {
+					col := struct {
+						Name string
+						Type string
+					}{Name: c}
+					detectColumnType(&col, i, r.Rows)
+					r.Columns = append(r.Columns, col)
+				}
+			}
+		}
+	default:
+		// For unknown query types, try to parse as generic JSON
+		var genericResult []map[string]any
+		if err := json.Unmarshal(result, &genericResult); err == nil && len(genericResult) > 0 {
+			columns := []string{}
+			for c := range genericResult[0] {
+				columns = append(columns, c)
+			}
+			for _, rowData := range genericResult {
+				var row []any
+				for _, c := range columns {
+					row = append(row, rowData[c])
+				}
+				r.Rows = append(r.Rows, row)
+			}
+			for i, c := range columns {
+				col := struct {
+					Name string
+					Type string
+				}{Name: c}
+				detectColumnType(&col, i, r.Rows)
+				r.Columns = append(r.Columns, col)
+			}
+		}
+	}
+
+	return r, nil
 }
 
 func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
@@ -507,6 +1999,9 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		t := map[string]int{"nil": 0}
 		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
 			r := rr[i]
+			if r[pos] == nil {
+				continue
+			}
 			switch r[pos].(type) {
 			case string:
 				v := r[pos].(string)
@@ -546,15 +2041,22 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 			var ss []kv
 			for k, v := range values {
+				if k == "nil" {
+					continue
+				}
 				ss = append(ss, kv{k, v})
 			}
 			sort.Slice(ss, func(i, j int) bool {
 				return ss[i].Value > ss[j].Value
 			})
-			if len(ss) == 2 {
+			if len(ss) > 0 {
 				return ss[0].Key
 			}
-			return "string"
+			// For segmentMetadata, all-nil columns are often unused analysis fields; default to string. Others stay float.
+			if qtyp == "segmentMetadata" {
+				return "string"
+			}
+			return "float"
 		}
 		c.Type = election(t)
 	}
@@ -610,26 +2112,37 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		var tn []map[string]any
 		err := json.Unmarshal(result, &tn)
 		if err == nil && len(tn) > 0 {
-			var columns []string
-			for _, result := range tn {
-				if columns == nil && len(result["result"].([]any)) > 0 {
-					columns = append(columns, "timestamp")
-					for c := range result["result"].([]any)[0].(map[string]any) {
-						columns = append(columns, c)
+			columns := []string{"timestamp"}
+			for _, bucket := range tn {
+				if colResults, ok := asResultSlice(bucket["result"]); ok && len(colResults) > 0 {
+					if len(columns) == 1 {
+						for c := range colResults[0] {
+							columns = append(columns, c)
+						}
 					}
+					break
 				}
-				for _, record := range result["result"].([]any) {
-					var row []any
-					row = append(row, result["timestamp"])
-					o, ok := record.(map[string]any)
-					if ok {
+			}
+			for _, result := range tn {
+				t := result["timestamp"]
+				if colResults, ok := asResultSlice(result["result"]); ok && len(colResults) > 0 {
+					for _, entry := range colResults {
+						var row []any
+						row = append(row, t)
 						for _, c := range columns[1:] {
-							row = append(row, o[c])
+							row = append(row, entry[c])
 						}
 						r.Rows = append(r.Rows, row)
 					}
+				} else {
+					row := []any{t}
+					for len(row) < len(columns) {
+						row = append(row, nil)
+					}
+					r.Rows = append(r.Rows, row)
 				}
 			}
+			fillTopNMissingDimensionValues(&r.Rows, columns, settings)
 			for i, c := range columns {
 				col := struct {
 					Name string
@@ -685,29 +2198,33 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		var s []map[string]any
 		err := json.Unmarshal(result, &s)
 		if err == nil && len(s) > 0 {
-			columns := []string{"timestamp"}
-			for c := range s[0]["result"].([]any)[0].(map[string]any) {
-				columns = append(columns, c)
-			}
-			for _, result := range s {
-				for _, record := range result["result"].([]any) {
-					var row []any
-					row = append(row, result["timestamp"])
-					o := record.(map[string]any)
-					for _, c := range columns[1:] {
-						row = append(row, o[c])
+			resultArr, _ := s[0]["result"].([]any)
+			if len(resultArr) > 0 {
+				columns := []string{"timestamp"}
+				for c := range resultArr[0].(map[string]any) {
+					columns = append(columns, c)
+				}
+				for _, resultItem := range s {
+					for _, record := range resultItem["result"].([]any) {
+						var row []any
+						row = append(row, resultItem["timestamp"])
+						o := record.(map[string]any)
+						for _, c := range columns[1:] {
+							row = append(row, o[c])
+						}
+						r.Rows = append(r.Rows, row)
 					}
-					r.Rows = append(r.Rows, row)
+				}
+				for i, c := range columns {
+					col := struct {
+						Name string
+						Type string
+					}{Name: c}
+					detectColumnType(&col, i, r.Rows)
+					r.Columns = append(r.Columns, col)
 				}
 			}
-			for i, c := range columns {
-				col := struct {
-					Name string
-					Type string
-				}{Name: c}
-				detectColumnType(&col, i, r.Rows)
-				r.Columns = append(r.Columns, col)
-			}
+			// empty result array: r stays with zero Rows/Columns, return success
 		}
 	case "timeBoundary":
 		var tb []map[string]any
@@ -766,15 +2283,23 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		err := json.Unmarshal(result, &sm)
 		if err == nil && len(sm) > 0 {
 			var columns []string
-			switch settings["view"].(string) {
+			view, _ := settings["view"].(string)
+			if view == "" {
+				view = "base"
+			}
+			switch view {
 			case "base":
 				for k, v := range sm[0] {
 					if k != "aggregators" && k != "columns" && k != "timestampSpec" {
 						if k == "intervals" {
-							for i := range v.([]any) {
-								pos := strconv.Itoa(i)
-								columns = append(columns, "interval_start_"+pos)
-								columns = append(columns, "interval_stop_"+pos)
+							if intervals, ok := v.([]any); ok && intervals != nil {
+								for i := range intervals {
+									pos := strconv.Itoa(i)
+									columns = append(columns, "interval_start_"+pos)
+									columns = append(columns, "interval_stop_"+pos)
+								}
+							} else {
+								columns = append(columns, k)
 							}
 						} else {
 							columns = append(columns, k)
@@ -791,12 +2316,19 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 							if parts[1] == "stop" {
 								pos = 1
 							}
-							idx, err := strconv.Atoi(parts[2])
-							if err != nil {
+							idx, parseErr := strconv.Atoi(parts[2])
+							if parseErr != nil {
 								return r, errors.New("interval parsing goes wrong")
 							}
-							ii := result["intervals"].([]any)[idx]
-							col = strings.Split(ii.(string), "/")[pos]
+							intervals, _ := result["intervals"].([]any)
+							if intervals != nil && idx < len(intervals) && intervals[idx] != nil {
+								if s, ok := intervals[idx].(string); ok {
+									split := strings.Split(s, "/")
+									if pos < len(split) {
+										col = split[pos]
+									}
+								}
+							}
 						} else {
 							col = result[c]
 						}
@@ -805,62 +2337,81 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 					r.Rows = append(r.Rows, row)
 				}
 			case "aggregators":
-				for _, v := range sm[0]["aggregators"].(map[string]any) {
-					columns = append(columns, "aggregator")
-					for k := range v.(map[string]any) {
-						columns = append(columns, k)
+				if aggs, ok := sm[0]["aggregators"].(map[string]any); ok && aggs != nil {
+					for _, v := range aggs {
+						if vm, ok := v.(map[string]any); ok {
+							columns = append(columns, "aggregator")
+							for k := range vm {
+								columns = append(columns, k)
+							}
+							break
+						}
 					}
-					break
 				}
 				for _, result := range sm {
-					for k, v := range result["aggregators"].(map[string]any) {
-						var row []any
-						for _, c := range columns {
-							var col any
-							if c == "aggregator" {
-								col = k
-							} else {
-								col = v.(map[string]any)[c]
+					if aggs, ok := result["aggregators"].(map[string]any); ok && aggs != nil {
+						for k, v := range aggs {
+							if vm, ok := v.(map[string]any); ok {
+								var row []any
+								for _, c := range columns {
+									var col any
+									if c == "aggregator" {
+										col = k
+									} else {
+										col = vm[c]
+									}
+									row = append(row, col)
+								}
+								r.Rows = append(r.Rows, row)
 							}
-							row = append(row, col)
 						}
-						r.Rows = append(r.Rows, row)
 					}
 				}
 			case "columns":
-				for _, v := range sm[0]["columns"].(map[string]any) {
-					columns = append(columns, "column")
-					for k := range v.(map[string]any) {
-						columns = append(columns, k)
+				if cols, ok := sm[0]["columns"].(map[string]any); ok && cols != nil {
+					for _, v := range cols {
+						if vm, ok := v.(map[string]any); ok {
+							columns = append(columns, "column")
+							for k := range vm {
+								columns = append(columns, k)
+							}
+							break
+						}
 					}
-					break
 				}
 				for _, result := range sm {
-					for k, v := range result["columns"].(map[string]any) {
-						var row []any
-						for _, c := range columns {
-							var col any
-							if c == "column" {
-								col = k
-							} else {
-								col = v.(map[string]any)[c]
+					if cols, ok := result["columns"].(map[string]any); ok && cols != nil {
+						for k, v := range cols {
+							if vm, ok := v.(map[string]any); ok {
+								var row []any
+								for _, c := range columns {
+									var col any
+									if c == "column" {
+										col = k
+									} else {
+										col = vm[c]
+									}
+									row = append(row, col)
+								}
+								r.Rows = append(r.Rows, row)
 							}
-							row = append(row, col)
 						}
-						r.Rows = append(r.Rows, row)
 					}
 				}
 			case "timestampspec":
-				for k := range sm[0]["timestampSpec"].(map[string]any) {
-					columns = append(columns, k)
+				if ts, ok := sm[0]["timestampSpec"].(map[string]any); ok && ts != nil {
+					for k := range ts {
+						columns = append(columns, k)
+					}
 				}
 				for _, result := range sm {
-					var row []any
-					for _, c := range columns {
-						col := result["timestampSpec"].(map[string]any)[c]
-						row = append(row, col)
+					if ts, ok := result["timestampSpec"].(map[string]any); ok && ts != nil {
+						var row []any
+						for _, c := range columns {
+							row = append(row, ts[c])
+						}
+						r.Rows = append(r.Rows, row)
 					}
-					r.Rows = append(r.Rows, row)
 				}
 			}
 			for i, c := range columns {
@@ -876,7 +2427,415 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	default:
 		return r, errors.New("unknown query type")
 	}
-	return r, err
+	return r, nil
+}
+
+// formatSeriesLabelSet builds a series name as {dim1="val1",dim2="val2",...,metric="MetricName"}
+// so Grafana alerting and UI show descriptive labels instead of refId (e.g. "A").
+func formatSeriesLabelSet(dimNames []string, dimValues []string, metricName string) string {
+	var b strings.Builder
+	b.WriteString("{")
+	for i, name := range dimNames {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		val := ""
+		if i < len(dimValues) {
+			val = dimValues[i]
+		}
+		// Escape double quotes in value for safe display
+		val = strings.ReplaceAll(val, "\\", "\\\\")
+		val = strings.ReplaceAll(val, "\"", "\\\"")
+		b.WriteString(name)
+		b.WriteString("=\"")
+		b.WriteString(val)
+		b.WriteString("\"")
+	}
+	if metricName != "" {
+		if len(dimNames) > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString("metric=\"")
+		b.WriteString(strings.ReplaceAll(strings.ReplaceAll(metricName, "\\", "\\\\"), "\"", "\\\""))
+		b.WriteString("\"")
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
+// buildGroupBySeriesFrame builds a wide frame with Time + one column per series.
+// When the request is from Grafana alerting (_fromAlert), series names use label-set format
+// {dim1="val1",dim2="val2",metric="Events"}; otherwise dashboard/panel use "groupName:metric".
+func buildGroupBySeriesFrame(resp *druidResponse, settings map[string]any) *data.Frame {
+	var dims, metrics []string
+	for _, d := range asStringSlice(settings["_groupByDimensions"]) {
+		dims = append(dims, d)
+	}
+	for _, m := range asStringSlice(settings["_groupByMetrics"]) {
+		metrics = append(metrics, m)
+	}
+	if len(dims) == 0 || len(metrics) == 0 || len(resp.Rows) == 0 {
+		return nil
+	}
+	colIdx := make(map[string]int)
+	for i, c := range resp.Columns {
+		colIdx[c.Name] = i
+	}
+	timeIdx := 0
+	if _, ok := colIdx["timestamp"]; ok {
+		timeIdx = colIdx["timestamp"]
+	}
+	dimIndices := make([]int, 0, len(dims))
+	for _, d := range dims {
+		if i, ok := colIdx[d]; ok {
+			dimIndices = append(dimIndices, i)
+		}
+	}
+	metricIndices := make([]int, 0, len(metrics))
+	for _, m := range metrics {
+		if i, ok := colIdx[m]; ok {
+			metricIndices = append(metricIndices, i)
+		}
+	}
+	if len(dimIndices) == 0 || len(metricIndices) == 0 {
+		return nil
+	}
+	// Build (time, seriesName, value) and collect unique times and series for wide format
+	type key struct {
+		t int64
+		s string
+	}
+	points := make(map[key]float64)
+	var timeOrder []int64
+	timeSeen := make(map[int64]bool)
+	var seriesOrder []string
+	seriesSeen := make(map[string]bool)
+	// When fromAlert, store (metricName, labels) per series so Grafana gets (refId, field.Name, field.Labels) as series identity
+	var seriesMetricNames []string
+	var seriesLabels []data.Labels
+	useLabelSetNames := false
+	if b, ok := settings["_fromAlert"].(bool); ok && b {
+		useLabelSetNames = true
+	}
+	for _, r := range resp.Rows {
+		parts := make([]string, 0, len(dimIndices))
+		for _, di := range dimIndices {
+			parts = append(parts, cellToString(r[di]))
+		}
+		groupName := strings.Join(parts, "-")
+		allEmpty := true
+		for _, p := range parts {
+			if p != "" {
+				allEmpty = false
+				break
+			}
+		}
+		if allEmpty {
+			// Skip rows with no dimension values (e.g. empty-bucket placeholder)
+			continue
+		}
+		t := parseRowTime(r[timeIdx])
+		ts := t.UnixMilli()
+		if !timeSeen[ts] {
+			timeSeen[ts] = true
+			timeOrder = append(timeOrder, ts)
+		}
+		for _, mi := range metricIndices {
+			metricName := resp.Columns[mi].Name
+			var s string
+			if useLabelSetNames {
+				s = formatSeriesLabelSet(dims, parts, metricName)
+			} else {
+				s = groupName + ":" + metricName
+			}
+			if !seriesSeen[s] {
+				seriesSeen[s] = true
+				seriesOrder = append(seriesOrder, s)
+				if useLabelSetNames {
+					seriesMetricNames = append(seriesMetricNames, metricName)
+					labels := make(data.Labels)
+					for i, dimName := range dims {
+						if i < len(parts) {
+							labels[dimName] = parts[i]
+						}
+					}
+					labels["metric"] = metricName
+					seriesLabels = append(seriesLabels, labels)
+				}
+			}
+			points[key{t: ts, s: s}] = cellToFloat64(r[mi])
+		}
+	}
+	if len(timeOrder) == 0 || len(seriesOrder) == 0 {
+		return nil
+	}
+	sort.Slice(timeOrder, func(i, j int) bool { return timeOrder[i] < timeOrder[j] })
+	// Build wide frame: Time + one column per series
+	times := make([]time.Time, len(timeOrder))
+	for i, ts := range timeOrder {
+		times[i] = time.UnixMilli(ts)
+	}
+	var zero float64 = 0
+	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
+	for i, s := range seriesOrder {
+		vals := make([]*float64, len(timeOrder))
+		for j, ts := range timeOrder {
+			if v, ok := points[key{t: ts, s: s}]; ok {
+				vCopy := v
+				vals[j] = &vCopy
+			} else {
+				vals[j] = &zero
+			}
+		}
+		if useLabelSetNames && i < len(seriesMetricNames) && i < len(seriesLabels) {
+			frame.Fields = append(frame.Fields, data.NewField(seriesMetricNames[i], seriesLabels[i], vals))
+		} else {
+			frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+		}
+	}
+	return frame
+}
+
+// buildTopNSeriesFrame builds a wide frame with Time + one column per dimension value (topN series, old plugin compatibility).
+// Uses filled rows (missing dimension values per timestamp already have nil metric) so stacked charts sum correctly.
+// When the request is from Grafana alerting (_fromAlert), value fields use metric name and dimension as labels for series identity.
+func buildTopNSeriesFrame(resp *druidResponse, settings map[string]any) *data.Frame {
+	dimName, _ := settings["_topNDimension"].(string)
+	metricName, _ := settings["_topNMetric"].(string)
+	if dimName == "" || metricName == "" || len(resp.Rows) == 0 {
+		return nil
+	}
+	colIdx := make(map[string]int)
+	for i, c := range resp.Columns {
+		colIdx[c.Name] = i
+	}
+	timeIdx, hasTime := colIdx["timestamp"]
+	dimIdx, hasDim := colIdx[dimName]
+	metricIdx, hasMetric := colIdx[metricName]
+	if !hasTime || !hasDim || !hasMetric {
+		return nil
+	}
+	useLabelSetNames := false
+	if b, ok := settings["_fromAlert"].(bool); ok && b {
+		useLabelSetNames = true
+	}
+	type key struct {
+		t int64
+		s string
+	}
+	points := make(map[key]float64)
+	var timeOrder []int64
+	timeSeen := make(map[int64]bool)
+	var seriesOrder []string
+	seriesSeen := make(map[string]bool)
+	var seriesLabels []data.Labels
+	for _, r := range resp.Rows {
+		s := cellToString(r[dimIdx])
+		if s == "" {
+			// Skip empty-bucket rows (timestamp, nil dimension, nil metric); do not create a series for ""
+			continue
+		}
+		ts := parseRowTime(r[timeIdx]).UnixMilli()
+		if !timeSeen[ts] {
+			timeSeen[ts] = true
+			timeOrder = append(timeOrder, ts)
+		}
+		if !seriesSeen[s] {
+			seriesSeen[s] = true
+			seriesOrder = append(seriesOrder, s)
+			if useLabelSetNames {
+				seriesLabels = append(seriesLabels, data.Labels{dimName: s, "metric": metricName})
+			}
+		}
+		if r[metricIdx] != nil {
+			points[key{t: ts, s: s}] = cellToFloat64(r[metricIdx])
+		}
+	}
+	if len(timeOrder) == 0 || len(seriesOrder) == 0 {
+		return nil
+	}
+	sort.Slice(timeOrder, func(i, j int) bool { return timeOrder[i] < timeOrder[j] })
+	times := make([]time.Time, len(timeOrder))
+	for i, ts := range timeOrder {
+		times[i] = time.UnixMilli(ts)
+	}
+	var zero float64 = 0
+	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
+	for i, s := range seriesOrder {
+		vals := make([]*float64, len(timeOrder))
+		for j, ts := range timeOrder {
+			if v, ok := points[key{t: ts, s: s}]; ok {
+				vCopy := v
+				vals[j] = &vCopy
+			} else {
+				vals[j] = &zero
+			}
+		}
+		if useLabelSetNames && i < len(seriesLabels) {
+			frame.Fields = append(frame.Fields, data.NewField(metricName, seriesLabels[i], vals))
+		} else {
+			frame.Fields = append(frame.Fields, data.NewField(s, nil, vals))
+		}
+	}
+	return frame
+}
+
+// buildEmptyTopNWideFrame returns a wide frame (Time + one value column) when a topN query returned
+// no dimension/metric data (e.g. Druid returns only timestamp). Grafana alerting/expressions expect
+// "wide series" (time + value columns); a frame with only Time breaks with "input data must be a wide series".
+// Only rows with non-nil timestamp are included so we never send zero/unix-epoch times that break Reduce (Last/Sum).
+func buildEmptyTopNWideFrame(resp *druidResponse, settings map[string]any) *data.Frame {
+	metricName, _ := settings["_topNMetric"].(string)
+	if metricName == "" {
+		return nil
+	}
+	timeIdx := -1
+	for i, c := range resp.Columns {
+		if c.Name == "timestamp" {
+			timeIdx = i
+			break
+		}
+	}
+	var times []time.Time
+	var vals []*float64
+	if timeIdx >= 0 && len(resp.Rows) > 0 {
+		for _, r := range resp.Rows {
+			if timeIdx < len(r) && r[timeIdx] != nil {
+				times = append(times, parseRowTime(r[timeIdx]))
+				vals = append(vals, nil)
+			}
+		}
+	}
+	if times == nil {
+		times = []time.Time{}
+		vals = []*float64{}
+	}
+	frame := data.NewFrame(resp.Reference, data.NewField("Time", nil, times))
+	frame.Fields = append(frame.Fields, data.NewField(metricName, nil, vals))
+	return frame
+}
+
+func asStringSlice(v any) []string {
+	if v == nil {
+		return nil
+	}
+	if ss, ok := v.([]string); ok {
+		return ss
+	}
+	aa, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for _, a := range aa {
+		if s, ok := a.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// asResultSlice converts topN "result" (either []map[string]any or []interface{}) to []map[string]any.
+func asResultSlice(v any) ([]map[string]any, bool) {
+	if v == nil {
+		return nil, false
+	}
+	switch s := v.(type) {
+	case []map[string]any:
+		return s, true
+	case []interface{}:
+		out := make([]map[string]any, 0, len(s))
+		for _, item := range s {
+			if m, ok := item.(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+		return out, true
+	}
+	return nil, false
+}
+
+// fillTopNMissingDimensionValues appends rows for (timestamp, dimension value) pairs that are missing,
+// with metric = nil, so stacked charts have a consistent set of series (old plugin compatibility).
+func fillTopNMissingDimensionValues(rows *[][]any, columns []string, settings map[string]any) {
+	dimName, _ := settings["_topNDimension"].(string)
+	metricName, _ := settings["_topNMetric"].(string)
+	colIdx := make(map[string]int)
+	for i, c := range columns {
+		colIdx[c] = i
+	}
+	if dimName == "" && len(columns) >= 2 {
+		dimName = columns[1]
+	}
+	if metricName == "" && len(columns) >= 3 {
+		metricName = columns[2]
+	}
+	if dimName == "" || metricName == "" {
+		return
+	}
+	dimIdx := colIdx[dimName]
+	metricIdx := colIdx[metricName]
+	timeIdx := colIdx["timestamp"]
+	allDimVals := make([]string, 0)
+	seenDim := make(map[string]bool)
+	for _, row := range *rows {
+		if dimIdx < len(row) && row[dimIdx] != nil {
+			s := cellToString(row[dimIdx])
+			if s != "" && !seenDim[s] {
+				seenDim[s] = true
+				allDimVals = append(allDimVals, s)
+			}
+		}
+	}
+	type timeDimKey struct {
+		t int64
+		d string
+	}
+	present := make(map[timeDimKey]bool)
+	timeVals := make(map[int64]any)
+	for _, row := range *rows {
+		if timeIdx >= len(row) {
+			continue
+		}
+		ts := parseRowTime(row[timeIdx]).UnixMilli()
+		timeVals[ts] = row[timeIdx]
+		present[timeDimKey{ts, cellToString(row[dimIdx])}] = true
+	}
+	for ts, tVal := range timeVals {
+		for _, d := range allDimVals {
+			if present[timeDimKey{ts, d}] {
+				continue
+			}
+			present[timeDimKey{ts, d}] = true
+			newRow := make([]any, len(columns))
+			newRow[timeIdx] = tVal
+			newRow[dimIdx] = d
+			newRow[metricIdx] = nil
+			*rows = append(*rows, newRow)
+		}
+	}
+}
+
+func parseRowTime(v any) time.Time {
+	if v == nil {
+		return time.Time{}
+	}
+	switch x := v.(type) {
+	case string:
+		t, err := parseTime(x)
+		if err != nil {
+			return time.Now()
+		}
+		return t
+	case float64:
+		sec, dec := math.Modf(x / 1000)
+		return time.Unix(int64(sec), int64(dec*(1e9)))
+	case int64:
+		return time.Unix(x/1000, 0)
+	case int:
+		return time.Unix(int64(x)/1000, 0)
+	}
+	return time.Time{}
 }
 
 func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]any) (backend.DataResponse, error) {
@@ -892,12 +2851,51 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	} else {
 		format = format.(string)
 	}
+	// Hidden aggregations: still in query and computed by Druid, but not shown as panel series
+	hiddenMetricNames := make(map[string]bool)
+	if names, ok := settings["_hiddenMetricNames"].([]string); ok {
+		for _, s := range names {
+			hiddenMetricNames[s] = true
+		}
+	}
+	// JSON-unmarshaled query may have []any for the slice
+	if names, ok := settings["_hiddenMetricNames"].([]any); ok {
+		for _, n := range names {
+			if s, ok := n.(string); ok {
+				hiddenMetricNames[s] = true
+			}
+		}
+	}
 	// turn druid response into grafana long frame
 	if responseLimit > 0 && len(resp.Rows) > int(responseLimit) {
 		resp.Rows = resp.Rows[:int(responseLimit)]
 		response.Error = fmt.Errorf("query response limit exceeded (> %d rows): consider adding filters and/or reducing the query time range", int(responseLimit))
 	}
+
+	// groupBy: build "groupName:metric" series (old plugin compatibility)
+	if groupByFrame := buildGroupBySeriesFrame(resp, settings); groupByFrame != nil {
+		response.Frames = append(response.Frames, groupByFrame)
+		return response, nil
+	}
+	// topN: build Time + one column per dimension value (stacked charts, old plugin compatibility)
+	if topNFrame := buildTopNSeriesFrame(resp, settings); topNFrame != nil {
+		response.Frames = append(response.Frames, topNFrame)
+		return response, nil
+	}
+	// topN with no data: Druid may return only timestamp column; fallback would produce time-only frame
+	// and break Grafana ("input data must be a wide series"). Return empty wide frame instead.
+	if _, hasTopN := settings["_topNDimension"]; hasTopN {
+		if emptyTopN := buildEmptyTopNWideFrame(resp, settings); emptyTopN != nil {
+			response.Frames = append(response.Frames, emptyTopN)
+			return response, nil
+		}
+	}
+
+	fromAlert, _ := settings["_fromAlert"].(bool)
 	for ic, c := range resp.Columns {
+		if hiddenMetricNames[c.Name] {
+			continue
+		}
 		var ff any
 		columnIsEmpty := true
 		switch c.Type {
@@ -920,58 +2918,50 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 			}
 			switch c.Type {
 			case "string":
-				if r[ic] == nil {
-					r[ic] = ""
-				}
-				ff = append(ff.([]string), r[ic].(string))
-			case "float":
-				if r[ic] == nil {
-					r[ic] = 0.0
-				}
-				ff = append(ff.([]float64), r[ic].(float64))
+				ff = append(ff.([]string), cellToString(r[ic]))
+			case "float", "double":
+				ff = append(ff.([]float64), cellToFloat64(r[ic]))
 			case "int":
-				if r[ic] == nil {
-					r[ic] = "0"
-				}
-				i, err := strconv.Atoi(r[ic].(string))
-				if err != nil {
-					i = 0
-				}
-				ff = append(ff.([]int64), int64(i))
+				ff = append(ff.([]int64), cellToInt64(r[ic]))
 			case "bool":
 				var b bool
-				var err error
 				b, ok := r[ic].(bool)
 				if !ok {
-					b, err = strconv.ParseBool(r[ic].(string))
-					if err != nil {
-						b = false
-					}
+					b, _ = strconv.ParseBool(cellToString(r[ic]))
 				}
 				ff = append(ff.([]bool), b)
 			case "nil":
 				ff = append(ff.([]string), "nil")
 			case "time":
 				if r[ic] == nil {
-					r[ic] = 0.0
+					continue
 				}
-				switch r[ic].(type) {
+				switch x := r[ic].(type) {
 				case string:
-					t, err := parseTime(r[ic].(string))
+					t, err := parseTime(x)
 					if err != nil {
 						t = time.Now()
 					}
 					ff = append(ff.([]time.Time), t)
 				case float64:
-					sec, dec := math.Modf(r[ic].(float64) / 1000)
+					sec, dec := math.Modf(x / 1000)
 					ff = append(ff.([]time.Time), time.Unix(int64(sec), int64(dec*(1e9))))
+				case int64:
+					ff = append(ff.([]time.Time), time.Unix(x/1000, 0))
+				case int:
+					ff = append(ff.([]time.Time), time.Unix(int64(x)/1000, 0))
 				}
 			}
 		}
 		if hideEmptyColumns && columnIsEmpty {
 			continue
 		}
-		frame.Fields = append(frame.Fields, data.NewField(c.Name, nil, ff))
+		// When from alerting, give value columns a metric label so timeseries (and other) alerts see {metric: "Events"}
+		fieldLabels := (data.Labels)(nil)
+		if fromAlert && c.Type != "time" {
+			fieldLabels = data.Labels{"metric": c.Name}
+		}
+		frame.Fields = append(frame.Fields, data.NewField(c.Name, fieldLabels, ff))
 	}
 	// convert to other formats if specified
 	if format == "wide" && len(frame.Fields) > 0 {

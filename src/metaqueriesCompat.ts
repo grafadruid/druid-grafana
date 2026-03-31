@@ -1,0 +1,201 @@
+/**
+ * Ensures query response shape is compatible with the grafana-meta-queries plugin.
+ * Metaqueries expects result.data (not result.frames), each datum with target, refId, datapoints,
+ * and fields (metric name in fields[1].name); fields[].values with .length and .get(i) (Vector API).
+ */
+
+import { FieldType } from '@grafana/data';
+
+const TIME_FIELD_NAMES = ['time', 'timestamp', 'Time', 'Timestamp'];
+const TIME_FIELD_TYPE = FieldType?.time ?? 2;
+const FIELD_TYPE_STRING = FieldType?.string ?? 3;
+
+type FieldLike = {
+  name: string;
+  type?: number;
+  values: unknown[] | { length: number; get(i: number): unknown };
+};
+
+type FrameLike = {
+  name?: string;
+  refId?: string;
+  fields?: FieldLike[];
+  length?: number;
+};
+
+/**
+ * Get value at index i from field.values (array or Vector with .get(i)).
+ */
+function getFieldValue(field: FieldLike, i: number): unknown {
+  const v = field.values;
+  if (v != null && typeof (v as { get?: (i: number) => unknown }).get === 'function') {
+    return (v as { get(i: number): unknown }).get(i);
+  }
+  if (Array.isArray(v)) {
+    return v[i];
+  }
+  return undefined;
+}
+
+function getFieldLength(field: FieldLike): number {
+  const v = field.values;
+  if (v != null && typeof v === 'object' && 'length' in v) {
+    return (v as { length: number }).length;
+  }
+  if (Array.isArray(v)) {
+    return v.length;
+  }
+  return 0;
+}
+
+/**
+ * Ensure field.values has .length and .get(i) for metaqueries DataFrame path.
+ * If values is a plain array, wrap it in a Vector-like object.
+ */
+function ensureVectorLike(values: unknown): { length: number; get(i: number): unknown } {
+  if (values != null && typeof (values as { get?: (i: number) => unknown }).get === 'function') {
+    return values as { length: number; get(i: number): unknown };
+  }
+  const arr = Array.isArray(values) ? values : [];
+  return {
+    get length() {
+      return arr.length;
+    },
+    get(i: number): unknown {
+      return arr[i];
+    },
+  };
+}
+
+/**
+ * Find time field index and all value field indices in a frame.
+ * Returns timeIdx and array of value indices (for wide format: one series per value column).
+ */
+function findTimeAndValueFieldIndices(
+  frame: FrameLike
+): { timeIdx: number; valueIndices: number[] } | null {
+  const fields = frame.fields;
+  if (!fields || fields.length < 2) {
+    return null;
+  }
+  let timeIdx = -1;
+  const valueIndices: number[] = [];
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
+    const name = (f.name || '').toLowerCase();
+    const isTime =
+      f.type === TIME_FIELD_TYPE ||
+      TIME_FIELD_NAMES.some((t) => name === t.toLowerCase());
+    if (isTime && timeIdx < 0) {
+      timeIdx = i;
+    } else {
+      valueIndices.push(i);
+    }
+  }
+  if (timeIdx < 0 || valueIndices.length === 0) {
+    return null;
+  }
+  return { timeIdx, valueIndices };
+}
+
+/**
+ * True when the frame should be shown as one table (all columns, all rows) instead of one series per value column.
+ * Use one table datum when there are multiple value columns or any string column (e.g. search: timestamp, dimension, value, count).
+ */
+function isTableShapedFrame(frame: FrameLike, valueIndices: number[]): boolean {
+  if (valueIndices.length > 1) {
+    return true;
+  }
+  const fields = frame.fields || [];
+  for (const idx of valueIndices) {
+    const f = fields[idx];
+    if (f && (f.type === FIELD_TYPE_STRING || f.type === (FieldType?.other ?? 0))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Convert a single frame to one or more series objects that metaqueries accepts.
+ * Table-shaped frames (multiple value columns or string columns, e.g. Druid search) yield one datum with all fields so the table shows all rows.
+ * Single numeric value column yields one datum with datapoints (time-series).
+ */
+function frameToMetaqueriesData(frame: FrameLike): Record<string, unknown>[] {
+  const indices = findTimeAndValueFieldIndices(frame);
+  const fields = frame.fields || [];
+  const len = frame.length ?? (fields[0] ? getFieldLength(fields[0]) : 0);
+
+  if (!indices || len === 0) {
+    const seriesName = frame.name ?? frame.refId ?? 'series';
+    const datum: Record<string, unknown> = {
+      target: seriesName,
+      datapoints: [],
+      refId: frame.refId,
+      length: len,
+    };
+    if (fields.length > 0) {
+      datum.fields = fields.map((f) => ({ ...f, values: ensureVectorLike(f.values) }));
+    }
+    return [datum];
+  }
+
+  const { timeIdx, valueIndices } = indices;
+
+  // Table-shaped (e.g. search: timestamp, dimension, value, count): one datum with all columns so UI shows all rows
+  if (isTableShapedFrame(frame, valueIndices)) {
+    const seriesName = frame.name ?? frame.refId ?? 'series';
+    const datum: Record<string, unknown> = {
+      target: seriesName,
+      datapoints: [],
+      refId: frame.refId,
+      length: len,
+    };
+    datum.fields = fields.map((f) => ({ ...f, values: ensureVectorLike(f.values) }));
+    return [datum];
+  }
+
+  // Single numeric value column: one series with datapoints for time-series / metaqueries
+  const timeField = fields[timeIdx];
+  const valueIdx = valueIndices[0];
+  const valueField = fields[valueIdx];
+  const seriesName = valueField.name ?? frame.name ?? frame.refId ?? 'series';
+  const datapoints: [number, number][] = [];
+  for (let i = 0; i < len; i++) {
+    const t = getFieldValue(timeField, i);
+    const v = getFieldValue(valueField, i);
+    const ts = typeof t === 'number' ? t : t instanceof Date ? t.getTime() : Number(t);
+    const val = typeof v === 'number' ? v : Number(v);
+    if (!Number.isNaN(ts) && !Number.isNaN(val)) {
+      datapoints.push([val, ts]);
+    }
+  }
+  const datum: Record<string, unknown> = {
+    target: seriesName,
+    datapoints,
+    refId: frame.refId,
+    length: datapoints.length,
+  };
+  datum.fields = [
+    { ...timeField, values: ensureVectorLike(timeField.values) },
+    { ...valueField, values: ensureVectorLike(valueField.values) },
+  ];
+  return [datum];
+}
+
+/**
+ * Transform backend/frontend response so it has result.data in a shape metaqueries expects.
+ * - Ensures response.data exists (copy from response.frames if needed).
+ * - Each item in data gets target, refId, datapoints, and fields (metric name in fields[1].name).
+ */
+export function ensureMetaqueriesCompatibleResponse(response: {
+  data?: unknown[];
+  frames?: unknown[];
+  [key: string]: unknown;
+}): { data: unknown[]; [key: string]: unknown } {
+  const rawData = response.data ?? response.frames ?? [];
+  const frames = Array.isArray(rawData) ? rawData : [];
+
+  const data = frames.flatMap((f) => frameToMetaqueriesData(f as FrameLike));
+  return { ...response, data };
+}

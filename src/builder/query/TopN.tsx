@@ -2,31 +2,22 @@ import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, Input, Row } from '../abstract';
 import { DataSource } from '../datasource';
-import { Intervals } from '../querysegmentspec';
 import { Granularity } from '../granularity';
-import { Filter } from '../filter';
+import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
 import { Dimension } from '../dimension';
 import { TopNMetric } from '../topnmetric';
-import { VirtualColumn } from '../virtualcolumn';
 
 export const TopN = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, TopN);
   const scopedComponentProps = useScopedQueryBuilderProps(props, TopN);
   return (
     <>
+        <DataSource {...scopedComponentProps('dataSource')} inline />
+        <Granularity {...scopedComponentProps('granularity')} inline />
       <Row>
-        <DataSource {...scopedComponentProps('dataSource')} />
-      </Row>
-      <Row>
-        <Intervals {...scopedComponentProps('intervals')} />
-      </Row>
-      <Row>
-        <Granularity {...scopedComponentProps('granularity')} />
-      </Row>
-      <Row>
-        <Filter {...scopedComponentProps('filter')} />
+        <RootFilter {...scopedComponentProps('filter')} />
       </Row>
       <Row>
         <Multiple
@@ -56,26 +47,12 @@ export const TopN = (props: QueryBuilderProps) => {
         <Dimension {...scopedProps('dimension')} />
       </Row>
       <Row>
+        <TopNMetric {...scopedProps('metric')} />
         <Input
           {...scopedProps('threshold')}
           label="Threshold"
           description="How many results in the top list"
           type="number"
-        />
-      </Row>
-      <Row>
-        <TopNMetric {...scopedProps('metric')} />
-      </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('virtualColumns')}
-          label="Virtual columns"
-          description="The virtual columns"
-          component={VirtualColumn}
-          componentExtraProps={{
-            label: 'Virtual column',
-            description: 'A virtual column',
-          }}
         />
       </Row>
     </>
@@ -92,5 +69,4 @@ TopN.fields = [
   'dimension',
   'threshold',
   'metric',
-  'virtualColumns',
 ];

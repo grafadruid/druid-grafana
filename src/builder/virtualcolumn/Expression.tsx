@@ -5,7 +5,7 @@ import { useScopedQueryBuilderFieldProps, Input, Select, Row } from '../abstract
 export const Expression = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Expression);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="The name of the virtual column" type="text" />
       <Input
         {...scopedProps('expression')}
@@ -24,7 +24,7 @@ export const Expression = (props: QueryBuilderProps) => {
           STRING: 'String',
         }}
       />
-    </Row>
+    </>
   );
 };
 Expression.type = 'expression';

@@ -1,16 +1,20 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Code, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Code, Row } from '../abstract';
 import { ExtractionFn } from '../extractionfn';
-import { FilterTuning } from '.';
 
 export const Javascript = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Javascript);
   return (
     <>
-      <Row>
-        <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-      </Row>
+      <AutocompleteInput
+        {...scopedProps('dimension')}
+        label="Dimension"
+        description="The dimension name"
+        type="dimension"
+        datasource={props.datasource}
+      />
+      <ExtractionFn {...scopedProps('extractionFn')} />
       <Row>
         <Code
           {...scopedProps('function')}
@@ -19,14 +23,8 @@ export const Javascript = (props: QueryBuilderProps) => {
           lang="javascript"
         />
       </Row>
-      <Row>
-        <ExtractionFn {...scopedProps('extractionFn')} />
-      </Row>
-      <Row>
-        <FilterTuning {...scopedProps('filterTuning')} />
-      </Row>
     </>
   );
 };
 Javascript.type = 'javascript';
-Javascript.fields = ['dimension', 'function', 'extractionFn', 'filterTuning'];
+Javascript.fields = ['dimension', 'function', 'extractionFn'];

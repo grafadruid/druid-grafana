@@ -1,17 +1,18 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Multiple, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Multiple, Checkbox } from '../abstract';
 
 export const Histogram = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Histogram);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
-      <Input
+      <AutocompleteInput
         {...scopedProps('fieldName')}
         label="Field name"
         description="Name of the metric column to sum over"
-        type="text"
+        type="metric"
+        datasource={props.datasource}
       />
       <Multiple
         {...scopedProps('breaks')}
@@ -24,8 +25,9 @@ export const Histogram = (props: QueryBuilderProps) => {
           type: 'number',
         }}
       />
-    </Row>
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
+    </>
   );
 };
 Histogram.type = 'histogram';
-Histogram.fields = ['name', 'fieldName', 'breaks'];
+Histogram.fields = ['name', 'fieldName', 'breaks', 'hidden'];

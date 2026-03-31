@@ -1,13 +1,17 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput } from '../abstract';
 
-export const Table = (props: QueryBuilderProps) => {
+export const Table = (props: QueryBuilderProps & { inline?: boolean }) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Table);
   return (
-    <Row>
-      <Input {...scopedProps('name')} label="Name" description="The table name" type="text" />
-    </Row>
+    <AutocompleteInput
+      {...scopedProps('name')}
+      label="Name"
+      description="The table name"
+      type="table"
+      datasource={props.datasource}
+    />
   );
 };
 Table.type = 'table';

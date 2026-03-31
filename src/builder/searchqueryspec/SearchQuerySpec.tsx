@@ -11,7 +11,6 @@ export const SearchQuerySpec = (props: QueryBuilderProps) => (
       All: All,
       Contains: Contains,
       Fragment: Fragment,
-      InsensitiveContains: InsensitiveContains,
       Regex: Regex,
     }}
   />

@@ -1,14 +1,15 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, Checkbox } from '../abstract';
 
 export const Count = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, Count);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed value" type="text" />
-    </Row>
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
+    </>
   );
 };
 Count.type = 'count';
-Count.fields = ['name'];
+Count.fields = ['name', 'hidden'];

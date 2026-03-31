@@ -1,7 +1,7 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderFieldProps, Multiple, Row } from '../abstract';
-import { Dimension } from '../dimension';
+import { GroupByDimension } from '../dimension';
 
 export const ColumnComparison = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, ColumnComparison);
@@ -11,8 +11,9 @@ export const ColumnComparison = (props: QueryBuilderProps) => {
         {...scopedProps('dimensions')}
         label="Dimensions"
         description="The dimensions"
-        component={Dimension}
+        component={GroupByDimension}
         componentExtraProps={{}}
+        inlineItems
       />
     </Row>
   );

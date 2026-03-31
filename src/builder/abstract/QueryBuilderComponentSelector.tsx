@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QueryBuilderComponent, QueryComponent, Component } from './types';
 import { QueryBuilderProps } from '../types';
 import { InlineField, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { cloneDeep } from 'lodash';
+import { initBuilder } from './QueryBuilderComponent';
 
 const useComponentsRegistry = (
   components: Record<string, QueryBuilderComponent<QueryComponent | Component>>
@@ -55,14 +56,27 @@ export interface QueryBuilderComponentSelectorProps extends QueryBuilderProps {
   label: string;
   components: Record<string, QueryBuilderComponent<QueryComponent | Component>>;
   default?: QueryBuilderComponent<QueryComponent | Component> | undefined;
+  inline?: boolean;
+  /** When switching component type, build default builder. If not provided, initBuilder({}, component) is used for object-shaped builders. */
+  getDefaultBuilder?: (componentKey: string, component: QueryBuilderComponent<QueryComponent | Component>) => any;
 }
 
 export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelectorProps) => {
-  const { label, components, ...queryBuilderComponentProps } = props;
+  const { label, components, inline = false, ...queryBuilderComponentProps } = props;
   const componentsRegistry = useComponentsRegistry(components);
   const [selectedComponentKey, selectComponentKey] = useState(
     useComponentKey(queryBuilderComponentProps.options.builder, props.default)
   );
+
+  // Update selectedComponentKey when builder changes
+  useEffect(() => {
+    const newKey = useComponentKey(queryBuilderComponentProps.options.builder, props.default);
+    selectComponentKey((currentKey) => {
+      // Only update if the key actually changed
+      return newKey !== currentKey ? newKey : currentKey;
+    });
+  }, [queryBuilderComponentProps.options.builder, props.default]);
+
   const [selectedOption, options] = useSelectOptions(components, selectedComponentKey);
   const onSelection = (selection: SelectableValue<string>) => {
     let componentKey = undefined;
@@ -72,6 +86,17 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
       queryBuilderComponentProps.onOptionsChange(options);
     } else {
       componentKey = selection.value;
+      const ComponentForDefault = componentsRegistry[componentKey];
+      if (ComponentForDefault) {
+        const newOptions = cloneDeep(queryBuilderComponentProps.options);
+        const componentKeyCapitalized = Object.keys(components).find((k) => k.toLowerCase() === componentKey);
+        const customDefault =
+          props.getDefaultBuilder != null && componentKeyCapitalized != null
+            ? props.getDefaultBuilder(componentKey, components[componentKeyCapitalized])
+            : undefined;
+        newOptions.builder = customDefault !== undefined ? customDefault : initBuilder({}, ComponentForDefault);
+        queryBuilderComponentProps.onOptionsChange(newOptions);
+      }
     }
     selectComponentKey(componentKey);
   };
@@ -82,7 +107,7 @@ export const QueryBuilderComponentSelector = (props: QueryBuilderComponentSelect
       <InlineField label={label} grow>
         <Select options={options} value={selectedOption} onChange={onSelection} isClearable={true} />
       </InlineField>
-      {Component && <Component {...queryBuilderComponentProps} />}
+      {Component && <Component {...queryBuilderComponentProps} inline={inline} />}
     </>
   );
 };

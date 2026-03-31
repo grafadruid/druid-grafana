@@ -7,6 +7,8 @@ export const Dimension = (props: QueryBuilderProps) => (
   <QueryBuilderComponentSelector
     {...props}
     label="Dimension"
+    default={Default}
+    inline
     components={{
       Default: Default,
       Extraction: Extraction,

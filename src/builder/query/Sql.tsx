@@ -8,8 +8,8 @@ export const Sql = (props: QueryBuilderProps) => {
     <Row>
       <Code
         {...scopedProps('query')}
-        label={undefined}
-        description="The SQL query. e.g: SELECT * FROM datasource"
+        label="Query"
+        description="Druid SQL query. e.g. SELECT * FROM datasource"
         lang="sql"
       />
     </Row>

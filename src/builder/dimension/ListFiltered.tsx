@@ -7,9 +7,12 @@ export const ListFiltered = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, ListFiltered);
   return (
     <>
-      <Row>
-        <Dimension {...scopedProps('delegate')} />
-      </Row>
+      <Dimension {...scopedProps('delegate')} />
+      <Checkbox
+          {...scopedProps('isWhitelist')}
+          label="Is whitelist?"
+          description="Specifies if the filtered dimension spec acts as a whitelist"
+        />
       <Row>
         <Multiple
           {...scopedProps('values')}
@@ -21,13 +24,6 @@ export const ListFiltered = (props: QueryBuilderProps) => {
             description: 'The value',
             type: 'text',
           }}
-        />
-      </Row>
-      <Row>
-        <Checkbox
-          {...scopedProps('isWhitelist')}
-          label="Is whitelist?"
-          description="Specifies if the filtered dimension spec acts as a whitelist"
         />
       </Row>
     </>

@@ -17,15 +17,18 @@ export const Select = (props: Props) => {
   const entries = Object.entries(props.entries).map((entry) => {
     return { value: entry[0], label: String(entry[1]) };
   });
-  const hasCustomValue = entries.filter((entry) => entry.value === props.options.builder).length === 0;
+  const builder = props.options.builder;
+  const isPrimitive = builder === null || builder === undefined || typeof builder === 'string' || typeof builder === 'number';
+  const hasCustomValue = isPrimitive && entries.filter((entry) => entry.value === builder).length === 0;
   if (hasCustomValue) {
-    entries.push({ value: props.options.builder, label: props.options.builder });
+    entries.push({ value: String(builder), label: String(builder) });
   }
+  const selectValue = isPrimitive ? builder : undefined;
   return (
     <InlineField label={props.label} tooltip={props.description} grow>
       <SelectField
         options={entries}
-        value={props.options.builder}
+        value={selectValue}
         onChange={onChange}
         placeholder={props.description}
         onCreateOption={(v) => {

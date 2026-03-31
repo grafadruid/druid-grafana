@@ -7,12 +7,8 @@ export const PrefixFiltered = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, PrefixFiltered);
   return (
     <>
-      <Row>
         <Dimension {...scopedProps('delegate')} />
-      </Row>
-      <Row>
         <Input {...scopedProps('prefix')} label="Prefix" description="The prefix to use" type="text" />
-      </Row>
     </>
   );
 };

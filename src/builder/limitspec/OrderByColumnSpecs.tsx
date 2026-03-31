@@ -1,12 +1,18 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Select, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, AutocompleteInput, Select, Row } from '../abstract';
 
 export const OrderByColumnSpecs = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, OrderByColumnSpecs);
   return (
-    <Row>
-      <Input {...scopedProps('dimension')} label="Dimension" description="Any dimension or metric name" type="text" />
+    <>
+      <AutocompleteInput
+        {...scopedProps('dimension')}
+        label="Dimension"
+        description="Dimension or metric name to order by"
+        type="dimension"
+        datasource={props.datasource}
+      />
       <Select
         {...scopedProps('direction')}
         label="Direction"
@@ -28,8 +34,8 @@ export const OrderByColumnSpecs = (props: QueryBuilderProps) => {
           version: 'Version',
         }}
       />
-    </Row>
+    </>
   );
 };
 OrderByColumnSpecs.type = '';
-OrderByColumnSpecs.fields = ['direction', 'dimensionOrder'];
+OrderByColumnSpecs.fields = ['dimension', 'direction', 'dimensionOrder'];

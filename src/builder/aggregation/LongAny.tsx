@@ -1,20 +1,22 @@
 import React from 'react';
 import { QueryBuilderProps } from '../types';
-import { useScopedQueryBuilderFieldProps, Input, Row } from '../abstract';
+import { useScopedQueryBuilderFieldProps, Input, AutocompleteInput, Checkbox } from '../abstract';
 
 export const LongAny = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, LongAny);
   return (
-    <Row>
+    <>
       <Input {...scopedProps('name')} label="Name" description="Output name for the summed lue" type="text" />
-      <Input
+      <AutocompleteInput
         {...scopedProps('fieldName')}
         label="Field name"
         description="Name of the metric column to sum over"
-        type="text"
+        type="metric"
+        datasource={props.datasource}
       />
-    </Row>
+      <Checkbox {...scopedProps('hidden')} label="Hidden" description="" />
+    </>
   );
 };
 LongAny.type = 'longAny';
-LongAny.fields = ['name', 'fieldName'];
+LongAny.fields = ['name', 'fieldName', 'hidden'];

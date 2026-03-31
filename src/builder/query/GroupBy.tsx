@@ -2,60 +2,48 @@ import React from 'react';
 import { QueryBuilderProps } from '../types';
 import { useScopedQueryBuilderProps, useScopedQueryBuilderFieldProps, Multiple, Row } from '../abstract';
 import { DataSource } from '../datasource';
-import { Dimension } from '../dimension';
+import { GroupByDimension } from '../dimension';
 import { LimitSpec } from '../limitspec';
 import { HavingSpec } from '../havingspec';
 import { Granularity } from '../granularity';
-import { Filter } from '../filter';
+import { RootFilter } from '../filter';
 import { Aggregation } from '../aggregation';
 import { PostAggregation } from '../postaggregation';
-import { Intervals } from '../querysegmentspec';
-import { VirtualColumn } from '../virtualcolumn';
 
 export const GroupBy = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, GroupBy);
   const scopedComponentProps = useScopedQueryBuilderProps(props, GroupBy);
   return (
     <>
-      <Row>
-        <DataSource {...scopedComponentProps('dataSource')} />
-      </Row>
-      <Row>
-        <Intervals {...scopedComponentProps('intervals')} />
-      </Row>
+      <DataSource {...scopedComponentProps('dataSource')} inline />
+      <Granularity {...scopedComponentProps('granularity')} inline />
       <Row>
         <Multiple
           {...scopedProps('dimensions')}
           label="Dimensions"
           description="The dimensions"
-          component={Dimension}
+          component={GroupByDimension}
           componentExtraProps={{}}
+          inlineItems
         />
       </Row>
       <Row>
         <LimitSpec {...scopedComponentProps('limitSpec')} />
       </Row>
+      <HavingSpec {...scopedComponentProps('having')} />
       <Row>
-        <HavingSpec {...scopedComponentProps('having')} />
+        <RootFilter {...scopedComponentProps('filter')} />
       </Row>
-      <Row>
-        <Granularity {...scopedComponentProps('granularity')} />
-      </Row>
-      <Row>
-        <Filter {...scopedComponentProps('filter')} />
-      </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('aggregations')}
-          label="Aggregations"
-          description="The aggregations"
-          component={Aggregation}
-          componentExtraProps={{
-            label: 'Aggregation',
-            description: 'An aggregation',
-          }}
-        />
-      </Row>
+      <Multiple
+        {...scopedProps('aggregations')}
+        label="Aggregations"
+        description="The aggregations"
+        component={Aggregation}
+        componentExtraProps={{
+          label: 'Aggregation',
+          description: 'An aggregation',
+        }}
+      />
       <Row>
         <Multiple
           {...scopedProps('postAggregations')}
@@ -65,18 +53,6 @@ export const GroupBy = (props: QueryBuilderProps) => {
           componentExtraProps={{
             label: 'Post-aggregation',
             description: 'A post-aggregation',
-          }}
-        />
-      </Row>
-      <Row>
-        <Multiple
-          {...scopedProps('virtualColumns')}
-          label="Virtual columns"
-          description="The virtual columns"
-          component={VirtualColumn}
-          componentExtraProps={{
-            label: 'Virtual column',
-            description: 'A virtual column',
           }}
         />
       </Row>
@@ -94,5 +70,4 @@ GroupBy.fields = [
   'aggregations',
   'postAggregations',
   'intervals',
-  'virtualColumns',
 ];

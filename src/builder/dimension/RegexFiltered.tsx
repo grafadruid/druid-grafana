@@ -7,12 +7,8 @@ export const RegexFiltered = (props: QueryBuilderProps) => {
   const scopedProps = useScopedQueryBuilderFieldProps(props, RegexFiltered);
   return (
     <>
-      <Row>
         <Dimension {...scopedProps('delegate')} />
-      </Row>
-      <Row>
         <Input {...scopedProps('pattern')} label="Pattern" description="The regex pattern" type="text" />
-      </Row>
     </>
   );
 };

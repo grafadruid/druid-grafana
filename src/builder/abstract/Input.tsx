@@ -5,6 +5,8 @@ import { onBuilderChange } from '.';
 
 interface Props extends QueryBuilderFieldProps {
   type: string;
+  /** When true and value is empty or 0, pass undefined so the key is omitted from the query JSON (e.g. for optional scan batchSize) */
+  omitWhenEmpty?: boolean;
 }
 
 export const Input = (props: Props) => {
@@ -20,11 +22,20 @@ export const Input = (props: Props) => {
         value = props.options.builder || '';
       }
     }
-    onBuilderChange(props, value);
+    if (props.omitWhenEmpty && (value === '' || value === 0)) {
+      onBuilderChange(props, undefined);
+    } else {
+      onBuilderChange(props, value);
+    }
   };
   return (
     <InlineField label={props.label} grow>
-      <InputField name={props.name} placeholder={props.description} value={props.options.builder} onChange={onChange} />
+      <InputField
+        name={props.name}
+        placeholder={props.description}
+        value={props.options.builder === undefined ? '' : props.options.builder}
+        onChange={onChange}
+      />
     </InlineField>
   );
 };

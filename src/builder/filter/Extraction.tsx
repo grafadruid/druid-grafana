@@ -25,13 +25,9 @@ export const Extraction = (props: QueryBuilderProps) => {
           </InfoBox>
         </Row>
       )}
-      <Row>
-        <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
-        <Input {...scopedProps('value')} label="Value" description="The dimension value" type="text" />
-      </Row>
-      <Row>
-        <ExtractionFn {...scopedProps('extractionFn')} />
-      </Row>
+      <Input {...scopedProps('dimension')} label="Dimension" description="The dimension name" type="text" />
+      <Input {...scopedProps('value')} label="Value" description="The dimension value" type="text" />
+      <ExtractionFn {...scopedProps('extractionFn')} />
     </>
   );
 };
