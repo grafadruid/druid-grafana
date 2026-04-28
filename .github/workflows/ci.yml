@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
@@ -61,17 +64,13 @@ jobs:
       - name: Test backend
         if: steps.check-for-backend.outputs.has-backend == 'true'
         uses: magefile/mage-action@v1
-        env:
-          DOCKER: 0
         with:
           version: latest
-          args: backend:test
+          args: sdk:test
 
       - name: Build backend
         if: steps.check-for-backend.outputs.has-backend == 'true'
         uses: magefile/mage-action@v1
-        env:
-          DOCKER: 0
         with:
           version: latest
-          args: buildAll
+          args: sdk:buildAll
