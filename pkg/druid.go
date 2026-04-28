@@ -920,33 +920,68 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 			}
 			switch c.Type {
 			case "string":
-				if r[ic] == nil {
-					r[ic] = ""
+				var s string
+				switch v := r[ic].(type) {
+				case nil:
+					s = ""
+				case string:
+					s = v
+				default:
+					s = fmt.Sprint(v)
 				}
-				ff = append(ff.([]string), r[ic].(string))
+				ff = append(ff.([]string), s)
 			case "float":
-				if r[ic] == nil {
-					r[ic] = 0.0
+				var f float64
+				switch v := r[ic].(type) {
+				case nil:
+					f = 0
+				case float64:
+					f = v
+				case float32:
+					f = float64(v)
+				case int:
+					f = float64(v)
+				case int64:
+					f = float64(v)
+				case string:
+					f, _ = strconv.ParseFloat(v, 64)
 				}
-				ff = append(ff.([]float64), r[ic].(float64))
+				ff = append(ff.([]float64), f)
 			case "int":
-				if r[ic] == nil {
-					r[ic] = "0"
-				}
-				i, err := strconv.Atoi(r[ic].(string))
-				if err != nil {
+				var i int64
+				switch v := r[ic].(type) {
+				case nil:
 					i = 0
+				case int64:
+					i = v
+				case int:
+					i = int64(v)
+				case float64:
+					i = int64(v)
+				case float32:
+					i = int64(v)
+				case string:
+					n, err := strconv.Atoi(v)
+					if err == nil {
+						i = int64(n)
+					}
 				}
-				ff = append(ff.([]int64), int64(i))
+				ff = append(ff.([]int64), i)
 			case "bool":
 				var b bool
-				var err error
-				b, ok := r[ic].(bool)
-				if !ok {
-					b, err = strconv.ParseBool(r[ic].(string))
-					if err != nil {
-						b = false
-					}
+				switch v := r[ic].(type) {
+				case nil:
+					b = false
+				case bool:
+					b = v
+				case string:
+					b, _ = strconv.ParseBool(v)
+				case float64:
+					b = v != 0
+				case int:
+					b = v != 0
+				case int64:
+					b = v != 0
 				}
 				ff = append(ff.([]bool), b)
 			case "nil":
