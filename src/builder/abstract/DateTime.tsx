@@ -1,4 +1,4 @@
-import React, { ChangeEvent } from 'react';
+import React from 'react';
 import { InlineLabel, useStyles2 } from '@grafana/ui';
 import { GrafanaTheme2 } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
@@ -27,13 +27,16 @@ const useDate = (value = ''): any => {
 
 export const DateTime = (props: Props) => {
   const [date, datePlaceholder] = useDate(props.options.builder);
-  const onDateChangeRaw = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
+  const onDateChangeRaw = (event?: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    const value = (event?.target as HTMLInputElement | undefined)?.value;
     if (value && value.indexOf('$') !== -1) {
       onBuilderChange(props, value);
     }
   };
-  const onDateChange = (date: Date) => {
+  const onDateChange = (date: Date | null) => {
+    if (date === null) {
+      return;
+    }
     onBuilderChange(props, date.toISOString());
   };
   const { label, description, format, time } = props;
