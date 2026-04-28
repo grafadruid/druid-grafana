@@ -1,4 +1,4 @@
-import React, { ChangeEvent } from 'react';
+import React from 'react';
 import { InlineLabel, useStyles2 } from '@grafana/ui';
 import { GrafanaTheme2 } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
@@ -39,23 +39,29 @@ export const DateInterval = (props: Props) => {
     props.options.builder
   );
 
-  const onStartDateChangeRaw = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
+  const onStartDateChangeRaw = (event?: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    const value = (event?.target as HTMLInputElement | undefined)?.value;
     if (value && value.indexOf('$') !== -1) {
       onBuilderChange(props, value + '/' + intervalStop);
     }
   };
-  const onStartDateChange = (date: Date) => {
+  const onStartDateChange = (date: Date | null) => {
+    if (date === null) {
+      return;
+    }
     const value = date.toISOString();
     onBuilderChange(props, value + '/' + intervalStop);
   };
-  const onStopDateChangeRaw = (event: ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
+  const onStopDateChangeRaw = (event?: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    const value = (event?.target as HTMLInputElement | undefined)?.value;
     if (value && (value.indexOf('$') !== -1 || ISO8601DURATIONPATTERN.exec(value) !== null)) {
       onBuilderChange(props, intervalStart + '/' + value);
     }
   };
-  const onStopDateChange = (date: Date) => {
+  const onStopDateChange = (date: Date | null) => {
+    if (date === null) {
+      return;
+    }
     const value = date.toISOString();
     onBuilderChange(props, intervalStart + '/' + value);
   };
