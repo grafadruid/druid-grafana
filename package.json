@@ -79,7 +79,7 @@
   },
   "resolutions": {
     "eslint-plugin-jsdoc": "^46.8.0",
-    "form-data": "^4.0.4",
+    "form-data": "^4.0.6",
     "@remix-run/router": "^1.23.2",
     "flatted": "^3.4.2",
     "glob": "^10.5.0",
