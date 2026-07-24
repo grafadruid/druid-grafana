@@ -30,6 +30,7 @@ Grafana doesn't supports Druid as a Data Source, this plugin aims to do so.
 At the time of writing, the plugin supports all Grafana features and all Druid queries:
 
 - Druid queries: SQL, timeseries, topn, groupby, timeboundary, segmentmetadata, datasourcemetadata, scan, search, JSON
+- SQL code completion & inline help: the SQL query editor suggests keywords, Druid SQL functions (with documentation), tables after `FROM`, columns with their types, Grafana template variables and the supported global variables (`$__from`, `$__to`, ...); hover a function for its signature/description and get parameter hints while typing `FUNC(...`.
 - Variables: Grafana global variables replacement, query variables, formatter `druid:json` (provide support for multi-value variables within rune queries).
 - Alerts
 - Explore

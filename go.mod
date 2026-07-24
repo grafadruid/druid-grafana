@@ -6,6 +6,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.1
 	github.com/grafadruid/go-druid v0.0.6
 	github.com/grafana/grafana-plugin-sdk-go v0.292.0
+	github.com/hashicorp/go-retryablehttp v0.6.7
 	github.com/magefile/mage v1.17.2
 )
 
@@ -38,7 +39,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-plugin v1.7.0 // indirect
-	github.com/hashicorp/go-retryablehttp v0.6.7 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/jaegertracing/jaeger-idl v0.6.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

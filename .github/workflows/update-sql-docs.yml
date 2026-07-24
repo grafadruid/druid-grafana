@@ -1,0 +1,48 @@
+---
+name: Update Druid SQL docs
+
+# yamllint disable-line rule:truthy
+on:
+  schedule:
+    - cron: '0 6 * * *' # daily at 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Determine latest Druid release
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/apache/druid/releases/latest --jq .tag_name) # e.g. druid-38.0.0
+          echo "version=${tag#druid-}" >> "$GITHUB_OUTPUT"
+
+      - name: Bump pin and regenerate
+        run: |
+          sed -i -E 's/^DRUID_VERSION=.*/DRUID_VERSION="${{ steps.latest.outputs.version }}"/' .env
+          yarn install --frozen-lockfile
+          yarn generate:sql-docs
+
+      - name: Open PR if anything changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/update-druid-sql-docs
+          title: 'chore: update Druid SQL docs catalog to Druid ${{ steps.latest.outputs.version }}'
+          commit-message: 'chore: bump DRUID_VERSION + regenerate SQL docs catalog'
+          body: |
+            Automated monthly refresh of the vendored Druid SQL function catalog.
+
+            Bumps `DRUID_VERSION` in `.env` (also used by the docker dev environment — intended,
+            it is the single source of truth) and regenerates `druidSqlDocs.ts`. Review and merge.

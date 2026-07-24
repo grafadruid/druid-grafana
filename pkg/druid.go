@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"sort"
@@ -15,6 +16,8 @@ import (
 	"time"
 
 	"github.com/bitly/go-simplejson"
+	"github.com/hashicorp/go-retryablehttp"
+
 	"github.com/grafadruid/go-druid"
 	druidquerybuilder "github.com/grafadruid/go-druid/builder"
 	druidquery "github.com/grafadruid/go-druid/builder/query"
@@ -37,6 +40,78 @@ var (
 	varFromDateISO  = variableVariants("__from:date:iso")
 	varToDateISO    = variableVariants("__to:date:iso")
 )
+
+// Cap on how much of an error response body is read.
+const druidErrorReadLimit = 64 * 1024
+
+// retryPolicyNoClientErrors is the go-druid retry policy for the plugin's client. It
+// never retries HTTP 4xx client errors (except 429): those are deterministic — a
+// malformed request will fail identically, so retrying only stalls the caller. This
+// notably covers the SQL syntax errors Druid returns as HTTP 400 while a query is being
+// typed (Druid 37 reports these as error "druidException", which go-druid's built-in
+// policy does not recognise and would otherwise retry). Everything else (5xx, 429,
+// transport errors) falls back to the standard exponential-backoff retry policy.
+func retryPolicyNoClientErrors(ctx context.Context, resp *http.Response, err error) (bool, error) {
+	if resp != nil && resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+		return false, druidClientError(resp)
+	}
+	return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+}
+
+// druidError is a Druid error response, carried as a typed error so the plugin can present it
+// without go-retryablehttp's wrapping (see unwrapDruidError).
+type druidError struct {
+	status int
+	detail string
+}
+
+func (e *druidError) Error() string {
+	if e.detail == "" {
+		return fmt.Sprintf("druid returned HTTP %d", e.status)
+	}
+	return fmt.Sprintf("druid returned HTTP %d: %s", e.status, e.detail)
+}
+
+// druidClientError builds a readable error from a Druid error response. Druid reports query
+// failures with a generic code in "error" (e.g. "druidException") and the actual reason in
+// "errorMessage"; go-druid only surfaces the former, which reduces a syntax error to a bare
+// "druidException". The body is consumed here, so this must only be called when aborting.
+func druidClientError(resp *http.Response) error {
+	var body []byte
+	if resp.Body != nil {
+		body, _ = io.ReadAll(io.LimitReader(resp.Body, druidErrorReadLimit))
+		resp.Body.Close()
+	}
+
+	var parsed struct {
+		Error        string `json:"error"`
+		ErrorMessage string `json:"errorMessage"`
+	}
+	detail := ""
+	if json.Unmarshal(body, &parsed) == nil {
+		detail = parsed.ErrorMessage
+		if detail == "" {
+			detail = parsed.Error
+		}
+	}
+	if detail == "" {
+		detail = strings.TrimSpace(string(body))
+	}
+	return &druidError{status: resp.StatusCode, detail: detail}
+}
+
+// unwrapDruidError reduces a wrapped druidError to the error itself. go-druid's client runs on
+// go-retryablehttp, which decorates failures with "<METHOD> <URL> giving up after N attempt(s): ".
+// (go-druid accepts a custom ErrorHandler that could avoid this, but never assigns it to the
+// underlying retryablehttp client, so the decoration is unavoidable.) Unwrapping keeps the message
+// shown in the panel to what actually went wrong.
+func unwrapDruidError(err error) error {
+	var druidErr *druidError
+	if errors.As(err, &druidErr) {
+		return druidErr
+	}
+	return err
+}
 
 func variableVariants(base string) []string {
 	return []string{
@@ -78,6 +153,8 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	secureData := settings.DecryptedSecureJSONData
 
 	var druidOpts []druid.ClientOption
+	// Never retry deterministic client errors (e.g. a SQL syntax error returned as HTTP 400).
+	druidOpts = append(druidOpts, druid.WithCustomRetry(retryPolicyNoClientErrors))
 	if retryMax := data.Get("connection.retryableRetryMax").MustInt(-1); retryMax != -1 {
 		druidOpts = append(druidOpts, druid.WithRetryMax(retryMax))
 	}
@@ -223,6 +300,30 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 		default:
 			body = "Method not supported"
 		}
+	case "metadata/tables":
+		switch req.Method {
+		case "POST":
+			body, err = ds.metadataTables()
+			if err == nil {
+				code = 200
+			} else {
+				body = err.Error()
+			}
+		default:
+			body = "Method not supported"
+		}
+	case "metadata/columns":
+		switch req.Method {
+		case "POST":
+			body, err = ds.metadataColumns(req.Body)
+			if err == nil {
+				code = 200
+			} else {
+				body = err.Error()
+			}
+		default:
+			body = "Method not supported"
+		}
 	default:
 		body = "Path not supported"
 	}
@@ -240,6 +341,99 @@ type grafanaMetricFindValue struct {
 func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
 	log.DefaultLogger.Debug("QUERY VARIABLE", "request", string(req.Body))
 	return ds.queryVariable(req.Body, ds.settings)
+}
+
+type tableMeta struct {
+	Schema string `json:"schema"`
+	Name   string `json:"name"`
+}
+
+type columnMeta struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+// mapTableRows turns INFORMATION_SCHEMA.TABLES object rows into tableMeta.
+// Keys are uppercase as selected (resultFormat "object").
+func mapTableRows(rows []map[string]any) []tableMeta {
+	tables := make([]tableMeta, 0, len(rows))
+	for _, row := range rows {
+		schema, _ := row["TABLE_SCHEMA"].(string)
+		name, _ := row["TABLE_NAME"].(string)
+		if name != "" {
+			tables = append(tables, tableMeta{Schema: schema, Name: name})
+		}
+	}
+	return tables
+}
+
+// mapColumnRows turns INFORMATION_SCHEMA.COLUMNS object rows into columnMeta.
+func mapColumnRows(rows []map[string]any) []columnMeta {
+	columns := make([]columnMeta, 0, len(rows))
+	for _, row := range rows {
+		name, _ := row["COLUMN_NAME"].(string)
+		typ, _ := row["DATA_TYPE"].(string)
+		if name != "" {
+			columns = append(columns, columnMeta{Name: name, Type: typ})
+		}
+	}
+	return columns
+}
+
+// parseColumnsRequest parses the metadata/columns request body, applying the
+// default "druid" schema. Kept pure for testability.
+func parseColumnsRequest(body []byte) (schema string, table string, err error) {
+	var req struct {
+		Schema string `json:"schema"`
+		Table  string `json:"table"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		return "", "", err
+	}
+	if req.Table == "" {
+		return "", "", errors.New("table is required")
+	}
+	if req.Schema == "" {
+		req.Schema = "druid"
+	}
+	return req.Schema, req.Table, nil
+}
+
+func (ds *druidDatasource) executeMetadataSQL(sql string, params []druidquery.SQLParameter) ([]map[string]any, error) {
+	q := druidquery.NewSQL().SetQuery(sql).SetResultFormat("object")
+	if len(params) > 0 {
+		q.SetParameters(params)
+	}
+	var rows []map[string]any
+	if _, err := ds.settings.client.Query().Execute(q, &rows); err != nil {
+		return nil, unwrapDruidError(err)
+	}
+	return rows, nil
+}
+
+func (ds *druidDatasource) metadataTables() ([]tableMeta, error) {
+	rows, err := ds.executeMetadataSQL(
+		"SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES ORDER BY TABLE_SCHEMA, TABLE_NAME", nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return mapTableRows(rows), nil
+}
+
+func (ds *druidDatasource) metadataColumns(body []byte) ([]columnMeta, error) {
+	schema, table, err := parseColumnsRequest(body)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := ds.executeMetadataSQL(
+		"SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+		[]druidquery.SQLParameter{{Type: "VARCHAR", Value: schema}, {Type: "VARCHAR", Value: table}},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return mapColumnRows(rows), nil
 }
 
 func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) ([]grafanaMetricFindValue, error) {
@@ -314,7 +508,7 @@ func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings
 					}
 				case float64:
 					sec, dec := math.Modf(r[ic].(float64) / 1000)
-					t = time.Unix(int64(sec), int64(dec*(1e9)))
+					t = time.Unix(int64(sec), int64(dec*1e9))
 				}
 				response = append(response, grafanaMetricFindValue{Value: t.Unix(), Text: t.Format(time.UnixDate)})
 			}
@@ -462,7 +656,8 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
 		q.Builder["context"] = mergeSettings(
 			defaultQueryContext,
-			ds.prepareQueryContext(queryContextParameters.([]any)))
+			ds.prepareQueryContext(queryContextParameters.([]any)),
+		)
 	}
 	jsonQuery, err := json.Marshal(q.Builder)
 	if err != nil {
@@ -497,7 +692,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	var result json.RawMessage
 	_, err := s.client.Query().Execute(q, &result)
 	if err != nil {
-		return r, err
+		return r, unwrapDruidError(err)
 	}
 	detectColumnType := func(c *struct {
 		Name string
@@ -999,7 +1194,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 					ff = append(ff.([]time.Time), t)
 				case float64:
 					sec, dec := math.Modf(r[ic].(float64) / 1000)
-					ff = append(ff.([]time.Time), time.Unix(int64(sec), int64(dec*(1e9))))
+					ff = append(ff.([]time.Time), time.Unix(int64(sec), int64(dec*1e9)))
 				}
 			}
 		}

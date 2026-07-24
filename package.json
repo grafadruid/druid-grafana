@@ -6,6 +6,7 @@
     "build": "webpack -c ./webpack.config.ts --env production",
     "dev": "webpack -w -c ./webpack.config.ts --env development",
     "fmt": "prettier -uw '**/*'",
+    "generate:sql-docs": "node scripts/generate-druid-sql-docs.mjs",
     "lint": "eslint --cache --ignore-path ./.gitignore --ext .js,.jsx,.ts,.tsx .",
     "lint:fix": "yarn run lint --fix && prettier --write --list-different .",
     "server": "docker compose up --build",
@@ -71,11 +72,13 @@
   "dependencies": {
     "@emotion/css": "11.13.4",
     "@grafana/data": "^11.4.0",
+    "@grafana/plugin-ui": "0.13.1",
     "@grafana/runtime": "^11.4.0",
     "@grafana/schema": "^11.2.2",
     "@grafana/ui": "^11.2.2",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "sql-formatter": "15.8.2"
   },
   "resolutions": {
     "eslint-plugin-jsdoc": "^46.8.0",

@@ -21,7 +21,7 @@ const (
 	defaultCoordinatorURL string = "http://coordinator:8081"
 	defaultBrokerURL      string = "http://broker:8082"
 	taskEndpoint          string = "/druid/indexer/v1/task"
-	grafanaVersion        string = "10.4.8"
+	grafanaVersion        string = "12.3.0"
 )
 
 var (
