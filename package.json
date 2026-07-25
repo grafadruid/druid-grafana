@@ -81,17 +81,25 @@
     "sql-formatter": "15.8.2"
   },
   "resolutions": {
-    "eslint-plugin-jsdoc": "^46.8.0",
-    "form-data": "^4.0.4",
+    "@istanbuljs/load-nyc-config/js-yaml": "^3.15.0",
     "@remix-run/router": "^1.23.2",
+    "brace-expansion": "^5.0.8",
+    "eslint-plugin-jsdoc": "^46.8.0",
+    "fast-uri": "^3.1.4",
     "flatted": "^3.4.2",
-    "glob": "^10.5.0",
-    "immutable": "^5.1.5",
+    "form-data": "^4.0.6",
+    "glob": "^11.1.0",
+    "immutable": "^5.1.8",
+    "js-cookie": "^3.0.7",
+    "js-yaml": "^4.3.0",
     "lodash": "^4.18.1",
-    "minimatch": "^9.0.7",
+    "minimatch": "^10.1.1",
     "picomatch": "^4.0.4",
-    "protobufjs": "^7.5.5",
-    "serialize-javascript": "^7.0.3"
+    "postcss": "^8.5.18",
+    "protobufjs": "^7.6.1",
+    "serialize-javascript": "^7.0.3",
+    "websocket-driver": "^0.7.5",
+    "ws": "^8.21.0"
   },
   "packageManager": "yarn@1.22.22"
 }
