@@ -30,5 +30,7 @@ export const Query = (props: QueryBuilderProps) => (
       Timeseries: Timeseries,
       TopN: TopN,
     }}
+    // Preselect Sql for a new query; an existing query keeps its own queryType.
+    default={Sql}
   />
 );

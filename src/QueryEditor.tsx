@@ -9,6 +9,7 @@ import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
+import { DruidDatasourceContext } from './DruidDatasourceContext';
 
 interface Props extends QueryEditorProps<DruidDataSource, DruidQuery, DruidSettings> {}
 
@@ -19,7 +20,7 @@ export const QueryEditor = (props: Props) => {
   /*TODO merging settings that way is not good: things like query context won't get merged
   the query settings context will replace the datasource query settings context instead of merging
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
-  const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
+  const settingsOptions = { settings: { ...datasourceQuerySettings, ...settings } };
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -48,7 +49,7 @@ export const QueryEditor = (props: Props) => {
   };
   const [showDrawer, setShowDrawer] = useState(false);
   return (
-    <>
+    <DruidDatasourceContext.Provider value={props.datasource}>
       <ToolbarButtonRow className={cx(styles.toolbar)}>
         <ToolbarButton
           icon="cog"
@@ -75,7 +76,7 @@ export const QueryEditor = (props: Props) => {
         </Drawer>
       )}
       <DruidQueryBuilder options={builderOptions} onOptionsChange={onBuilderOptionsChange} />
-    </>
+    </DruidDatasourceContext.Provider>
   );
 };
 

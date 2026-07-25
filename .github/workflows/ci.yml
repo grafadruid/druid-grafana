@@ -45,6 +45,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Check Druid SQL docs catalog is in sync
+        run: |
+          yarn generate:sql-docs
+          git diff --exit-code src/builder/query/sql/druidSqlDocs.ts
+
       - name: Build and test frontend
         run: yarn build
 

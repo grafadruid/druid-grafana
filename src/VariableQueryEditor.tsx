@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { ToolbarButtonRow, ToolbarButton, Drawer } from '@grafana/ui';
 import { css, cx } from '@emotion/css';
+import { DruidDataSource } from './DruidDataSource';
 import { DruidQuery } from './types';
 import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
+import { DruidDatasourceContext } from './DruidDatasourceContext';
 
 interface Props {
   query: DruidQuery;
   onChange: (query: DruidQuery, definition: string) => void;
+  // Grafana passes the datasource to variable query editors; used for SQL completion.
+  datasource?: DruidDataSource;
 }
 
 export const VariableQueryEditor = (props: Props) => {
@@ -42,7 +46,7 @@ export const VariableQueryEditor = (props: Props) => {
   };
   const [showDrawer, setShowDrawer] = useState(false);
   return (
-    <>
+    <DruidDatasourceContext.Provider value={props.datasource}>
       <ToolbarButtonRow className={cx(styles.toolbar)}>
         <ToolbarButton
           icon="cog"
@@ -69,7 +73,7 @@ export const VariableQueryEditor = (props: Props) => {
         </Drawer>
       )}
       <DruidQueryBuilder options={builderOptions} onOptionsChange={onBuilderOptionsChange} />
-    </>
+    </DruidDatasourceContext.Provider>
   );
 };
 
