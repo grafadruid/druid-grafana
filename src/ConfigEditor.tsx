@@ -34,6 +34,8 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const { settings, secretSettings, secretSettingsFields } = connectionSettingsOptions;
     const connectionSettings = normalizeData(settings, true, 'connection');
     const jsonData = { ...options.jsonData, ...connectionSettings };
+    // Grafana core forwards the user's token only when this TOP-LEVEL key is true.
+    (jsonData as Record<string, unknown>).oauthPassThru = settings.oauthPassThru === true;
     const connectionSecretSettings = normalizeData(secretSettings, true, 'connection');
     const secureJsonData = { ...options.secureJsonData, ...connectionSecretSettings };
     const connectionSecretSettingsFields = normalizeData(
