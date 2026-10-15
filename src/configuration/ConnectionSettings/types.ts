@@ -10,6 +10,8 @@ export interface ConnectionSettings {
   skipTls?: boolean;
   mTLS?: boolean;
   mTLSUseSystemCaPool?: boolean;
+  oauthPassThru?: boolean;
+  oauthPassThruToken?: 'access' | 'id';
 }
 export interface ConnectionSecretSettings {
   basicAuthPassword?: string;

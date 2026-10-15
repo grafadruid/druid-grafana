@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,12 +63,48 @@ type druidResponse struct {
 }
 
 type druidInstanceSettings struct {
-	client               *druid.Client
+	client               *druid.Client // used when OAuth pass-through is off
 	defaultQuerySettings map[string]any
+
+	oauthPassThru    bool
+	oauthTokenHeader string               // backend.OAuthIdentityTokenHeaderName or ...IDTokenHeaderName
+	baseURL          string
+	clientOpts       []druid.ClientOption // retries only; HTTP client is added per request
+	transport        http.RoundTripper    // shared pooled transport carrying the TLS config
 }
 
 func (s *druidInstanceSettings) Dispose() {
 	s.client.Close()
+}
+
+// bearerTransport stamps one user's token on every request of a per-request client.
+type bearerTransport struct {
+	base  http.RoundTripper
+	value string
+}
+
+func (t bearerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r2 := r.Clone(r.Context())
+	r2.Header.Set("Authorization", t.value)
+	return t.base.RoundTrip(r2)
+}
+
+// clientFor returns the shared client, or a client bound to the calling user's token.
+func (s *druidInstanceSettings) clientFor(req backend.ForwardHTTPHeaders) (*druid.Client, error) {
+	if !s.oauthPassThru {
+		return s.client, nil
+	}
+	token := req.GetHTTPHeader(s.oauthTokenHeader)
+	if token == "" {
+		return nil, errors.New("OAuth pass-through is enabled but the request carries no user token: " +
+			"log in to Grafana through Keycloak (local Grafana users have no token)")
+	}
+	if !strings.HasPrefix(token, "Bearer ") { // X-ID-Token arrives raw
+		token = "Bearer " + token
+	}
+	opts := append(slices.Clone(s.clientOpts),
+		druid.WithHTTPClient(&http.Client{Transport: bearerTransport{base: s.transport, value: token}}))
+	return druid.NewClient(s.baseURL, opts...)
 }
 
 func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
@@ -87,9 +124,16 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	if retryWaitMax := data.Get("connection.retryableRetryWaitMax").MustInt(-1); retryWaitMax != -1 {
 		druidOpts = append(druidOpts, druid.WithRetryWaitMax(time.Duration(retryWaitMax)*time.Millisecond))
 	}
-	if basicAuth := data.Get("connection.basicAuth").MustBool(); basicAuth {
-		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
+
+	// Grafana core only forwards the user's token when the TOP-LEVEL jsonData.oauthPassThru is true,
+	// so that key (not connection.*) is the source of truth for the backend as well.
+	oauthPassThru := data.Get("oauthPassThru").MustBool()
+	oauthTokenHeader := backend.OAuthIdentityTokenHeaderName
+	if data.Get("connection.oauthPassThruToken").MustString("access") == "id" {
+		oauthTokenHeader = backend.OAuthIdentityIDTokenHeaderName
 	}
+
+	tlsConfig := &tls.Config{}
 	if mTLS := data.Get("connection.mTLS").MustBool(); mTLS {
 		log.DefaultLogger.Info("mTLS enabled for Druid connection")
 
@@ -127,31 +171,22 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 			return &druidInstanceSettings{}, fmt.Errorf("failed to append CA certificate: %s", ca)
 		}
 
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{clientCert},
-			RootCAs:      caCertPool,
-		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
+		tlsConfig.RootCAs = caCertPool
+	}
+	if data.Get("connection.skipTls").MustBool() {
+		tlsConfig.InsecureSkipVerify = true
+	}
+	transport := &http.Transport{Proxy: http.ProxyFromEnvironment, TLSClientConfig: tlsConfig}
 
-		httpClient := http.Client{}
-
-		if httpClient.Transport == nil {
-			httpClient.Transport = &http.Transport{}
-		}
-
-		transport, ok := httpClient.Transport.(*http.Transport)
-		if !ok {
-			return &druidInstanceSettings{}, fmt.Errorf("http transport is not of type *http.Transport")
-		}
-
-		transport.TLSClientConfig = tlsConfig
-		druidOpts = append(druidOpts, druid.WithHTTPClient(&httpClient))
+	sharedOpts := append(slices.Clone(druidOpts), druid.WithHTTPClient(&http.Client{Transport: transport}))
+	if basicAuth := data.Get("connection.basicAuth").MustBool(); basicAuth && !oauthPassThru {
+		sharedOpts = append(sharedOpts,
+			druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
 	}
 
-	if skipTLS := data.Get("connection.skipTls").MustBool(); skipTLS {
-		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
-	}
-
-	c, err := druid.NewClient(data.Get("connection.url").MustString(), druidOpts...)
+	baseURL := data.Get("connection.url").MustString()
+	c, err := druid.NewClient(baseURL, sharedOpts...)
 	if err != nil {
 		return &druidInstanceSettings{}, err
 	}
@@ -159,6 +194,11 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	return &druidInstanceSettings{
 		client:               c,
 		defaultQuerySettings: prepareQuerySettings(settings.JSONData),
+		oauthPassThru:        oauthPassThru,
+		oauthTokenHeader:     oauthTokenHeader,
+		baseURL:              baseURL,
+		clientOpts:           druidOpts,
+		transport:            transport,
 	}, nil
 }
 
@@ -216,9 +256,15 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 	case "query-variable":
 		switch req.Method {
 		case "POST":
-			body, err = ds.QueryVariableData(ctx, req)
+			var c *druid.Client
+			c, err = ds.settings.clientFor(req)
+			if err == nil {
+				body, err = ds.QueryVariableData(ctx, req, c)
+			}
 			if err == nil {
 				code = 200
+			} else {
+				body = err.Error()
 			}
 		default:
 			body = "Method not supported"
@@ -237,12 +283,12 @@ type grafanaMetricFindValue struct {
 	Text  string `json:"text"`
 }
 
-func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
+func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest, c *druid.Client) ([]grafanaMetricFindValue, error) {
 	log.DefaultLogger.Debug("QUERY VARIABLE", "request", string(req.Body))
-	return ds.queryVariable(req.Body, ds.settings)
+	return ds.queryVariable(req.Body, ds.settings, c)
 }
 
-func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) ([]grafanaMetricFindValue, error) {
+func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings, c *druid.Client) ([]grafanaMetricFindValue, error) {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
@@ -251,7 +297,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 		return response, err
 	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_query", q)
-	r, err := ds.executeQuery("variable", q, s, stg)
+	r, err := ds.executeQuery("variable", q, c, stg)
 	if err != nil {
 		return response, err
 	}
@@ -329,7 +375,12 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 		Message: "Can't connect to Druid",
 	}
 
-	status, _, err := ds.settings.client.Common().Status()
+	c, err := ds.settings.clientFor(req)
+	if err != nil {
+		result.Message = err.Error()
+		return result, nil
+	}
+	status, _, err := c.Common().Status()
 	if err != nil {
 		result.Message = "Can't fetch Druid status: " + err.Error()
 		return result, nil
@@ -343,14 +394,21 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 	response := backend.NewQueryDataResponse()
 
+	c, err := ds.settings.clientFor(req)
+	if err != nil {
+		for _, q := range req.Queries {
+			response.Responses[q.RefID] = backend.DataResponse{Error: err}
+		}
+		return response, nil
+	}
 	for _, q := range req.Queries {
-		response.Responses[q.RefID] = ds.query(q, ds.settings)
+		response.Responses[q.RefID] = ds.query(q, ds.settings, c)
 	}
 
 	return response, nil
 }
 
-func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
+func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings, c *druid.Client) backend.DataResponse {
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
 	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange)
 
@@ -362,7 +420,7 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		return response
 	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_query", q)
-	r, err := ds.executeQuery(qry.RefID, q, s, stg)
+	r, err := ds.executeQuery(qry.RefID, q, c, stg)
 	if err != nil {
 		response.Error = err
 		return response
@@ -484,7 +542,7 @@ func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any 
 	return ctx
 }
 
-func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
+func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, c *druid.Client, settings map[string]any) (*druidResponse, error) {
 	// refactor: probably need to extract per-query preprocessor and postprocessor into a per-query file. load those "plugins" (ak. QueryProcessor ?) into a register and then do something like plugins[q.Type()].preprocess(q) and plugins[q.Type()].postprocess(r)
 	r := &druidResponse{Reference: queryRef}
 	qtyp := q.Type()
@@ -495,7 +553,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 		q.(*druidquery.Scan).SetResultFormat("compactedList")
 	}
 	var result json.RawMessage
-	_, err := s.client.Query().Execute(q, &result)
+	_, err := c.Query().Execute(q, &result)
 	if err != nil {
 		return r, err
 	}
