@@ -250,6 +250,10 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	if err != nil {
 		return response, err
 	}
+	if q == nil {
+		// prepareQuery returns a nil query (and no error) when builder or settings are missing
+		return response, nil
+	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_query", q)
 	r, err := ds.executeQuery("variable", q, s, stg)
 	if err != nil {
@@ -359,6 +363,10 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 	q, stg, err := ds.prepareQuery([]byte(rawQuery), s)
 	if err != nil {
 		response.Error = err
+		return response
+	}
+	if q == nil {
+		// prepareQuery returns a nil query (and no error) when builder or settings are missing
 		return response
 	}
 	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_query", q)
